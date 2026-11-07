@@ -1864,3 +1864,147 @@ select.field__control {
   color: var(--color-muted);
   font-size: 0.875rem;
 }
+
+/* ---------- Listbox (FIX 5b) ---------- */
+.listbox {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.listbox__label {
+  color: #7f8da3;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.listbox__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.listbox__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.listbox__trigger:focus-visible {
+  border-color: var(--color-primary);
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.listbox__trigger-icon,
+.listbox__option-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.listbox__trigger-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listbox__trigger-label--placeholder {
+  color: var(--color-muted);
+}
+
+.listbox__trigger-badge,
+.listbox__option-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.listbox__chevron {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-muted);
+}
+
+.listbox__popup {
+  position: fixed;
+  z-index: 70;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--color-popup-border);
+  border-radius: 8px;
+  background: var(--color-popup-bg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  color: var(--color-popup-text);
+}
+
+.listbox__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--color-popup-text);
+  cursor: pointer;
+}
+
+.listbox__option:hover,
+.listbox__option--active {
+  background: var(--color-popup-hover);
+}
+
+.listbox__option[aria-selected='true'] {
+  background: rgba(91, 141, 239, 0.16);
+}
+
+.listbox__check {
+  flex: 0 0 14px;
+  color: var(--color-primary);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.listbox__option-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listbox__empty {
+  padding: 10px;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+/* ---------- Provider logo (FIX 5b) ---------- */
+.provider-logo {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 6px;
+}
+
+.provider-logo--letter {
+  font-weight: 700;
+  line-height: 1;
+}

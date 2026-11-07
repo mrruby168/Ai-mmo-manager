@@ -24,6 +24,12 @@
   --color-primary-soft: rgba(91, 141, 239, 0.16);
   --color-primary-ring: rgba(91, 141, 239, 0.18);
   --color-primary-ring-strong: rgba(91, 141, 239, 0.35);
+
+  /* Popup Listbox: nền đặc, không dùng độ trong suốt. */
+  --color-popup-bg: #172235;
+  --color-popup-border: #40516b;
+  --color-popup-text: #ffffff;
+  --color-popup-hover: #243a5a;
   --color-warning-soft: rgba(251, 191, 36, 0.16);
   --color-error-soft: rgba(248, 113, 113, 0.16);
   --color-success-soft: rgba(52, 211, 153, 0.16);
