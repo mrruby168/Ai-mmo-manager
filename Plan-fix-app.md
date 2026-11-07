@@ -318,6 +318,8 @@ Sau **mỗi bước** chạy `npm run typecheck`, `npm test`, `npm run build`. C
 7. Check News với model có search gốc và với model OpenRouter + `web_search` của app: có tin thật, có nguồn mở được, có mốc End/Snapshot; thử với model không có bằng chứng thì lô bị loại và thông báo rõ.
 8. Chat: hỏi một câu kiến thức bất kỳ (trả lời tự nhiên), rồi "thêm/sửa/xóa dự án" (ra thẻ xác nhận), dán JSON dự án (ra thẻ xác nhận).
 
+> **Trạng thái kiểm tra (2026-11-07): CHƯA KIỂM CHỨNG GUI.** Môi trường thực hiện không chạy được Electron, nên cả 8 mục trên chưa được kiểm tra bằng mắt. Kết quả trong báo cáo cuối chỉ đến từ `typecheck`, `test`, `build` và đọc code.
+
 ---
 
 ## 8. Rủi ro

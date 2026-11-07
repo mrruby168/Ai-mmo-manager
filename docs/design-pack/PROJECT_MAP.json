@@ -193,6 +193,61 @@
       "status": "planned"
     },
     {
+      "path": "src/shared/newsPrompt.ts",
+      "type": "shared",
+      "responsibility": "Dựng prompt Check News cho No AI Mode từ schema zod thật; cửa sổ 7 ngày theo Asia/Bangkok (UTC+7).",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/shared/schemas.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/newsView.ts",
+      "type": "shared",
+      "responsibility": "Hàm thuần hiển thị tin: định dạng ngày, tiêu đề một dòng, chọn tin quan trọng nhất mỗi dự án, gộp mốc deadline, kiểm tra ngày/mốc trong nguồn.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/shared/constants.ts",
+        "src/shared/date-utils.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/newsAccess.ts",
+      "type": "shared",
+      "responsibility": "Quy tắc thuần: chỉ hiện Import News ở No AI Mode; AI Mode ẩn và đóng bản xem trước.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/listbox.ts",
+      "type": "shared",
+      "responsibility": "Hàm thuần cho Listbox: điều hướng bàn phím, tìm mục theo chữ, quyết định mở lên/xuống.",
+      "feature": [
+        "F-18"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/chatView.ts",
+      "type": "shared",
+      "responsibility": "Hàm thuần cho Chat Box: nhãn giờ HH:mm, gộp nội dung một dòng, chọn nhãn Provider/Model.",
+      "feature": [
+        "F-18"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
       "path": "src/main/index.ts",
       "type": "entry",
       "responsibility": "Vòng đời app, tạo cửa sổ với contextIsolation/sandbox, CSP, chặn điều hướng, protocol mmo-logo, khởi tạo dịch vụ và đăng ký IPC.",
@@ -567,6 +622,32 @@
       "status": "planned"
     },
     {
+      "path": "src/main/services/searchProviders.ts",
+      "type": "service",
+      "responsibility": "Adapter Web Search chính thức (Tavily, Brave, SearXNG) không phụ thuộc Electron: dựng request, chuẩn hoá kết quả, timeout 15s, giới hạn phản hồi, ánh xạ lỗi an toàn.",
+      "feature": [
+        "F-08",
+        "F-17"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/webSearchService.ts",
+      "type": "service",
+      "responsibility": "Cấu hình Web Search của app: đọc/ghi settings, lưu API key qua secretStore (id websearch:<provider>), trả WebSearchView không chứa key, thử kết nối.",
+      "feature": [
+        "F-08",
+        "F-11"
+      ],
+      "dependencies": [
+        "src/main/services/searchProviders.ts",
+        "src/main/services/secretStore.ts",
+        "src/main/services/settingsStore.ts"
+      ],
+      "status": "planned"
+    },
+    {
       "path": "src/main/ai/types.ts",
       "type": "module",
       "responsibility": "Giao diện ModelClient, ToolDef, ToolCall, AiError (phân loại auth/rate_limit/quota/network/unsupported/unknown).",
@@ -665,14 +746,19 @@
     {
       "path": "src/main/ai/tools.ts",
       "type": "module",
-      "responsibility": "Định nghĩa tool whitelist theo tác vụ (đọc dự án, propose_*, submit_scan_result, submit_news, ask_user_choice); không có tool ghi trực tiếp.",
+      "responsibility": "Định nghĩa tool whitelist theo tác vụ (đọc dự án, propose_*, submit_scan_result, submit_news, web_search, ask_user_choice); dựng add PendingAction tại một chỗ; không có tool ghi trực tiếp.",
       "feature": [
+        "F-08",
         "F-14",
+        "F-17",
         "F-19"
       ],
       "dependencies": [
         "src/main/db/projectsRepo.ts",
         "src/main/ai/pendingActions.ts",
+        "src/main/ai/chatAdd.ts",
+        "src/main/ai/newsEvidence.ts",
+        "src/main/services/searchProviders.ts",
         "src/shared/schemas.ts",
         "src/main/ai/webTools.ts"
       ],
@@ -732,6 +818,17 @@
       "status": "planned"
     },
     {
+      "path": "src/main/ai/newsEvidence.ts",
+      "type": "module",
+      "responsibility": "Bộ ghi bằng chứng cho Check News: đếm lần web_search/web_fetch thành công, chuẩn hoá URL đã thấy, loại lô không có bằng chứng và URL model tự nghĩ.",
+      "feature": [
+        "F-08",
+        "F-17"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
       "path": "src/main/ai/scanService.ts",
       "type": "service",
       "responsibility": "Scan Project: tách đầu vào, kiểm tra trùng, agent tra cứu web, validate kết quả, lưu kết quả gần nhất, Gửi thì thêm dự án đã chọn và đọc lại.",
@@ -753,7 +850,7 @@
     {
       "path": "src/main/ai/checkNewsService.ts",
       "type": "service",
-      "responsibility": "Check News: xuất JSON dự án chưa hoàn thành, chạy agent theo lô, validate kết quả, chuyển cho newsService lưu.",
+      "responsibility": "Check News: quét mọi dự án (completed xếp cuối), cửa sổ 7 ngày UTC+7, chạy agent theo lô với web_search của app hoặc search gốc, bắt buộc bằng chứng, validate/verify nguồn và mốc, lưu tin, ghi mốc lần kiểm tra.",
       "feature": [
         "F-08",
         "F-17"
@@ -763,7 +860,11 @@
         "src/main/ai/agentRunner.ts",
         "src/main/ai/tools.ts",
         "src/main/ai/prompts.ts",
+        "src/main/ai/newsEvidence.ts",
+        "src/main/ai/newsCheck.ts",
         "src/main/ai/providerService.ts",
+        "src/main/services/searchProviders.ts",
+        "src/main/services/webSearchService.ts",
         "src/main/services/newsService.ts"
       ],
       "status": "planned"
@@ -771,7 +872,7 @@
     {
       "path": "src/main/ai/chatService.ts",
       "type": "service",
-      "responsibility": "Chat Box: phiên trong bộ nhớ, luồng thêm/sửa/xóa, tạo hành động chờ với trước/sau do app tính, confirm → thực thi → đọc lại, cancel.",
+      "responsibility": "Chat Box: trả lời tự nhiên mọi câu hỏi; CRUD dự án chỉ qua tool và PendingAction chờ OK; phiên trong bộ nhớ, confirm → thực thi → đọc lại, cancel.",
       "feature": [
         "F-09",
         "F-14",
@@ -783,6 +884,7 @@
         "src/main/ai/tools.ts",
         "src/main/ai/prompts.ts",
         "src/main/ai/pendingActions.ts",
+        "src/main/ai/chatAdd.ts",
         "src/main/ai/providerService.ts",
         "src/main/services/projectService.ts"
       ],
@@ -997,6 +1099,31 @@
         "F-06"
       ],
       "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/common/Listbox.tsx",
+      "type": "component",
+      "responsibility": "Dropdown tự viết dùng portal, nền đặc, hỗ trợ bàn phím/ARIA, lật lên khi thiếu chỗ, dùng cho Provider/Model.",
+      "feature": [
+        "F-18"
+      ],
+      "dependencies": [
+        "src/shared/listbox.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/common/ProviderLogo.tsx",
+      "type": "component",
+      "responsibility": "Logo inline cho OpenAI/Anthropic/OpenCode/Google/OpenRouter; provider khác dùng chữ cái đầu, không tải ảnh từ mạng.",
+      "feature": [
+        "F-18"
+      ],
+      "dependencies": [
+        "src/shared/providerLogo.ts",
+        "src/shared/letterColor.ts"
+      ],
       "status": "planned"
     },
     {
@@ -1287,16 +1414,32 @@
     {
       "path": "src/renderer/src/features/settings/SettingsPage.tsx",
       "type": "page",
-      "responsibility": "Trang Settings với 3 nhóm: AI Settings, Data Path, Appearance.",
+      "responsibility": "Trang Settings với 4 nhóm: AI Settings, Web Search, Data Path, Appearance.",
       "feature": [
+        "F-08",
         "F-11",
         "F-12",
         "F-13"
       ],
       "dependencies": [
         "src/renderer/src/features/settings/AiSettingsPanel.tsx",
+        "src/renderer/src/features/settings/WebSearchPanel.tsx",
         "src/renderer/src/features/settings/DataPathPanel.tsx",
         "src/renderer/src/features/settings/AppearancePanel.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/settings/WebSearchPanel.tsx",
+      "type": "component",
+      "responsibility": "Cấu hình Web Search (none/Tavily/Brave/SearXNG), nhập API key một chiều, nút Lưu và Thử kết nối, không hiển thị lại key.",
+      "feature": [
+        "F-08",
+        "F-11"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Button.tsx",
+        "src/renderer/src/common/Field.tsx"
       ],
       "status": "planned"
     },
