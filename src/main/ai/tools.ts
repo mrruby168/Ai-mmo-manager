@@ -10,8 +10,9 @@ import {
   VERIFICATION_STATES
 } from '@shared/constants'
 import type { ProjectCategory, ProjectStatus } from '@shared/constants'
-import type { Project } from '@shared/types'
+import type { PendingAction, Project } from '@shared/types'
 import { newsResultSchema, projectImportItemSchema, scanResultSchema } from '@shared/schemas'
+import type { ProjectImportItem } from '@shared/schemas'
 import type { ProjectIndexEntry } from '../db/projectsRepo'
 import { listProjectIndex, listProjects as repoListProjects, getProject as repoGetProject } from '../db/projectsRepo'
 import { createPendingAction } from './pendingActions'
@@ -415,6 +416,22 @@ const addProjectsSchema = z.object({
   projects: z.array(z.unknown()).min(1).max(100)
 })
 
+/**
+ * FIX 4: một chỗ duy nhất dựng PendingAction `add`, dùng chung cho tool
+ * `propose_add_projects` (đường AI) và `tryDeterministicAdd` (đường JSON).
+ * Nhờ vậy hai đường luôn có cùng summary/details/payload.
+ */
+export function buildAddPendingAction(items: ProjectImportItem[], errors: string[] = []): PendingAction {
+  return createPendingAction({
+    type: 'add',
+    summary: `Thêm ${items.length} dự án`,
+    details: buildAddDetails(items, errors),
+    before: null,
+    after: items.map((item) => `- ${item.name}: ${item.website ?? 'không có website'}`).join('\n'),
+    payload: { type: 'add', items }
+  })
+}
+
 const proposeAddProjectsTool: AgentTool = {
   name: 'propose_add_projects',
   description: 'Đề xuất thêm dự án (chưa ghi). projects là mảng các dự án theo ProjectImportItem.',
@@ -450,20 +467,7 @@ const proposeAddProjectsTool: AgentTool = {
       return toolInputError(`Không có dự án hợp lệ nào. ${errors.join(' | ')}`)
     }
 
-    const details = buildAddDetails(validItems, errors)
-
-    const action = createPendingAction({
-      type: 'add',
-      summary: `Thêm ${validItems.length} dự án`,
-      details,
-      before: null,
-      after: validItems
-        .map((item) => `- ${item.name}: ${item.website ?? 'không có website'}`)
-        .join('\n'),
-      payload: { type: 'add', items: validItems }
-    })
-
-    return haltWithPendingAction(action)
+    return haltWithPendingAction(buildAddPendingAction(validItems, errors))
   }
 }
 

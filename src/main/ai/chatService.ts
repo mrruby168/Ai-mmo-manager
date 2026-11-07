@@ -7,16 +7,16 @@ import { getModelConnection } from './providerService'
 import { createModelClient } from './providers'
 import { runAiTask } from './aiTaskRunner'
 import { runAgent } from './agentRunner'
-import { getChatTools } from './tools'
+import { buildAddPendingAction, getChatTools } from './tools'
 import { CHAT_SYSTEM_PROMPT } from './prompts'
-import { consumePendingAction, peekPendingAction, createPendingAction, cancelPendingAction } from './pendingActions'
+import { consumePendingAction, peekPendingAction, cancelPendingAction } from './pendingActions'
 import { addProjects, updateProjectWithChanges, deleteProjectById, setProjectLogo } from '../services/projectService'
 import { fetchLogoForProject } from '../services/logoService'
 import { getProject as repoGetProject } from '../db/projectsRepo'
 import { logError } from '../services/logger'
 import { broadcastToRenderers } from '../ipc/guard'
 import { EVENTS } from '@shared/ipc-channels'
-import { buildAddDetails, enrichWithLinks, parseChatProjectJson } from './chatAdd'
+import { enrichWithLinks, parseChatProjectJson } from './chatAdd'
 import { assertAiEnabled } from './aiMode'
 
 const CHOICE_TTL_MS = 10 * 60 * 1000
@@ -81,14 +81,7 @@ function tryDeterministicAdd(text: string): { reply: ChatReply | null } {
   }
 
   const items: ProjectImportItem[] = parsed.items
-  const action = createPendingAction({
-    type: 'add',
-    summary: `Thêm ${items.length} dự án`,
-    details: buildAddDetails(items, parsed.errors),
-    before: null,
-    after: items.map((item) => `- ${item.name}: ${item.website ?? 'không có website'}`).join('\n'),
-    payload: { type: 'add', items }
-  })
+  const action = buildAddPendingAction(items, parsed.errors)
 
   const errorNote = parsed.errors.length > 0 ? ` Bỏ qua ${parsed.errors.length} item không hợp lệ.` : ''
   return {
