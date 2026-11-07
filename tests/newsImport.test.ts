@@ -132,7 +132,9 @@ describe('previewNewsImport', () => {
       publishedAt: '2026-11-06T08:00:00+07:00',
       fetchedAt: '2026-11-06T09:00:00.000Z',
       todoDeadline: null,
-      dedupeHash: newsDedupeHash('PRJ-001', 'https://alpha.example.com/news')
+      dedupeHash: newsDedupeHash('PRJ-001', 'https://alpha.example.com/news'),
+      milestoneKind: null,
+      milestoneDate: null
     })
 
     const preview = previewNewsImport(fileWith(rawItem()), now)

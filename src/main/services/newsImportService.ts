@@ -128,7 +128,9 @@ export function parseNewsImportText(
       sourceUrl: item.sourceUrl,
       sourceName: item.sourceName ?? null,
       publishedAt: item.publishedAt,
-      todoDeadline: item.todoDeadline ?? null
+      todoDeadline: item.todoDeadline ?? null,
+      milestoneKind: item.milestoneKind ?? null,
+      milestoneDate: item.milestoneDate ?? null
     })
   })
 

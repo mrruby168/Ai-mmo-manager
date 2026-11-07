@@ -429,13 +429,13 @@ function DeadlineRow({
   expired?: boolean
   onOpenProject: (id: string) => void
 }): React.JSX.Element {
-  const deadline = getDeadlineInfo(item.endDate, today)
+  const deadline = getDeadlineInfo(item.date, today)
   const label = expired ? `Đã quá hạn ${Math.abs(item.daysRemaining)} ngày` : deadline.text
   return (
     <button type="button" className={`deadline-item${urgent ? ' deadline-item--urgent' : ''}${expired ? ' deadline-item--expired' : ''}`} data-lock-allow="true" onClick={() => onOpenProject(item.projectId)}>
       <span className="deadline-item__main">
         <span className="deadline-item__name">{item.projectName}</span>
-        <span className="muted">{item.endDate}</span>
+        <span className="muted">{item.date}</span>
       </span>
       <span className={urgent ? 'deadline--soon_3d' : expired ? 'deadline--expired' : 'deadline--normal'}>{label}</span>
     </button>

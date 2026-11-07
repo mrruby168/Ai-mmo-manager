@@ -84,20 +84,38 @@ CREATE TABLE scan_latest (
 );
 `
 
+const SCHEMA_V2 = `
+ALTER TABLE news_items ADD COLUMN milestone_kind TEXT
+  CHECK(milestone_kind IN ('end','snapshot','claim','whitelist','tge','listing','other'));
+ALTER TABLE news_items ADD COLUMN milestone_date TEXT;
+`
+
+interface Migration {
+  version: number
+  sql: string
+}
+
+const MIGRATIONS: readonly Migration[] = [
+  { version: 1, sql: SCHEMA_V1 },
+  { version: 2, sql: SCHEMA_V2 }
+]
+
 export function runMigrations(database: DatabaseSync): void {
   const row = database.prepare('PRAGMA user_version').get()
   const currentVersion = row ? Number(row.user_version) : 0
-  if (currentVersion >= 1) {
-    return
-  }
 
-  database.exec('BEGIN IMMEDIATE')
-  try {
-    database.exec(SCHEMA_V1)
-    database.exec('PRAGMA user_version = 1')
-    database.exec('COMMIT')
-  } catch (error) {
-    database.exec('ROLLBACK')
-    throw error
+  for (const migration of MIGRATIONS) {
+    if (migration.version <= currentVersion) {
+      continue
+    }
+    database.exec('BEGIN IMMEDIATE')
+    try {
+      database.exec(migration.sql)
+      database.exec(`PRAGMA user_version = ${migration.version}`)
+      database.exec('COMMIT')
+    } catch (error) {
+      database.exec('ROLLBACK')
+      throw error
+    }
   }
 }

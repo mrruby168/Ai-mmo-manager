@@ -22,6 +22,9 @@ export type ClaimStatus = (typeof CLAIM_STATUSES)[number]
 export const NEWS_KINDS = ['important', 'todo'] as const
 export type NewsKind = (typeof NEWS_KINDS)[number]
 
+export const MILESTONE_KINDS = ['end', 'snapshot', 'claim', 'whitelist', 'tge', 'listing', 'other'] as const
+export type MilestoneKind = (typeof MILESTONE_KINDS)[number]
+
 export const RISK_LEVELS = ['low', 'medium', 'high', 'unknown'] as const
 export type RiskLevel = (typeof RISK_LEVELS)[number]
 

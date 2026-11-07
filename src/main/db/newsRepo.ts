@@ -1,9 +1,9 @@
-import type { NewsKind, VerificationState } from '@shared/constants'
+import type { MilestoneKind, NewsKind, VerificationState } from '@shared/constants'
 import type { NewsItem } from '@shared/types'
 import { getDatabase } from './connection'
 
 const COLUMNS = `id, project_id, kind, summary, verification, source_url, source_name,
-  published_at, fetched_at, todo_deadline, is_done, dedupe_hash`
+  published_at, fetched_at, todo_deadline, is_done, dedupe_hash, milestone_kind, milestone_date`
 
 interface NewsRow {
   id: number
@@ -18,6 +18,8 @@ interface NewsRow {
   todo_deadline: string | null
   is_done: number
   dedupe_hash: string
+  milestone_kind: string | null
+  milestone_date: string | null
 }
 
 export interface NewsRecord {
@@ -31,6 +33,8 @@ export interface NewsRecord {
   fetchedAt: string
   todoDeadline: string | null
   dedupeHash: string
+  milestoneKind: MilestoneKind | null
+  milestoneDate: string | null
 }
 
 function mapRow(row: NewsRow): NewsItem {
@@ -46,7 +50,9 @@ function mapRow(row: NewsRow): NewsItem {
     fetchedAt: row.fetched_at,
     todoDeadline: row.todo_deadline,
     isDone: row.is_done === 1,
-    dedupeHash: row.dedupe_hash
+    dedupeHash: row.dedupe_hash,
+    milestoneKind: row.milestone_kind as MilestoneKind | null,
+    milestoneDate: row.milestone_date
   }
 }
 
@@ -55,8 +61,9 @@ export function insertNews(record: NewsRecord): boolean {
     .prepare(
       `INSERT OR IGNORE INTO news_items (
         project_id, kind, summary, verification, source_url, source_name,
-        published_at, fetched_at, todo_deadline, is_done, dedupe_hash
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
+        published_at, fetched_at, todo_deadline, is_done, dedupe_hash,
+        milestone_kind, milestone_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
     )
     .run(
       record.projectId,
@@ -68,7 +75,9 @@ export function insertNews(record: NewsRecord): boolean {
       record.publishedAt,
       record.fetchedAt,
       record.todoDeadline,
-      record.dedupeHash
+      record.dedupeHash,
+      record.milestoneKind,
+      record.milestoneDate
     )
   return Number(result.changes) > 0
 }

@@ -14,6 +14,8 @@ function item(overrides: Partial<NewsBatchInput> = {}): NewsBatchInput {
     sourceName: 'Alpha',
     publishedAt: '2026-11-06T08:00:00.000Z',
     todoDeadline: null,
+    milestoneKind: null,
+    milestoneDate: null,
     ...overrides
   }
 }

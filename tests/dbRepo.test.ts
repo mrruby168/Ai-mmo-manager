@@ -152,7 +152,9 @@ describe('revenue and news repos', () => {
       publishedAt: '2026-11-05T08:00:00.000Z',
       fetchedAt: '2026-11-05T08:05:00.000Z',
       todoDeadline: '2026-11-07',
-      dedupeHash: 'hash-1'
+      dedupeHash: 'hash-1',
+      milestoneKind: 'snapshot' as const,
+      milestoneDate: '2026-11-10'
     }
 
     expect(insertNews(record)).toBe(true)
@@ -160,6 +162,8 @@ describe('revenue and news repos', () => {
 
     const [item] = listNews('todo')
     expect(item?.isDone).toBe(false)
+    expect(item?.milestoneKind).toBe('snapshot')
+    expect(item?.milestoneDate).toBe('2026-11-10')
     expect(toggleNewsTodo(item!.id, true)).toBe(true)
     expect(listNews('todo')[0]?.isDone).toBe(true)
   })

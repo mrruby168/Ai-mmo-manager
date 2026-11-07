@@ -107,6 +107,35 @@ describe('news result schema', () => {
     })
     expect(result.success).toBe(true)
   })
+
+  it('accepts an optional milestone and rejects a malformed date', () => {
+    const base = {
+      projectId: 'PRJ-001',
+      kind: 'important',
+      summary: 'Snapshot sắp tới',
+      verification: 'verified',
+      sourceUrl: 'https://example.com/post',
+      publishedAt: '2026-11-05T08:00:00.000Z'
+    }
+
+    const ok = newsResultSchema.safeParse({
+      items: [{ ...base, milestoneKind: 'snapshot', milestoneDate: '2026-11-10' }]
+    })
+    expect(ok.success).toBe(true)
+
+    const legacy = newsResultSchema.safeParse({ items: [base] })
+    expect(legacy.success).toBe(true)
+
+    const badDate = newsResultSchema.safeParse({
+      items: [{ ...base, milestoneKind: 'snapshot', milestoneDate: '10/11/2026' }]
+    })
+    expect(badDate.success).toBe(false)
+
+    const badKind = newsResultSchema.safeParse({
+      items: [{ ...base, milestoneKind: 'launch', milestoneDate: '2026-11-10' }]
+    })
+    expect(badKind.success).toBe(false)
+  })
 })
 
 describe('ai config import schema', () => {

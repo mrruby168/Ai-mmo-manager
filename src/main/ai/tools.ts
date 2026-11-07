@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import {
   COST_TYPES,
+  MILESTONE_KINDS,
   NEWS_KINDS,
   PROJECT_CATEGORIES,
   PROJECT_STATUSES,
@@ -9,13 +10,8 @@ import {
   VERIFICATION_STATES
 } from '@shared/constants'
 import type { ProjectCategory, ProjectStatus } from '@shared/constants'
-import { getDeadlineInfo } from '@shared/date-utils'
-import {
-  newsResultSchema,
-  projectImportItemSchema,
-  scanResultSchema
-} from '@shared/schemas'
-import type { DeadlineItem, Project } from '@shared/types'
+import type { Project } from '@shared/types'
+import { newsResultSchema, projectImportItemSchema, scanResultSchema } from '@shared/schemas'
 import type { ProjectIndexEntry } from '../db/projectsRepo'
 import { listProjectIndex, listProjects as repoListProjects, getProject as repoGetProject } from '../db/projectsRepo'
 import { createPendingAction } from './pendingActions'
@@ -190,7 +186,9 @@ const NEWS_ITEM_PROPS = {
   sourceUrl: S,
   sourceName: S,
   publishedAt: S,
-  todoDeadline: S
+  todoDeadline: S,
+  milestoneKind: { type: 'string', enum: [...MILESTONE_KINDS] },
+  milestoneDate: S
 } as const
 
 /* ---------- read tools ---------- */
@@ -645,37 +643,4 @@ export function getChatTools(): AgentTool[] {
 export function computeNewsDedupeHash(projectId: string, sourceUrl: string): string {
   const canonical = sourceUrl.trim().toLowerCase().replace(/[#?].*$/, '').replace(/\/$/, '')
   return createHash('sha256').update(`${projectId}|${canonical}`).digest('hex')
-}
-
-export interface DeadlineBuckets {
-  urgent: DeadlineItem[]
-  soon: DeadlineItem[]
-  expired: DeadlineItem[]
-}
-
-export function computeDeadlines(today: string): DeadlineBuckets {
-  const items = repoListProjects()
-    .filter((project) => project.status !== 'completed' && project.endDate !== null && project.endDate !== undefined)
-    .map((project) => ({
-      projectId: project.id,
-      projectName: project.name,
-      category: project.category,
-      endDate: project.endDate as string,
-      daysRemaining: getDeadlineInfo(project.endDate, today).days ?? 0,
-      logoPath: project.logoPath
-    }))
-
-  const expired = items
-    .filter((item) => item.daysRemaining < 0)
-    .sort((left, right) => left.daysRemaining - right.daysRemaining)
-
-  const urgent = items
-    .filter((item) => item.daysRemaining >= 0 && item.daysRemaining <= 3)
-    .sort((left, right) => left.daysRemaining - right.daysRemaining)
-
-  const soon = items
-    .filter((item) => item.daysRemaining >= 4 && item.daysRemaining <= 14)
-    .sort((left, right) => left.daysRemaining - right.daysRemaining)
-
-  return { urgent, soon, expired }
 }

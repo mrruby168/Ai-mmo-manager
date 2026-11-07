@@ -2,10 +2,10 @@ import { createHash } from 'node:crypto'
 import { getLastNewsFetchAt, insertNews, listNews, toggleNewsTodo } from '../db/newsRepo'
 import type { NewsRecord } from '../db/newsRepo'
 import { getDatabase } from '../db/connection'
-import type { NewsKind, VerificationState } from '@shared/constants'
+import { listProjects } from '../db/projectsRepo'
+import type { MilestoneKind, NewsKind, VerificationState } from '@shared/constants'
 import type { DeadlineItem, NewsItem, NewsSnapshot } from '@shared/types'
-import { todayDateOnly } from '@shared/date-utils'
-import { computeDeadlines } from '../ai/tools'
+import { getDeadlineInfo, todayDateOnly } from '@shared/date-utils'
 
 export function listImportant(): NewsItem[] {
   return listNews('important')
@@ -26,6 +26,42 @@ export function getNewsSnapshot(): NewsSnapshot {
 export function getDeadlines(today: string = todayDateOnly()): DeadlineItem[] {
   const { urgent, soon, expired } = computeDeadlines(today)
   return [...urgent, ...soon, ...expired]
+}
+
+export interface DeadlineBuckets {
+  urgent: DeadlineItem[]
+  soon: DeadlineItem[]
+  expired: DeadlineItem[]
+}
+
+/** Chia hạn theo DEADLINE_WINDOWS; chỉ dùng project.endDate như trước FIX 1. */
+export function computeDeadlines(today: string): DeadlineBuckets {
+  const items = listProjects()
+    .filter((project) => project.status !== 'completed' && project.endDate !== null && project.endDate !== undefined)
+    .map((project) => ({
+      projectId: project.id,
+      projectName: project.name,
+      category: project.category,
+      date: project.endDate as string,
+      kind: 'end' as MilestoneKind,
+      verification: project.verification,
+      daysRemaining: getDeadlineInfo(project.endDate, today).days ?? 0,
+      logoPath: project.logoPath
+    }))
+
+  const expired = items
+    .filter((item) => item.daysRemaining < 0)
+    .sort((left, right) => left.daysRemaining - right.daysRemaining)
+
+  const urgent = items
+    .filter((item) => item.daysRemaining >= 0 && item.daysRemaining <= 3)
+    .sort((left, right) => left.daysRemaining - right.daysRemaining)
+
+  const soon = items
+    .filter((item) => item.daysRemaining >= 4 && item.daysRemaining <= 14)
+    .sort((left, right) => left.daysRemaining - right.daysRemaining)
+
+  return { urgent, soon, expired }
 }
 
 export function toggleTodo(id: number, isDone: boolean): { id: number; isDone: boolean } {
@@ -51,6 +87,8 @@ export interface NewsBatchInput {
   sourceName: string | null
   publishedAt: string
   todoDeadline: string | null
+  milestoneKind: MilestoneKind | null
+  milestoneDate: string | null
 }
 
 export interface NewsBatchResult {
@@ -103,7 +141,9 @@ export function saveNewsBatch(
       publishedAt: item.publishedAt,
       fetchedAt,
       todoDeadline: item.todoDeadline,
-      dedupeHash
+      dedupeHash,
+      milestoneKind: item.milestoneKind,
+      milestoneDate: item.milestoneDate
     }
 
     const inserted = insertNews(record)

@@ -2,6 +2,7 @@ import type {
   AiMode,
   ClaimStatus,
   CostType,
+  MilestoneKind,
   NewsKind,
   ProjectCategory,
   ProjectOrigin,
@@ -115,13 +116,17 @@ export interface NewsItem {
   todoDeadline: string | null
   isDone: boolean
   dedupeHash: string
+  milestoneKind: MilestoneKind | null
+  milestoneDate: string | null
 }
 
 export interface DeadlineItem {
   projectId: string
   projectName: string
   category: ProjectCategory
-  endDate: string
+  date: string
+  kind: MilestoneKind
+  verification: VerificationState
   daysRemaining: number
   logoPath: string | null
 }

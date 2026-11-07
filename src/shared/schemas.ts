@@ -5,6 +5,7 @@ import {
   COST_TYPES,
   FONT_SIZE_RANGE,
   FONT_WEIGHT_RANGE,
+  MILESTONE_KINDS,
   NEWS_KINDS,
   PROJECT_CATEGORIES,
   PROJECT_STATUSES,
@@ -115,7 +116,9 @@ export const newsItemSchema = z.object({
   sourceUrl: httpUrl,
   sourceName: z.string().max(200).optional(),
   publishedAt: z.string().min(1).max(64),
-  todoDeadline: dateOnly.nullable().optional()
+  todoDeadline: dateOnly.nullable().optional(),
+  milestoneKind: z.enum(MILESTONE_KINDS).nullable().optional(),
+  milestoneDate: dateOnly.nullable().optional()
 })
 
 export const newsResultSchema = z.object({

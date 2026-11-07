@@ -1,6 +1,6 @@
 import { isSameLocalDay } from '@shared/date-utils'
 import { isHttpUrl, newsItemSchema } from '@shared/schemas'
-import type { NewsKind, VerificationState } from '@shared/constants'
+import type { MilestoneKind, NewsKind, VerificationState } from '@shared/constants'
 import { SafeFetchError, safeFetch } from '../services/safeFetch'
 
 export interface VerifiedNewsItem {
@@ -12,6 +12,8 @@ export interface VerifiedNewsItem {
   sourceName: string | null
   publishedAt: string
   todoDeadline: string | null
+  milestoneKind: MilestoneKind | null
+  milestoneDate: string | null
 }
 
 export interface NewsSubmission {
@@ -55,7 +57,9 @@ export function parseNewsSubmission(
       sourceUrl: value.sourceUrl,
       sourceName: value.sourceName ?? null,
       publishedAt: value.publishedAt,
-      todoDeadline: value.todoDeadline ?? null
+      todoDeadline: value.todoDeadline ?? null,
+      milestoneKind: value.milestoneKind ?? null,
+      milestoneDate: value.milestoneDate ?? null
     })
   }
 
