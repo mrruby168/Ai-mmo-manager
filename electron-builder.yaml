@@ -1,0 +1,30 @@
+appId: com.mrruby168.mmomanager
+productName: MMO Manager
+copyright: Copyright © 2026
+
+directories:
+  output: dist
+
+asar: true
+compression: normal
+
+files:
+  - out/**
+  - node_modules/**
+  - package.json
+
+win:
+  executableName: mmo-manager
+  icon: icon-app.ico
+  target:
+    - portable
+    - nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  artifactName: ${name}-setup-${version}.${ext}
+
+portable:
+  artifactName: ${name}-portable-${version}.${ext}
