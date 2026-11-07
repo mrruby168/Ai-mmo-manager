@@ -10,6 +10,7 @@ import { Modal } from '../../common/Modal'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
+import { canImportNews } from '@shared/newsAccess'
 
 const VERIFICATION_SORT: Record<string, number> = { verified: 0, unverified: 1 }
 
@@ -81,6 +82,13 @@ export function NewsPage(): React.JSX.Element {
     void load()
   }, [load, dataVersion])
 
+  // Đổi sang AI Mode thì đóng ngay hộp thoại Import đang mở.
+  useEffect(() => {
+    if (!canImportNews(isAiEnabled)) {
+      setImportPreview(null)
+    }
+  }, [isAiEnabled])
+
   async function handleCheck(): Promise<void> {
     if (checking || promptLoading || isAiBusy) {
       return
@@ -121,6 +129,9 @@ export function NewsPage(): React.JSX.Element {
   }
 
   async function handleImportPreview(): Promise<void> {
+    if (!canImportNews(isAiEnabled)) {
+      return
+    }
     if (importOpening || importBusy) {
       return
     }
@@ -188,9 +199,11 @@ export function NewsPage(): React.JSX.Element {
           </span>
         </div>
         <div className="row row--wrap">
-          <Button variant="secondary" loading={importOpening} disabled={isAiBusy || importOpening || importBusy} onClick={() => void handleImportPreview()}>
-            Import News
-          </Button>
+          {canImportNews(isAiEnabled) ? (
+            <Button variant="secondary" loading={importOpening} disabled={isAiBusy || importOpening || importBusy} onClick={() => void handleImportPreview()}>
+              Import News
+            </Button>
+          ) : null}
           <Button variant="primary" loading={checking || promptLoading} disabled={isAiBusy || checking || promptLoading} onClick={() => void handleCheck()}>
             Check News
           </Button>
