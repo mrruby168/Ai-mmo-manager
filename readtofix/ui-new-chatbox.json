@@ -1,0 +1,356 @@
+{
+  "design": {
+    "name": "AI MMO Chat Box",
+    "type": "desktop_ai_chat_ui_mockup",
+    "language": "vi",
+    "canvas": {
+      "aspect_ratio": "16:9",
+      "orientation": "landscape",
+      "background": "#0B1220"
+    },
+    "style": {
+      "theme": "dark",
+      "visual_direction": [
+        "modern AI dashboard",
+        "clean",
+        "premium",
+        "minimalist",
+        "high contrast",
+        "developer reference UI"
+      ],
+      "avoid": [
+        "excessive transparency",
+        "heavy glassmorphism",
+        "blurred text",
+        "low contrast dropdowns",
+        "unnecessary decorative elements"
+      ]
+    },
+    "colors": {
+      "primary_accent": {
+        "name": "Soft Royal Blue",
+        "hex": "#5B8DEF",
+        "usage": [
+          "primary buttons",
+          "send button",
+          "OK button",
+          "selected model state",
+          "active borders",
+          "interactive highlights"
+        ]
+      },
+      "background": {
+        "desktop": "#0B1220",
+        "chat_panel": "#111A2A",
+        "surface": "#172235",
+        "surface_secondary": "#1D2A3D",
+        "input": "#0F1827"
+      },
+      "text": {
+        "primary": "#FFFFFF",
+        "secondary": "#B8C4D6",
+        "muted": "#7F8DA3",
+        "disabled": "#59677A"
+      },
+      "border": {
+        "default": "#2D3B50",
+        "strong": "#40516B",
+        "active": "#5B8DEF"
+      },
+      "messages": {
+        "user_background": "#243A5A",
+        "ai_background": "#182638",
+        "pending_action_background": "#202D41",
+        "pending_action_border": "#5B8DEF"
+      },
+      "buttons": {
+        "primary_background": "#5B8DEF",
+        "primary_text": "#FFFFFF",
+        "secondary_background": "#172235",
+        "secondary_text": "#D6DEEA",
+        "secondary_border": "#40516B",
+        "danger_background": "#2A2028",
+        "danger_text": "#FF8D9A"
+      }
+    },
+    "layout": {
+      "desktop_background": {
+        "position": "full_canvas",
+        "color": "#0B1220"
+      },
+      "chat_box": {
+        "position": "center",
+        "width_ratio": 0.7,
+        "height_ratio": 0.84,
+        "background": "#111A2A",
+        "border": {
+          "width": 1,
+          "color": "#2D3B50",
+          "radius": 10
+        },
+        "shadow": "0 16px 40px rgba(0, 0, 0, 0.35)",
+        "padding": 16,
+        "sections_order": [
+          "header",
+          "provider_model_selector",
+          "quick_actions",
+          "chat_messages",
+          "pending_action",
+          "message_composer"
+        ]
+      }
+    },
+    "components": [
+      {
+        "id": "header",
+        "type": "header",
+        "position": "top",
+        "height_ratio": 0.1,
+        "layout": "horizontal",
+        "background": "#111A2A",
+        "border_bottom": "#2D3B50",
+        "elements": [
+          {
+            "id": "ai_logo",
+            "type": "icon",
+            "label": "AI",
+            "color": "#5B8DEF",
+            "size": "small"
+          },
+          {
+            "id": "title",
+            "type": "text",
+            "content": "AI Chat",
+            "color": "#FFFFFF",
+            "font_weight": 600,
+            "alignment": "left"
+          },
+          {
+            "id": "new_chat_button",
+            "type": "button",
+            "content": "New Chat",
+            "background": "#5B8DEF",
+            "text_color": "#FFFFFF",
+            "border_radius": 5,
+            "icon": "plus"
+          },
+          {
+            "id": "close_button",
+            "type": "icon_button",
+            "icon": "close",
+            "color": "#B8C4D6",
+            "hover_color": "#FFFFFF",
+            "alignment": "right"
+          }
+        ]
+      },
+      {
+        "id": "provider_model_selector",
+        "type": "selector_group",
+        "layout": "horizontal",
+        "gap": 10,
+        "elements": [
+          {
+            "id": "provider_selector",
+            "type": "dropdown",
+            "label": "Provider",
+            "value": "OpenAI",
+            "icon": "provider",
+            "background": "#172235",
+            "border": "#40516B",
+            "text_color": "#FFFFFF",
+            "label_color": "#7F8DA3",
+            "selected": true,
+            "dropdown_background": "#172235",
+            "dropdown_text_color": "#FFFFFF"
+          },
+          {
+            "id": "model_selector",
+            "type": "dropdown",
+            "label": "Model",
+            "value": "GPT-4o",
+            "icon": "model",
+            "background": "#172235",
+            "border": "#40516B",
+            "text_color": "#FFFFFF",
+            "label_color": "#7F8DA3",
+            "selected": true,
+            "selected_indicator": "#5B8DEF",
+            "dropdown_background": "#172235",
+            "dropdown_text_color": "#FFFFFF"
+          }
+        ]
+      },
+      {
+        "id": "quick_actions",
+        "type": "action_toolbar",
+        "layout": "horizontal",
+        "gap": 8,
+        "actions": [
+          {
+            "id": "add_project",
+            "label": "Thêm dự án",
+            "icon": "plus",
+            "background": "#172235",
+            "border": "#2D3B50",
+            "text_color": "#D6DEEA"
+          },
+          {
+            "id": "edit_project",
+            "label": "Sửa dự án",
+            "icon": "edit",
+            "background": "#172235",
+            "border": "#2D3B50",
+            "text_color": "#D6DEEA"
+          },
+          {
+            "id": "delete_project",
+            "label": "Xóa dự án",
+            "icon": "trash",
+            "background": "#172235",
+            "border": "#2D3B50",
+            "text_color": "#D6DEEA"
+          }
+        ]
+      },
+      {
+        "id": "chat_messages",
+        "type": "message_list",
+        "layout": "vertical",
+        "gap": 10,
+        "messages": [
+          {
+            "sender": "user",
+            "background": "#243A5A",
+            "text_color": "#FFFFFF",
+            "alignment": "right",
+            "border_radius": 8,
+            "content": "Hãy kiểm tra danh sách dự án hiện tại."
+          },
+          {
+            "sender": "ai",
+            "background": "#182638",
+            "text_color": "#FFFFFF",
+            "alignment": "left",
+            "border_radius": 8,
+            "content": "Tôi đã sẵn sàng hỗ trợ quản lý dự án của bạn."
+          }
+        ]
+      },
+      {
+        "id": "pending_action",
+        "type": "confirmation_panel",
+        "label": "PendingAction",
+        "background": "#202D41",
+        "border": "#5B8DEF",
+        "border_width": 1,
+        "border_radius": 8,
+        "content": "Bạn có muốn thực hiện thao tác này không?",
+        "text_color": "#FFFFFF",
+        "actions": [
+          {
+            "id": "confirm",
+            "label": "OK",
+            "background": "#5B8DEF",
+            "text_color": "#FFFFFF",
+            "border_radius": 5
+          },
+          {
+            "id": "cancel",
+            "label": "Cancel",
+            "background": "#172235",
+            "text_color": "#D6DEEA",
+            "border": "#40516B",
+            "border_radius": 5
+          }
+        ]
+      },
+      {
+        "id": "message_composer",
+        "type": "input_area",
+        "position": "bottom",
+        "layout": "horizontal",
+        "background": "#0F1827",
+        "border": "#40516B",
+        "border_radius": 7,
+        "elements": [
+          {
+            "id": "attachment_button",
+            "type": "icon_button",
+            "icon": "paperclip",
+            "color": "#7F8DA3"
+          },
+          {
+            "id": "message_input",
+            "type": "text_input",
+            "placeholder": "Nhập tin nhắn...",
+            "background": "#0F1827",
+            "text_color": "#FFFFFF",
+            "placeholder_color": "#7F8DA3"
+          },
+          {
+            "id": "send_button",
+            "type": "button",
+            "icon": "send",
+            "background": "#5B8DEF",
+            "icon_color": "#FFFFFF",
+            "border_radius": 5
+          }
+        ]
+      }
+    ],
+    "typography": {
+      "font_family": "modern sans-serif",
+      "heading": {
+        "color": "#FFFFFF",
+        "weight": 600
+      },
+      "body": {
+        "color": "#FFFFFF",
+        "weight": 400,
+        "line_height": 1.5
+      },
+      "label": {
+        "color": "#7F8DA3",
+        "weight": 500
+      },
+      "button": {
+        "color": "#FFFFFF",
+        "weight": 500
+      }
+    },
+    "spacing": {
+      "base_unit": 4,
+      "section_gap": 12,
+      "component_gap": 8,
+      "panel_padding": 16,
+      "message_padding": 12,
+      "composer_height": 44
+    },
+    "interaction_states": {
+      "default": {
+        "border": "#2D3B50"
+      },
+      "hover": {
+        "border": "#5B8DEF",
+        "background": "#243A5A"
+      },
+      "active": {
+        "background": "#5B8DEF",
+        "text_color": "#FFFFFF"
+      },
+      "disabled": {
+        "opacity": 0.5,
+        "text_color": "#59677A"
+      }
+    },
+    "implementation_notes": [
+      "Ưu tiên nền đặc và độ tương phản cao.",
+      "Không dùng hiệu ứng trong suốt mạnh.",
+      "Giữ chữ, dropdown và nút chức năng luôn sắc nét.",
+      "Chỉ sử dụng một màu nhấn chính là #5B8DEF.",
+      "Các icon cần đồng bộ về nét vẽ và kích thước.",
+      "Không thêm sidebar, biểu đồ, bảng dữ liệu hoặc chức năng ngoài phạm vi AI Chat Box."
+    ]
+  }
+}

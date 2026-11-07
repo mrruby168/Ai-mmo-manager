@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "providers": [
+    {
+      "id": "opencode-zen-free",
+      "type": "opencode",
+      "name": "OpenCode Zen (Free)",
+      "baseUrl": "https://opencode.ai/inference/openai/v1",
+      "models": [
+        {
+          "id": "deepseek-v4.1-flash-free",
+          "label": "DeepSeek V4.1 Flash Free",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "free"
+        },
+        {
+          "id": "glm-5.3-flash-free",
+          "label": "GLM 5.3 Flash Free",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "free"
+        },
+        {
+          "id": "mimo-v2.6-flash-free",
+          "label": "MiMo V2.6 Flash Free",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "free"
+        },
+        {
+          "id": "big-pickle",
+          "label": "Big Pickle",
+          "supportsWebSearch": false,
+          "supportsTools": false,
+          "costTier": "free"
+        },
+        {
+          "id": "crouton-alpha-free",
+          "label": "Crouton Alpha Free",
+          "supportsWebSearch": false,
+          "supportsTools": false,
+          "costTier": "free"
+        },
+        {
+          "id": "pulse-alpha-free",
+          "label": "Pulse Alpha Free",
+          "supportsWebSearch": false,
+          "supportsTools": false,
+          "costTier": "free"
+        },
+        {
+          "id": "nemotron-3-ultra-free",
+          "label": "Nemotron 3 Ultra Free",
+          "supportsWebSearch": false,
+          "supportsTools": false,
+          "costTier": "free"
+        }
+      ]
+    }
+  ]
+}

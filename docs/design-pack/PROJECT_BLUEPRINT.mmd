@@ -1,0 +1,107 @@
+%% PROJECT_BLUEPRINT — MMO Manager (planned) — khớp ARCHITECTURE.md và PROJECT_MAP.json
+%% Mũi tên = phụ thuộc/luồng gọi. Nét đứt = tác động có điều kiện (cần lệnh/OK của User).
+flowchart LR
+  USER([User])
+
+  subgraph R["Renderer (React, sandbox, không Node, không network)"]
+    direction TB
+    SHELL["layout: AppShell, Sidebar, LockBanner"]
+    LISTS["features/projects: ProjectListPage x2 tab, ProjectDetailPage, Form, Import"]
+    SCANUI["features/scan: ScanPage, ScanResultTable"]
+    NEWSUI["features/news: NewsPage, NewsFeed, DeadlinePanel, TodoPanel"]
+    REVUI["features/revenue: RevenuePage, RevenueDetailPage, Form"]
+    CHATUI["features/chat: ChatFab, ChatPanel, ChatMessage, ModelPicker"]
+    SETUI["features/settings: AiSettings, DataPath, Appearance"]
+    STATE["state: AppContext, LockContext, AppearanceProvider, ToastContext"]
+  end
+
+  PRE["preload/index.ts — window.api (contextBridge, chỉ channel whitelist)"]
+
+  subgraph IPC["Main — IPC (validate zod + kiểm tra khóa)"]
+    GUARD["ipc/guard.ts"]
+    IPCS["projectsIpc, revenueIpc, newsIpc, scanIpc, chatIpc, settingsIpc, lockIpc"]
+  end
+
+  subgraph SVC["Main — Services (nghiệp vụ không-AI)"]
+    LOCK["lockManager (nguồn sự thật khóa User/AI)"]
+    PSVC["projectService"]
+    RSVC["revenueService + shared/revenue-calc"]
+    NSVC["newsService (deadline tính trực tiếp từ projects)"]
+    LOGO["logoService"]
+    EXP["exportService"]
+    DPATH["dataPathService"]
+    SET["settingsStore"]
+    SEC["secretStore (safeStorage)"]
+    SFETCH["safeFetch (chặn SSRF)"]
+    LOG["logger"]
+  end
+
+  subgraph AI["Main — AI (chỉ chạy khi User ra lệnh)"]
+    TASK["aiTaskRunner (acquire/release lock, Abort)"]
+    AGENT["agentRunner (giới hạn bước)"]
+    TOOLS["tools.ts — whitelist, KHÔNG có tool ghi"]
+    WEB["webTools (web_fetch + search gốc Provider)"]
+    PEND["pendingActions (chờ OK, 1 lần, snapshot)"]
+    PROV["providerService (CRUD, parse JSON, Test, export)"]
+    ADAPT["providers: openaiCompatible, anthropic, google"]
+    SCAN["scanService"]
+    CNEWS["checkNewsService"]
+    CHAT["chatService"]
+  end
+
+  subgraph DATA["Main — Data (SQLite, tham số hóa)"]
+    CONN["connection + migrations"]
+    REPOS["projectsRepo, revenueRepo, newsRepo, scanRepo"]
+  end
+
+  subgraph SH["Shared (hàm thuần, kiểu, schema)"]
+    SHARED["constants, types, schemas, ipc-channels, date-utils, normalize, format, revenue-calc"]
+  end
+
+  subgraph FS["Đĩa"]
+    DB[("MMO-APP-DATA/database/mmo-manager.db")]
+    LOGOS[("MMO-APP-DATA/logos")]
+    ATT[("MMO-APP-DATA/attachments")]
+    UD[("userData: settings.json, secrets.json, logs")]
+  end
+
+  EXT(["Internet: LLM API, website dự án, nguồn tin"])
+
+  USER --> SHELL
+  SHELL --> LISTS & SCANUI & NEWSUI & REVUI & CHATUI & SETUI
+  LISTS & SCANUI & NEWSUI & REVUI & CHATUI & SETUI --> STATE
+  STATE --> PRE
+  PRE --> GUARD --> IPCS
+
+  IPCS --> PSVC & RSVC & NSVC & EXP & DPATH & SET & LOCK
+  IPCS --> SCAN & CNEWS & CHAT & PROV
+
+  SCAN & CNEWS & CHAT --> TASK --> LOCK
+  TASK --> AGENT --> ADAPT
+  AGENT --> TOOLS
+  TOOLS --> WEB
+  TOOLS -.->|propose_*| PEND
+  CHAT --> PEND
+  PEND -.->|User bấm OK| PSVC
+  SCAN -.->|User bấm Gửi| PSVC
+  CNEWS --> NSVC
+  PROV --> SET & SEC
+  ADAPT --> EXT
+  WEB --> SFETCH --> EXT
+  LOGO --> SFETCH
+
+  PSVC --> LOGO
+  PSVC & NSVC & RSVC --> REPOS
+  SCAN --> REPOS
+  REPOS --> CONN --> DB
+  DPATH --> CONN
+  DPATH --> LOGOS & ATT
+  LOGO --> LOGOS
+  RSVC --> ATT
+  SET & SEC & LOG --> UD
+
+  GUARD -.->|assertUserCanMutate| LOCK
+  LOCK -.->|lock:changed| STATE
+
+  R --> SHARED
+  IPC & SVC & AI & DATA --> SHARED

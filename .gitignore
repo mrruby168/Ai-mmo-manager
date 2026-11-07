@@ -1,0 +1,21 @@
+node_modules/
+out/
+dist/
+release/
+.tmp-ai/
+*.log
+
+# --- Không bao giờ commit bí mật / dữ liệu người dùng ---
+secrets.json
+gg.json
+.env
+.env.*
+!.env.example
+
+# --- Bản sao lưu DB tạo bởi migration ---
+*.bak-v1
+*.bak
+
+# --- File tạm / nhật ký gỡ lỗi ---
+debug-config-error.txt
+*.zip

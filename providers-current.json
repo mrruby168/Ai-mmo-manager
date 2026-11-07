@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "1.0",
+  "providers": [
+    {
+      "id": "openrouter-free",
+      "type": "custom",
+      "name": "OpenRouter (Free)",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "models": [
+        {
+          "id": "google/gemma-4-31b-it:free",
+          "label": "Gemma 4 31B (free)",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "free"
+        },
+        {
+          "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "label": "Nemotron 3 Ultra (free)",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "free"
+        },
+        {
+          "id": "cohere/north-mini-code:free",
+          "label": "North Mini Code (free)",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "free"
+        }
+      ]
+    },
+    {
+      "id": "wusrouter-free",
+      "type": "openai",
+      "name": "OpenAI (wusrouter)",
+      "baseUrl": "https://wusrouter.com/v1",
+      "models": [
+        {
+          "id": "wusrouter/gpt-5.6-terra:free",
+          "label": "GPT-5.6 Terra (Free)",
+          "supportsWebSearch": true,
+          "supportsTools": true,
+          "costTier": "free"
+        },
+        {
+          "id": "uncensored/deepseek-v4.1-flash:free",
+          "label": "DeepSeek V4.1 Flash (Free)",
+          "supportsWebSearch": true,
+          "supportsTools": true,
+          "costTier": "free"
+        },
+        {
+          "id": "wusrouter/qwen3-coder:free",
+          "label": "Qwen3 Coder (Free)",
+          "supportsWebSearch": true,
+          "supportsTools": true,
+          "costTier": "free"
+        }
+      ]
+    },
+    {
+      "id": "google-mw4lmysa-ft9t71",
+      "type": "google",
+      "name": "Google",
+      "baseUrl": null,
+      "models": [
+        {
+          "id": "gemini-3.5-flash-lite",
+          "label": "Gemini 3.5 Flash-Lite",
+          "supportsWebSearch": true,
+          "supportsTools": true,
+          "costTier": "free"
+        }
+      ]
+    },
+    {
+      "id": "beatapi",
+      "type": "custom",
+      "name": "BeatAPI",
+      "baseUrl": "https://direct.beatapi.io/v1",
+      "models": [
+        {
+          "id": "deepseek-v4.1-flash-free",
+          "label": "DeepSeek V4.1 Flash (Free)",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "free"
+        },
+        {
+          "id": "glm-5.3",
+          "label": "GLM 5.3 (Paid)",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "paid"
+        },
+        {
+          "id": "deepseek-v4-pro-0813",
+          "label": "DeepSeek V4 Pro 0813 (Paid)",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "paid"
+        }
+      ]
+    },
+    {
+      "id": "custom-template",
+      "type": "custom",
+      "name": "Custom (OpenAI-compatible)",
+      "baseUrl": "",
+      "models": [
+        {
+          "id": "your-model-id",
+          "label": "Model của bạn",
+          "supportsWebSearch": false,
+          "supportsTools": true,
+          "costTier": "free"
+        }
+      ]
+    }
+  ]
+}

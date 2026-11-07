@@ -1,0 +1,1520 @@
+{
+  "schema_version": "1.0",
+  "map_type": "planned",
+  "generated_at": "2026-11-05",
+  "scale": "medium",
+  "entry_points": [
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/index.html",
+    "src/renderer/src/main.tsx"
+  ],
+  "modules": [
+    {
+      "path": "package.json",
+      "type": "config",
+      "responsibility": "Khai báo scripts (dev/build/typecheck/test/dist) và dependency.",
+      "feature": [
+        "F-16"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "electron.vite.config.ts",
+      "type": "config",
+      "responsibility": "Cấu hình electron-vite cho main, preload, renderer và alias @shared.",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "tsconfig.json",
+      "type": "config",
+      "responsibility": "Tham chiếu tsconfig.node.json và tsconfig.web.json.",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "tsconfig.node.json",
+      "type": "config",
+      "responsibility": "TypeScript cho main, preload, shared (Node).",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "tsconfig.web.json",
+      "type": "config",
+      "responsibility": "TypeScript cho renderer và shared (DOM, JSX).",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "electron-builder.yml",
+      "type": "config",
+      "responsibility": "Cấu hình đóng gói installer Windows x64 (NSIS).",
+      "feature": [
+        "F-16"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "vitest.config.ts",
+      "type": "config",
+      "responsibility": "Cấu hình test T3 cho logic thuần chạy bằng Node.",
+      "feature": [
+        "F-14"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": ".gitignore",
+      "type": "config",
+      "responsibility": "Bỏ node_modules, out, dist, .tmp-ai.",
+      "feature": [
+        "F-16"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/constants.ts",
+      "type": "shared",
+      "responsibility": "Enum và hằng số dùng chung: category, status, cost_type, claim_status, LOCK_POLICY, giới hạn kích thước, cửa sổ deadline.",
+      "feature": [
+        "F-02",
+        "F-05",
+        "F-10",
+        "F-14"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/types.ts",
+      "type": "shared",
+      "responsibility": "Kiểu domain dùng chung main và renderer: Project, RevenueEntry, NewsItem, ProviderConfig, ModelConfig, LockState, các DTO.",
+      "feature": [
+        "F-02",
+        "F-10",
+        "F-11",
+        "F-14"
+      ],
+      "dependencies": [
+        "src/shared/constants.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/schemas.ts",
+      "type": "shared",
+      "responsibility": "Schema zod: ProjectImportV1, ScanResult, NewsResult, AiConfigImportV1, payload IPC.",
+      "feature": [
+        "F-04",
+        "F-07",
+        "F-08",
+        "F-11"
+      ],
+      "dependencies": [
+        "src/shared/constants.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/ipc-channels.ts",
+      "type": "shared",
+      "responsibility": "Tên channel IPC và kiểu hợp đồng request/response/event.",
+      "feature": [
+        "F-14"
+      ],
+      "dependencies": [
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/date-utils.ts",
+      "type": "shared",
+      "responsibility": "Ngày theo giờ máy (YYYY-MM-DD), tính số ngày còn lại, hôm nay, nhãn thời gian còn lại.",
+      "feature": [
+        "F-02",
+        "F-08"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/normalize.ts",
+      "type": "shared",
+      "responsibility": "Chuẩn hóa name_key (bỏ dấu, thường, bỏ khoảng trắng) và domain_key (bỏ www) để chống trùng.",
+      "feature": [
+        "F-04",
+        "F-07"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/format.ts",
+      "type": "shared",
+      "responsibility": "Định dạng nhãn chi phí (FREE/$N/Chưa xác minh) và tiền/token.",
+      "feature": [
+        "F-05",
+        "F-10"
+      ],
+      "dependencies": [
+        "src/shared/constants.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/shared/revenue-calc.ts",
+      "type": "shared",
+      "responsibility": "Hàm thuần tính tổng thu thực nhận, thưởng đang chờ, tổng chi phí, lãi thực tế và lãi/lỗ từng khoản.",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/index.ts",
+      "type": "entry",
+      "responsibility": "Vòng đời app, tạo cửa sổ với contextIsolation/sandbox, CSP, chặn điều hướng, protocol mmo-logo, khởi tạo dịch vụ và đăng ký IPC.",
+      "feature": [
+        "F-01",
+        "F-06",
+        "F-14"
+      ],
+      "dependencies": [
+        "src/main/ipc/index.ts",
+        "src/main/services/settingsStore.ts",
+        "src/main/services/dataPathService.ts",
+        "src/main/db/connection.ts",
+        "src/main/services/logger.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/guard.ts",
+      "type": "ipc",
+      "responsibility": "Bọc ipcMain.handle: validate zod, kiểm tra khóa cho handler ghi, chuẩn hóa lỗi trả về renderer.",
+      "feature": [
+        "F-14",
+        "F-18"
+      ],
+      "dependencies": [
+        "src/main/services/lockManager.ts",
+        "src/shared/schemas.ts",
+        "src/main/services/logger.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/index.ts",
+      "type": "ipc",
+      "responsibility": "Đăng ký toàn bộ nhóm IPC và kênh mở link ngoài (chỉ http/https).",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [
+        "src/main/ipc/projectsIpc.ts",
+        "src/main/ipc/revenueIpc.ts",
+        "src/main/ipc/newsIpc.ts",
+        "src/main/ipc/scanIpc.ts",
+        "src/main/ipc/chatIpc.ts",
+        "src/main/ipc/settingsIpc.ts",
+        "src/main/ipc/lockIpc.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/projectsIpc.ts",
+      "type": "ipc",
+      "responsibility": "IPC dự án: list/get/create/update/delete, đặt logo, import/export.",
+      "feature": [
+        "F-02",
+        "F-03",
+        "F-04",
+        "F-06"
+      ],
+      "dependencies": [
+        "src/main/ipc/guard.ts",
+        "src/main/services/projectService.ts",
+        "src/main/services/exportService.ts",
+        "src/main/services/logoService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/revenueIpc.ts",
+      "type": "ipc",
+      "responsibility": "IPC doanh thu: list, summary, get, upsert, delete, đính kèm bằng chứng.",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/main/ipc/guard.ts",
+        "src/main/services/revenueService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/newsIpc.ts",
+      "type": "ipc",
+      "responsibility": "IPC News: list tin, danh sách deadline, việc cần làm, tick đã xử lý, Check News.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/main/ipc/guard.ts",
+        "src/main/services/newsService.ts",
+        "src/main/ai/checkNewsService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/scanIpc.ts",
+      "type": "ipc",
+      "responsibility": "IPC Scan: start, cancel, lấy kết quả gần nhất, submit (Gửi).",
+      "feature": [
+        "F-07"
+      ],
+      "dependencies": [
+        "src/main/ipc/guard.ts",
+        "src/main/ai/scanService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/chatIpc.ts",
+      "type": "ipc",
+      "responsibility": "IPC Chat Box: gửi tin, nhập JSON, confirm/cancel hành động chờ, huỷ tác vụ AI.",
+      "feature": [
+        "F-09"
+      ],
+      "dependencies": [
+        "src/main/ipc/guard.ts",
+        "src/main/ai/chatService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/settingsIpc.ts",
+      "type": "ipc",
+      "responsibility": "IPC Settings: appearance, data path, provider/model, upload JSON, Test, export cấu hình.",
+      "feature": [
+        "F-11",
+        "F-12",
+        "F-13",
+        "F-15"
+      ],
+      "dependencies": [
+        "src/main/ipc/guard.ts",
+        "src/main/services/settingsStore.ts",
+        "src/main/services/dataPathService.ts",
+        "src/main/ai/providerService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ipc/lockIpc.ts",
+      "type": "ipc",
+      "responsibility": "IPC khóa: lấy trạng thái, User bắt đầu/kết thúc phiên chỉnh sửa; phát sự kiện lock:changed.",
+      "feature": [
+        "F-14"
+      ],
+      "dependencies": [
+        "src/main/ipc/guard.ts",
+        "src/main/services/lockManager.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/db/connection.ts",
+      "type": "repo",
+      "responsibility": "Mở/đóng/mở lại SQLite tại đường dẫn được truyền vào (không tự biết đường dẫn Data), bật foreign_keys, chạy migration khi mở.",
+      "feature": [
+        "F-16"
+      ],
+      "dependencies": [
+        "src/main/db/migrations.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/db/migrations.ts",
+      "type": "repo",
+      "responsibility": "Schema v1 (projects, revenue_entries, news_items, scan_latest, meta) và bộ chạy migration theo PRAGMA user_version.",
+      "feature": [
+        "F-16"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/db/projectsRepo.ts",
+      "type": "repo",
+      "responsibility": "Truy vấn tham số hóa bảng projects, sinh ID PRJ-xxx, kiểm tra trùng, row_version.",
+      "feature": [
+        "F-02",
+        "F-04"
+      ],
+      "dependencies": [
+        "src/main/db/connection.ts",
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/db/revenueRepo.ts",
+      "type": "repo",
+      "responsibility": "Truy vấn bảng revenue_entries (project_id SET NULL khi xóa dự án).",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/main/db/connection.ts",
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/db/newsRepo.ts",
+      "type": "repo",
+      "responsibility": "Truy vấn bảng news_items, chống trùng bằng dedupe_hash, sắp xếp ưu tiên đã xác minh.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/main/db/connection.ts",
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/db/scanRepo.ts",
+      "type": "repo",
+      "responsibility": "Lưu và đọc kết quả Scan gần nhất (một dòng).",
+      "feature": [
+        "F-07"
+      ],
+      "dependencies": [
+        "src/main/db/connection.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/logger.ts",
+      "type": "service",
+      "responsibility": "Ghi log kỹ thuật ra userData/logs, giới hạn dung lượng, che khóa/token.",
+      "feature": [
+        "F-18"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/lockManager.ts",
+      "type": "service",
+      "responsibility": "Nguồn sự thật khóa độc quyền User/AI: acquire/release AI, phiên chỉnh sửa của User, assert cho handler ghi, danh sách hành động được phép khi AI chạy.",
+      "feature": [
+        "F-14"
+      ],
+      "dependencies": [
+        "src/shared/constants.ts",
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/settingsStore.ts",
+      "type": "service",
+      "responsibility": "Đọc/ghi settings.json trong userData (dataPath, appearance, provider/model) bằng ghi nguyên tử.",
+      "feature": [
+        "F-12",
+        "F-13",
+        "F-11"
+      ],
+      "dependencies": [
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/secretStore.ts",
+      "type": "service",
+      "responsibility": "Mã hóa/giải mã API Key và headers bằng safeStorage, lưu ciphertext riêng; từ chối lưu nếu không có mã hóa.",
+      "feature": [
+        "F-15"
+      ],
+      "dependencies": [
+        "src/main/services/logger.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/dataPathService.ts",
+      "type": "service",
+      "responsibility": "Xác định và tạo cấu trúc MMO-APP-DATA, đổi đường dẫn (sao chép + kiểm tra, không xóa cũ), mở thư mục Data.",
+      "feature": [
+        "F-12",
+        "F-16"
+      ],
+      "dependencies": [
+        "src/main/services/settingsStore.ts",
+        "src/main/db/connection.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/safeFetch.ts",
+      "type": "service",
+      "responsibility": "Fetch an toàn: chỉ http/https, chặn IP nội bộ/loopback/link-local (cả sau redirect), timeout, giới hạn dung lượng và content-type.",
+      "feature": [
+        "F-06",
+        "F-17"
+      ],
+      "dependencies": [
+        "src/main/services/logger.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/projectService.ts",
+      "type": "service",
+      "responsibility": "Nghiệp vụ dự án: thêm/sửa/xóa/import, chống trùng, đọc lại kiểm tra sau ghi, dọn logo khi xóa.",
+      "feature": [
+        "F-04",
+        "F-02",
+        "F-09",
+        "F-07"
+      ],
+      "dependencies": [
+        "src/main/db/projectsRepo.ts",
+        "src/main/services/logoService.ts",
+        "src/shared/normalize.ts",
+        "src/shared/schemas.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/logoService.ts",
+      "type": "service",
+      "responsibility": "Lấy logo từ website chính thức (icon/og:image), thử avatar X, lưu từ file User chọn vào logos/, xác thực magic bytes và dung lượng.",
+      "feature": [
+        "F-06"
+      ],
+      "dependencies": [
+        "src/main/services/safeFetch.ts",
+        "src/main/services/dataPathService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/exportService.ts",
+      "type": "service",
+      "responsibility": "Xuất JSON/TXT mặc định vào Downloads hoặc nơi User chọn, trả đường dẫn file.",
+      "feature": [
+        "F-04"
+      ],
+      "dependencies": [
+        "src/main/db/projectsRepo.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/revenueService.ts",
+      "type": "service",
+      "responsibility": "Nghiệp vụ doanh thu: kiểm tra dữ liệu nhập, tính tổng hợp qua revenue-calc, lưu bằng chứng vào attachments/.",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/main/db/revenueRepo.ts",
+        "src/shared/revenue-calc.ts",
+        "src/main/services/dataPathService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/services/newsService.ts",
+      "type": "service",
+      "responsibility": "Lưu tin từ AI sau khi kiểm tra schema/ngày/nguồn/trùng; tính danh sách deadline trực tiếp từ dự án; quản lý việc cần làm.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/main/db/newsRepo.ts",
+        "src/main/db/projectsRepo.ts",
+        "src/shared/date-utils.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/types.ts",
+      "type": "module",
+      "responsibility": "Giao diện ModelClient, ToolDef, ToolCall, AiError (phân loại auth/rate_limit/quota/network/unsupported/unknown).",
+      "feature": [
+        "F-19",
+        "F-18"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/providers/openaiCompatible.ts",
+      "type": "module",
+      "responsibility": "Adapter OpenAI-compatible (OpenAI, OpenCode, Custom): chat + tool calling, ánh xạ lỗi.",
+      "feature": [
+        "F-19"
+      ],
+      "dependencies": [
+        "src/main/ai/types.ts",
+        "src/main/services/logger.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/providers/anthropic.ts",
+      "type": "module",
+      "responsibility": "Adapter Anthropic Messages: chat + tool calling + web search gốc nếu có.",
+      "feature": [
+        "F-19",
+        "F-17"
+      ],
+      "dependencies": [
+        "src/main/ai/types.ts",
+        "src/main/services/logger.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/providers/google.ts",
+      "type": "module",
+      "responsibility": "Adapter Google Gemini: chat + function calling + grounding search nếu có.",
+      "feature": [
+        "F-19",
+        "F-17"
+      ],
+      "dependencies": [
+        "src/main/ai/types.ts",
+        "src/main/services/logger.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/providers/index.ts",
+      "type": "module",
+      "responsibility": "Factory chọn adapter theo loại Provider, preset base URL và cờ khả năng (tools, web search).",
+      "feature": [
+        "F-19",
+        "F-11"
+      ],
+      "dependencies": [
+        "src/main/ai/providers/openaiCompatible.ts",
+        "src/main/ai/providers/anthropic.ts",
+        "src/main/ai/providers/google.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/providerService.ts",
+      "type": "service",
+      "responsibility": "CRUD Provider/Model, đọc JSON cấu hình (kiểm tra, tự nhận diện), Test (OK/Failed + nguyên nhân), export cấu hình (mặc định không khóa), chọn client cho tác vụ.",
+      "feature": [
+        "F-11",
+        "F-15",
+        "F-18"
+      ],
+      "dependencies": [
+        "src/main/services/settingsStore.ts",
+        "src/main/services/secretStore.ts",
+        "src/main/ai/providers/index.ts",
+        "src/shared/schemas.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/agentRunner.ts",
+      "type": "module",
+      "responsibility": "Vòng lặp agent: gọi model, thực thi tool whitelist có validate, giới hạn số bước và kích thước kết quả, hỗ trợ AbortSignal.",
+      "feature": [
+        "F-19"
+      ],
+      "dependencies": [
+        "src/main/ai/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/tools.ts",
+      "type": "module",
+      "responsibility": "Định nghĩa tool whitelist theo tác vụ (đọc dự án, propose_*, submit_scan_result, submit_news, ask_user_choice); không có tool ghi trực tiếp.",
+      "feature": [
+        "F-14",
+        "F-19"
+      ],
+      "dependencies": [
+        "src/main/db/projectsRepo.ts",
+        "src/main/ai/pendingActions.ts",
+        "src/shared/schemas.ts",
+        "src/main/ai/webTools.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/webTools.ts",
+      "type": "module",
+      "responsibility": "Tool web_fetch (qua safeFetch, bọc nội dung không tin cậy, cắt độ dài) và ánh xạ web search gốc của Provider.",
+      "feature": [
+        "F-17"
+      ],
+      "dependencies": [
+        "src/main/services/safeFetch.ts",
+        "src/main/ai/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/prompts.ts",
+      "type": "module",
+      "responsibility": "System prompt cho Scan, Check News, Chat: quy tắc không bịa, nguồn chính thức, nhãn xác minh, nội dung web là dữ liệu.",
+      "feature": [
+        "F-07",
+        "F-08",
+        "F-09",
+        "F-17"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/aiTaskRunner.ts",
+      "type": "module",
+      "responsibility": "Chạy tác vụ AI có khóa: acquire/release lock, AbortController, phát tiến độ, đảm bảo release trong finally.",
+      "feature": [
+        "F-14",
+        "F-19"
+      ],
+      "dependencies": [
+        "src/main/services/lockManager.ts",
+        "src/main/ai/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/pendingActions.ts",
+      "type": "module",
+      "responsibility": "Kho hành động chờ xác nhận (thêm/sửa/xóa): id, snapshot trước, hạn dùng, chỉ thực thi một lần sau OK.",
+      "feature": [
+        "F-09",
+        "F-14"
+      ],
+      "dependencies": [
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/scanService.ts",
+      "type": "service",
+      "responsibility": "Scan Project: tách đầu vào, kiểm tra trùng, agent tra cứu web, validate kết quả, lưu kết quả gần nhất, Gửi thì thêm dự án đã chọn và đọc lại.",
+      "feature": [
+        "F-07",
+        "F-17"
+      ],
+      "dependencies": [
+        "src/main/ai/aiTaskRunner.ts",
+        "src/main/ai/agentRunner.ts",
+        "src/main/ai/tools.ts",
+        "src/main/ai/prompts.ts",
+        "src/main/ai/providerService.ts",
+        "src/main/db/scanRepo.ts",
+        "src/main/services/projectService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/checkNewsService.ts",
+      "type": "service",
+      "responsibility": "Check News: xuất JSON dự án chưa hoàn thành, chạy agent theo lô, validate kết quả, chuyển cho newsService lưu.",
+      "feature": [
+        "F-08",
+        "F-17"
+      ],
+      "dependencies": [
+        "src/main/ai/aiTaskRunner.ts",
+        "src/main/ai/agentRunner.ts",
+        "src/main/ai/tools.ts",
+        "src/main/ai/prompts.ts",
+        "src/main/ai/providerService.ts",
+        "src/main/services/newsService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/main/ai/chatService.ts",
+      "type": "service",
+      "responsibility": "Chat Box: phiên trong bộ nhớ, luồng thêm/sửa/xóa, tạo hành động chờ với trước/sau do app tính, confirm → thực thi → đọc lại, cancel.",
+      "feature": [
+        "F-09",
+        "F-14",
+        "F-18"
+      ],
+      "dependencies": [
+        "src/main/ai/aiTaskRunner.ts",
+        "src/main/ai/agentRunner.ts",
+        "src/main/ai/tools.ts",
+        "src/main/ai/prompts.ts",
+        "src/main/ai/pendingActions.ts",
+        "src/main/ai/providerService.ts",
+        "src/main/services/projectService.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/preload/index.ts",
+      "type": "entry",
+      "responsibility": "Phơi bày window.api qua contextBridge, chỉ các channel trong ipc-channels.",
+      "feature": [
+        "F-14"
+      ],
+      "dependencies": [
+        "src/shared/ipc-channels.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/index.html",
+      "type": "entry",
+      "responsibility": "HTML gốc renderer với CSP chặt (connect-src none).",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/main.tsx",
+      "type": "entry",
+      "responsibility": "Khởi chạy React, bọc các provider (App, Lock, Appearance, Toast).",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [
+        "src/renderer/src/App.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/App.tsx",
+      "type": "component",
+      "responsibility": "Điều phối tab/route (5 tab, chi tiết dự án, doanh thu, settings) và hiển thị Chat FAB.",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [
+        "src/renderer/src/layout/AppShell.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/state/AppContext.tsx",
+      "type": "module",
+      "responsibility": "Trạng thái điều hướng (tab, dự án đang xem) và hook dữ liệu làm mới khi nhận data:changed.",
+      "feature": [
+        "F-01",
+        "F-02"
+      ],
+      "dependencies": [
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/state/LockContext.tsx",
+      "type": "module",
+      "responsibility": "Theo dõi lock:changed, báo phiên chỉnh sửa của User, hook useLock với danh sách hành động cho phép khi AI chạy.",
+      "feature": [
+        "F-14"
+      ],
+      "dependencies": [
+        "src/shared/constants.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/state/AppearanceProvider.tsx",
+      "type": "module",
+      "responsibility": "Áp dụng font family/size/weight vào CSS variables, Preview/Apply/Reset.",
+      "feature": [
+        "F-13"
+      ],
+      "dependencies": [
+        "src/shared/types.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/state/ToastContext.tsx",
+      "type": "module",
+      "responsibility": "Hàng đợi thông báo (thành công/lỗi) hiển thị góc màn hình.",
+      "feature": [
+        "F-18"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/styles/tokens.css",
+      "type": "style",
+      "responsibility": "Design tokens: màu Dark Navy + Teal, spacing 4px, radius, font vars.",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/styles/base.css",
+      "type": "style",
+      "responsibility": "Reset, layout shell, trạng thái khóa (app--locked, data-lock-allow), focus ring.",
+      "feature": [
+        "F-01",
+        "F-14"
+      ],
+      "dependencies": [
+        "src/renderer/src/styles/tokens.css"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/styles/components.css",
+      "type": "style",
+      "responsibility": "Style cho button, input, badge, bảng, dòng dự án, modal, chat panel.",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [
+        "src/renderer/src/styles/tokens.css"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/layout/AppShell.tsx",
+      "type": "component",
+      "responsibility": "Khung Sidebar + vùng nội dung + LockBanner.",
+      "feature": [
+        "F-01",
+        "F-14"
+      ],
+      "dependencies": [
+        "src/renderer/src/layout/Sidebar.tsx",
+        "src/renderer/src/layout/LockBanner.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/layout/Sidebar.tsx",
+      "type": "component",
+      "responsibility": "5 tab dọc và nút Settings cuối sidebar; vô hiệu khi khóa.",
+      "feature": [
+        "F-01",
+        "F-14"
+      ],
+      "dependencies": [
+        "src/renderer/src/state/AppContext.tsx",
+        "src/renderer/src/state/LockContext.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/layout/LockBanner.tsx",
+      "type": "component",
+      "responsibility": "Banner 'AI đang thực thi' kèm nhãn tác vụ và nút Hủy AI.",
+      "feature": [
+        "F-14"
+      ],
+      "dependencies": [
+        "src/renderer/src/state/LockContext.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/common/Button.tsx",
+      "type": "component",
+      "responsibility": "Nút primary/secondary/danger/ghost với trạng thái loading/disabled.",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/common/Modal.tsx",
+      "type": "component",
+      "responsibility": "Hộp thoại chung (focus trap, Esc) và ConfirmDialog.",
+      "feature": [
+        "F-01"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/common/Badge.tsx",
+      "type": "component",
+      "responsibility": "Badge trạng thái, chi phí, xác minh, rủi ro (có chữ, không chỉ màu).",
+      "feature": [
+        "F-05",
+        "F-02"
+      ],
+      "dependencies": [
+        "src/shared/format.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/common/ProjectLogo.tsx",
+      "type": "component",
+      "responsibility": "Hiển thị logo qua mmo-logo:// hoặc chữ cái đầu có màu theo tên.",
+      "feature": [
+        "F-06"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/common/Field.tsx",
+      "type": "component",
+      "responsibility": "Input/Select/Textarea có nhãn, lỗi, mô tả.",
+      "feature": [
+        "F-04"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/common/EmptyState.tsx",
+      "type": "component",
+      "responsibility": "Trạng thái rỗng/lỗi/đang tải dùng chung.",
+      "feature": [
+        "F-18"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/projects/ProjectListPage.tsx",
+      "type": "page",
+      "responsibility": "Trang danh sách dùng chung cho Event MMO và Airdrop (prop category): toolbar, tìm kiếm, lọc, sắp xếp, thêm/import/export.",
+      "feature": [
+        "F-02",
+        "F-04"
+      ],
+      "dependencies": [
+        "src/renderer/src/features/projects/ProjectRow.tsx",
+        "src/renderer/src/features/projects/ProjectFilters.tsx",
+        "src/renderer/src/features/projects/ProjectFormDialog.tsx",
+        "src/renderer/src/features/projects/ProjectImportDialog.tsx",
+        "src/renderer/src/state/AppContext.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/projects/ProjectRow.tsx",
+      "type": "component",
+      "responsibility": "Một dòng dự án gồm 5 nhóm thông tin.",
+      "feature": [
+        "F-02",
+        "F-05"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/ProjectLogo.tsx",
+        "src/renderer/src/common/Badge.tsx",
+        "src/shared/date-utils.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/projects/ProjectFilters.tsx",
+      "type": "component",
+      "responsibility": "Thanh lọc: trạng thái, FREE/Cost, deadline và ô tìm kiếm.",
+      "feature": [
+        "F-02"
+      ],
+      "dependencies": [
+        "src/shared/constants.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/projects/ProjectDetailPage.tsx",
+      "type": "page",
+      "responsibility": "Trang chi tiết 5 khu vực, đổi trạng thái, lưu ghi chú, đổi logo, sửa/xóa.",
+      "feature": [
+        "F-03",
+        "F-06",
+        "F-04"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/ProjectLogo.tsx",
+        "src/renderer/src/common/Badge.tsx",
+        "src/renderer/src/features/projects/ProjectFormDialog.tsx",
+        "src/renderer/src/state/LockContext.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/projects/ProjectFormDialog.tsx",
+      "type": "component",
+      "responsibility": "Form thêm/sửa dự án thủ công, báo phiên chỉnh sửa cho khóa.",
+      "feature": [
+        "F-04"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Modal.tsx",
+        "src/renderer/src/common/Field.tsx",
+        "src/renderer/src/state/LockContext.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/projects/ProjectImportDialog.tsx",
+      "type": "component",
+      "responsibility": "Nhập JSON dự án bằng dán hoặc chọn file, xem trước và báo kết quả/ trùng.",
+      "feature": [
+        "F-04"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Modal.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/scan/ScanPage.tsx",
+      "type": "page",
+      "responsibility": "Tab Scan: khung dán, đính kèm file, nút Scan, tiến độ, Hủy, bảng kết quả, thanh Gửi.",
+      "feature": [
+        "F-07"
+      ],
+      "dependencies": [
+        "src/renderer/src/features/scan/ScanResultTable.tsx",
+        "src/renderer/src/state/LockContext.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/scan/ScanResultTable.tsx",
+      "type": "component",
+      "responsibility": "Bảng 3 cột theo nhóm với checkbox, Chọn tất cả, dòng trùng bị vô hiệu, nhóm Không đủ bằng chứng.",
+      "feature": [
+        "F-07"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Badge.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/news/NewsPage.tsx",
+      "type": "page",
+      "responsibility": "Tab News: nút Check News, 3 khung, thời điểm kiểm tra gần nhất.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/renderer/src/features/news/NewsFeed.tsx",
+        "src/renderer/src/features/news/DeadlinePanel.tsx",
+        "src/renderer/src/features/news/TodoPanel.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/news/NewsFeed.tsx",
+      "type": "component",
+      "responsibility": "Tin quan trọng kiểu thông báo X: logo nhỏ, tên dự án, tóm tắt, nhãn xác minh, link nguồn; tin chưa xác minh ở dưới.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/ProjectLogo.tsx",
+        "src/renderer/src/common/Badge.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/news/DeadlinePanel.tsx",
+      "type": "component",
+      "responsibility": "Danh sách deadline sắp hết (≤3 ngày nhấn mạnh) và nhóm đã qua hạn giữ lại; click mở chi tiết.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/ProjectLogo.tsx",
+        "src/shared/date-utils.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/news/TodoPanel.tsx",
+      "type": "component",
+      "responsibility": "Việc cần làm ngay: tên dự án, nội dung, deadline, tick đã xử lý.",
+      "feature": [
+        "F-08"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/ProjectLogo.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/revenue/RevenuePage.tsx",
+      "type": "page",
+      "responsibility": "Tab Doanh thu: tổng quan, tìm kiếm/lọc, danh sách, thêm khoản thưởng.",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/renderer/src/features/revenue/RevenueSummary.tsx",
+        "src/renderer/src/features/revenue/RevenueFormDialog.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/revenue/RevenueSummary.tsx",
+      "type": "component",
+      "responsibility": "4 thẻ tổng quan và dòng 'Chưa quy đổi' theo symbol.",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/shared/format.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/revenue/RevenueDetailPage.tsx",
+      "type": "page",
+      "responsibility": "Chi tiết khoản doanh thu: ước tính, thực nhận, ngày nhận, Claim, chi phí, phí, lãi/lỗ, Tx Hash/bằng chứng.",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/shared/revenue-calc.ts",
+        "src/renderer/src/features/revenue/RevenueFormDialog.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/revenue/RevenueFormDialog.tsx",
+      "type": "component",
+      "responsibility": "Form thêm/sửa khoản doanh thu; báo phiên chỉnh sửa cho khóa.",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Modal.tsx",
+        "src/renderer/src/common/Field.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/chat/ChatFab.tsx",
+      "type": "component",
+      "responsibility": "Nút AI nổi, hiện ở 5 tab, ẩn ở Settings.",
+      "feature": [
+        "F-09"
+      ],
+      "dependencies": [
+        "src/renderer/src/features/chat/ChatPanel.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/chat/ChatPanel.tsx",
+      "type": "component",
+      "responsibility": "Khung chat: chọn Provider/Model, 3 nút gợi ý, danh sách tin, ô nhập, đính kèm JSON, trạng thái khóa.",
+      "feature": [
+        "F-09",
+        "F-14"
+      ],
+      "dependencies": [
+        "src/renderer/src/features/chat/ChatMessage.tsx",
+        "src/renderer/src/features/chat/ModelPicker.tsx",
+        "src/renderer/src/state/LockContext.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/chat/ChatMessage.tsx",
+      "type": "component",
+      "responsibility": "Tin nhắn, thẻ xác nhận trước/sau với nút OK/Cancel, nút lựa chọn Options, kết quả thành công/thất bại.",
+      "feature": [
+        "F-09"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Button.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/chat/ModelPicker.tsx",
+      "type": "component",
+      "responsibility": "Chọn Provider và Model đã cấu hình; hiện nhãn Free/Paid do User đặt; không auto đổi model.",
+      "feature": [
+        "F-09",
+        "F-18"
+      ],
+      "dependencies": [],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/settings/SettingsPage.tsx",
+      "type": "page",
+      "responsibility": "Trang Settings với 3 nhóm: AI Settings, Data Path, Appearance.",
+      "feature": [
+        "F-11",
+        "F-12",
+        "F-13"
+      ],
+      "dependencies": [
+        "src/renderer/src/features/settings/AiSettingsPanel.tsx",
+        "src/renderer/src/features/settings/DataPathPanel.tsx",
+        "src/renderer/src/features/settings/AppearancePanel.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/settings/AiSettingsPanel.tsx",
+      "type": "component",
+      "responsibility": "Chọn 1 trong 5 Provider, danh sách Model, Add Model, Test, Upload JSON, Export cấu hình.",
+      "feature": [
+        "F-11",
+        "F-15",
+        "F-18"
+      ],
+      "dependencies": [
+        "src/renderer/src/features/settings/ProviderEditor.tsx",
+        "src/renderer/src/features/settings/JsonHelpDialog.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/settings/ProviderEditor.tsx",
+      "type": "component",
+      "responsibility": "Form nhập API Key (che sau khi lưu), Custom: tên/URL/Model ID/Headers; trường nâng cao ẩn mặc định.",
+      "feature": [
+        "F-11",
+        "F-15"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Field.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/settings/JsonHelpDialog.tsx",
+      "type": "component",
+      "responsibility": "Hướng dẫn JSON: cấu trúc hợp lệ, trường cần thiết, JSON mẫu, lỗi thường gặp.",
+      "feature": [
+        "F-11"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Modal.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/settings/DataPathPanel.tsx",
+      "type": "component",
+      "responsibility": "Hiện đường dẫn Data, chọn thư mục mới, tùy chọn sao chép, mở thư mục Data.",
+      "feature": [
+        "F-12"
+      ],
+      "dependencies": [
+        "src/renderer/src/common/Modal.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "src/renderer/src/features/settings/AppearancePanel.tsx",
+      "type": "component",
+      "responsibility": "Font Family/Size/Weight, Preview, Apply, Reset.",
+      "feature": [
+        "F-13"
+      ],
+      "dependencies": [
+        "src/renderer/src/state/AppearanceProvider.tsx"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "tests/lockManager.test.ts",
+      "type": "test",
+      "responsibility": "Kiểm tra loại trừ User/AI, phiên chỉnh sửa, danh sách hành động cho phép.",
+      "feature": [
+        "F-14"
+      ],
+      "dependencies": [
+        "src/main/services/lockManager.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "tests/normalize.test.ts",
+      "type": "test",
+      "responsibility": "Kiểm tra name_key/domain_key và nhãn chi phí.",
+      "feature": [
+        "F-04",
+        "F-05"
+      ],
+      "dependencies": [
+        "src/shared/normalize.ts",
+        "src/shared/format.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "tests/revenueCalc.test.ts",
+      "type": "test",
+      "responsibility": "Kiểm tra tổng hợp doanh thu: points không tính, chưa quy đổi tách riêng, lãi thực tế.",
+      "feature": [
+        "F-10"
+      ],
+      "dependencies": [
+        "src/shared/revenue-calc.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "tests/safeFetch.test.ts",
+      "type": "test",
+      "responsibility": "Kiểm tra chặn IP nội bộ/loopback/link-local và giới hạn giao thức.",
+      "feature": [
+        "F-17"
+      ],
+      "dependencies": [
+        "src/main/services/safeFetch.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "tests/pendingActions.test.ts",
+      "type": "test",
+      "responsibility": "Kiểm tra hành động chờ chỉ chạy một lần, hết hạn, snapshot lệch thì từ chối.",
+      "feature": [
+        "F-09"
+      ],
+      "dependencies": [
+        "src/main/ai/pendingActions.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "tests/schemas.test.ts",
+      "type": "test",
+      "responsibility": "Kiểm tra schema import dự án, kết quả Scan/News, JSON cấu hình AI.",
+      "feature": [
+        "F-04",
+        "F-07",
+        "F-08",
+        "F-11"
+      ],
+      "dependencies": [
+        "src/shared/schemas.ts"
+      ],
+      "status": "planned"
+    },
+    {
+      "path": "tests/dateUtils.test.ts",
+      "type": "test",
+      "responsibility": "Kiểm tra số ngày còn lại, hôm nay, nhãn quá hạn.",
+      "feature": [
+        "F-02",
+        "F-08"
+      ],
+      "dependencies": [
+        "src/shared/date-utils.ts"
+      ],
+      "status": "planned"
+    }
+  ],
+  "external_dependencies": [
+    {
+      "name": "electron",
+      "reason": "Nền tảng desktop (E.1); chọn bản ổn định hiện hành khi cài, xác minh trong WI-1."
+    },
+    {
+      "name": "react",
+      "reason": "Frontend (E.1)."
+    },
+    {
+      "name": "react-dom",
+      "reason": "Render React (E.1)."
+    },
+    {
+      "name": "typescript",
+      "reason": "Ngôn ngữ (E.1)."
+    },
+    {
+      "name": "electron-vite",
+      "reason": "Build tool (E.1)."
+    },
+    {
+      "name": "vite",
+      "reason": "Bundler mà electron-vite yêu cầu."
+    },
+    {
+      "name": "@vitejs/plugin-react",
+      "reason": "Biên dịch JSX/TSX cho renderer."
+    },
+    {
+      "name": "better-sqlite3",
+      "reason": "Driver SQLite đồng bộ cho main process (E.1 chốt SQLite); cần rebuild theo ABI Electron. Phương án thay thế node:sqlite phải xác minh ở WI-1."
+    },
+    {
+      "name": "@types/better-sqlite3",
+      "reason": "Kiểu TypeScript (devDependency)."
+    },
+    {
+      "name": "zod",
+      "reason": "Validate input ở biên: payload IPC, JSON import, kết quả AI, JSON cấu hình."
+    },
+    {
+      "name": "electron-builder",
+      "reason": "Đóng gói installer Windows (devDependency, chỉ dùng khi release)."
+    },
+    {
+      "name": "vitest",
+      "reason": "Test T3 cho logic thuần (devDependency)."
+    },
+    {
+      "name": "@types/react",
+      "reason": "Kiểu TypeScript (devDependency)."
+    },
+    {
+      "name": "@types/react-dom",
+      "reason": "Kiểu TypeScript (devDependency)."
+    },
+    {
+      "name": "@types/node",
+      "reason": "Kiểu TypeScript cho main (devDependency)."
+    }
+  ]
+}

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MMO Manager — UI Preview (wireframe)</title>
+<style>
+:root{--bg:#0B1220;--surface:#111A2E;--raised:#18243D;--text:#E6EDF7;--muted:#9AABC7;--border:#2A3A5A;--strong:#7A8FB5;--primary:#14B8A6;--on-primary:#04141A;--ok:#34D399;--warn:#FBBF24;--err:#F87171;--info:#60A5FA;--focus:#2DD4BF}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font:16px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.note{background:var(--raised);color:var(--muted);font-size:12px;padding:4px 16px;border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:center}
+.note label{display:flex;gap:6px;align-items:center;color:var(--text)}
+.app{flex:1;display:flex;min-height:0}
+nav{width:240px;background:var(--surface);border-right:1px solid var(--border);padding:12px;display:flex;flex-direction:column;gap:4px}
+nav .brand{font-weight:600;padding:12px;font-size:20px}
+nav button{height:48px;text-align:left;padding:0 12px;border:0;border-left:3px solid transparent;border-radius:8px;background:none;color:var(--muted);display:flex;align-items:center;gap:12px}
+nav button:hover{background:var(--raised)}
+nav button.on{background:var(--raised);color:var(--text);border-left-color:var(--primary)}
+nav .sp{flex:1}
+.ico{width:20px;height:20px;border:2px solid currentColor;border-radius:5px;flex:none}
+.col{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+.lock{display:none;height:48px;background:#3a2c08;color:var(--warn);align-items:center;padding:0 24px;gap:12px;border-bottom:1px solid var(--warn)}
+.locked .lock{display:flex}
+.lock .sp{flex:1}
+.locked main{opacity:.55}
+.locked main *{pointer-events:none}
+.locked main [data-allow],.locked main [data-allow] *{pointer-events:auto;opacity:1}
+main{flex:1;overflow:auto;padding:24px}
+.wrap{max-width:1200px}
+h1{font-size:32px;line-height:1.25}h2{font-size:20px;line-height:1.25;margin-bottom:12px}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.head .sp{flex:1}
+.btn{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--strong);background:none}
+.btn.p{background:var(--primary);border-color:var(--primary);color:var(--on-primary);font-weight:600}
+.btn.d{background:#B91C1C;border-color:#B91C1C;color:#fff}
+.tools{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.in{height:40px;border-radius:8px;border:1px solid var(--strong);background:var(--surface);color:var(--text);padding:0 12px;min-width:160px}
+.in.w{min-width:280px}
+.row{display:grid;grid-template-columns:2.2fr 2fr 1.2fr 1fr .8fr;gap:16px;align-items:center;min-height:64px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer}
+.row:hover{background:var(--raised)}
+.row.exp{opacity:.7}
+.lg{display:flex;align-items:center;gap:12px;font-weight:600}
+.logo{width:40px;height:40px;border-radius:8px;background:#164e63;display:grid;place-items:center;font-weight:600;flex:none}
+.logo.s{width:24px;height:24px;font-size:12px;border-radius:6px}
+.m{color:var(--muted);font-size:14px}
+.b{display:inline-block;height:24px;line-height:22px;padding:0 10px;border-radius:12px;font-size:12px;border:1px solid currentColor;white-space:nowrap}
+.free{color:var(--primary)}.paid{color:var(--warn)}.unv{color:var(--muted)}.ok{color:var(--ok)}.warn{color:var(--warn)}.err{color:var(--err)}.info{color:var(--info)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
+.stat b{display:block;font-size:24px}
+.two{display:grid;grid-template-columns:7fr 5fr;gap:16px}
+.item{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.item:last-child{border:0}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;vertical-align:top;padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px}
+th{color:var(--muted);font-weight:500}
+.bar{position:sticky;bottom:0;background:var(--raised);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:16px;padding:12px 24px}
+.bar .sp{flex:1}
+.seg{display:inline-flex}
+.seg button{height:40px;min-width:128px;border:1px solid var(--strong);background:none}
+.seg button.on{background:var(--primary);color:var(--on-primary);border-color:var(--primary);font-weight:600}
+.fab{position:absolute;right:24px;bottom:24px;width:56px;height:56px;border-radius:28px;border:0;background:var(--primary);color:var(--on-primary);font-weight:700;z-index:5}
+.chat{display:none;position:absolute;right:24px;bottom:96px;width:400px;height:min(600px,calc(100% - 120px));background:var(--surface);border:1px solid var(--strong);border-radius:12px;z-index:6;flex-direction:column;padding:16px;gap:12px}
+.chat.open{display:flex}
+.chat .msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.bubble{background:var(--raised);border-radius:12px;padding:12px;font-size:14px}
+.screen{display:none}.screen.on{display:block}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tabs button{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:none}
+.tabs button.on{background:var(--raised);border-color:var(--primary)}
+@media (max-width:1023px){nav{width:72px}nav span.t,nav .brand{display:none}.two,.grid4{grid-template-columns:1fr 1fr}.row{grid-template-columns:2fr 1fr 1fr .8fr}.row>:nth-child(2){display:none}}
+</style>
+</head>
+<body>
+<div class="note"><b>Wireframe</b> — không phải bản chuẩn UI; bản chuẩn là UI_SPEC.json.
+<label><input type="checkbox" id="lk"> Giả lập "AI đang thực thi" (khóa A.2/A.3)</label></div>
+<div class="app" id="app">
+<nav aria-label="Điều hướng chính">
+<div class="brand">MMO Manager</div>
+<button data-s="event" class="on"><i class="ico"></i><span class="t">Event MMO</span></button>
+<button data-s="airdrop"><i class="ico"></i><span class="t">Airdrop</span></button>
+<button data-s="scan"><i class="ico"></i><span class="t">Scan Project</span></button>
+<button data-s="news"><i class="ico"></i><span class="t">News</span></button>
+<button data-s="revenue"><i class="ico"></i><span class="t">Doanh thu</span></button>
+<div class="sp"></div>
+<button data-s="settings"><i class="ico"></i><span class="t">Settings</span></button>
+</nav>
+<div class="col">
+<div class="lock" role="status" aria-live="polite"><span>AI đang thực thi: Scan Project 3/12</span><span class="sp"></span><button class="btn" style="pointer-events:auto" onclick="lk.click()">Hủy AI</button></div>
+<main><div class="wrap">
+
+<section class="screen on" id="event">
+<div class="head"><h1>Event MMO</h1><span class="sp"></span><button class="btn">Import / Export</button><button class="btn p">+ Thêm dự án</button></div>
+<div class="tools"><input class="in w" placeholder="Tìm dự án" aria-label="Tìm dự án"><select class="in"><option>Trạng thái: Tất cả</option></select><select class="in"><option>Chi phí: Tất cả</option></select><select class="in"><option>Deadline: Tất cả</option></select></div>
+<div class="row" data-open="detail"><div class="lg"><span class="logo">N</span>Nova Quest</div><div class="m">Event MMO · Quiz hằng ngày trên sàn</div><div><div>08/11/2026</div><div class="m warn">Còn 3 ngày</div></div><div><span class="b info">Đang thực hiện</span></div><div><span class="b free">FREE</span></div></div>
+<div class="row" data-open="detail"><div class="lg"><span class="logo">K</span>Kite Trade</div><div class="m">Event MMO · Giao dịch đạt volume</div><div><div>20/11/2026</div><div class="m">Còn 15 ngày</div></div><div><span class="b unv">Chưa tham gia</span></div><div><span class="b paid">$10</span></div></div>
+<div class="row exp" data-open="detail"><div class="lg"><span class="logo">O</span>Orbit Pad</div><div class="m">Event MMO · Check-in</div><div><div>01/11/2026</div><div class="m err">Đã quá hạn 4 ngày</div></div><div><span class="b ok">Hoàn thành</span></div><div><span class="b unv">Chưa xác minh</span></div></div>
+</section>
+
+<section class="screen" id="airdrop">
+<div class="head"><h1>Airdrop</h1><span class="sp"></span><button class="btn">Import / Export</button><button class="btn p">+ Thêm dự án</button></div>
+<p class="m" style="margin-bottom:16px">Cùng giao diện với Event MMO, dữ liệu lưu riêng theo tab.</p>
+<div class="row" data-open="detail"><div class="lg"><span class="logo">L</span>Lumen Chain</div><div class="m">Airdrop · Testnet + quest</div><div><div>30/11/2026</div><div class="m">Còn 25 ngày</div></div><div><span class="b unv">Chưa tham gia</span></div><div><span class="b free">FREE</span></div></div>
+</section>
+
+<section class="screen" id="detail">
+<div class="head"><button class="btn" data-open="event" data-allow>← Quay lại</button><span class="logo" style="width:72px;height:72px">N</span><h1>Nova Quest</h1><span class="b free">FREE</span><span class="sp"></span><button class="btn">Sửa</button><button class="btn d">Xóa</button></div>
+<div class="card"><h2>Thông tin dự án</h2><p>Website: <a data-allow href="#" style="color:var(--primary)">nova.example ↗</a> · X: <a data-allow href="#" style="color:var(--primary)">@nova ↗</a></p></div>
+<div class="card"><h2>Thông tin nhiệm vụ</h2><span class="b info">Event MMO</span><p style="margin-top:12px;max-width:75ch">Nội dung event và cách tham gia (từng bước).</p></div>
+<div class="card"><h2>Deadline</h2><p>Bắt đầu 01/11/2026 · Kết thúc 08/11/2026 · <span class="warn">Còn 3 ngày</span></p></div>
+<div class="card"><h2>Trạng thái</h2><div class="seg"><button>Chưa tham gia</button><button class="on">Đang thực hiện</button><button>Hoàn thành</button></div></div>
+<div class="card"><h2>Ghi chú</h2><textarea class="in" style="width:100%;height:96px;padding:12px" aria-label="Ghi chú"></textarea><div style="margin-top:12px"><button class="btn p">Lưu ghi chú</button></div></div>
+</section>
+
+<section class="screen" id="scan">
+<div class="head"><h1>Scan Project</h1></div>
+<div class="card"><textarea class="in" style="width:100%;height:160px;padding:12px" placeholder="Dán nội dung (TXT / MD / JSON)" aria-label="Nội dung cần scan"></textarea><div style="display:flex;gap:12px;margin-top:12px;align-items:center"><button class="btn">Đính kèm file</button><span class="m">Model: Gemini — web search ✓ · tool calling ✓</span><span style="flex:1"></span><button class="btn p">Scan</button></div></div>
+<div class="card"><h2>Event MMO (2)</h2><table><tr><th></th><th>Tên dự án</th><th>Thông tin cơ bản</th><th>Đánh giá rủi ro và tiềm năng thu hoạch</th></tr>
+<tr><td><input type="checkbox" aria-label="Chọn Nova Quest"></td><td><b>Nova Quest</b></td><td>Quiz hằng ngày · hết hạn 08/11 · <span class="b free">FREE</span> <span class="b ok">Đã xác minh</span></td><td><span class="b ok">Rủi ro thấp</span> Sự kiện của sàn lớn. Thưởng: có công bố chính thức.</td></tr>
+<tr><td><input type="checkbox" disabled aria-label="Đã có trong app"></td><td><b>Kite Trade</b> <span class="b unv">Đã có trong app</span></td><td>Giao dịch đạt volume · <span class="b paid">$10</span></td><td><span class="b warn">Rủi ro trung bình</span> Cần nạp tiền.</td></tr></table></div>
+<div class="card"><h2>Airdrop (1)</h2><table><tr><td style="width:48px"><input type="checkbox" aria-label="Chọn Lumen Chain"></td><td><b>Lumen Chain</b></td><td>Testnet + quest · <span class="b unv">Chưa xác minh</span></td><td><span class="b warn">Rủi ro trung bình</span> Chưa có bằng chứng về phần thưởng.</td></tr></table></div>
+<div class="card"><h2>Không đủ bằng chứng (1)</h2><p class="m">Không phân loại được, không thể Gửi. Lý do: không tìm thấy nguồn chính thức.</p></div>
+<div class="bar"><label><input type="checkbox"> Chọn tất cả</label><span class="m">Đã chọn 0</span><span class="sp"></span><button class="btn p">Gửi</button></div>
+</section>
+
+<section class="screen" id="news">
+<div class="head"><h1>News</h1><span class="m">Kiểm tra gần nhất: 09:12 hôm nay</span><span class="sp"></span><button class="btn p">Check News</button></div>
+<div class="two">
+<div class="card" style="padding:0"><h2 style="padding:16px 16px 0">Tin quan trọng mới</h2>
+<div class="item"><span class="logo s">N</span><div><b>Nova Quest</b> <span class="m">· 2 giờ trước</span><div>Gia hạn event thêm 2 ngày, thưởng giữ nguyên.</div><div class="m"><span class="b ok">Đã xác minh</span> Nguồn: X chính thức · <a data-allow href="#" style="color:var(--primary)">Mở bài gốc ↗</a></div></div></div>
+<div class="item" style="background:var(--raised)"><span class="logo s">L</span><div><b>Lumen Chain</b> <span class="m">· 5 giờ trước</span><div>Tin đồn snapshot tuần sau.</div><div class="m"><span class="b warn">Chưa xác minh</span> Nguồn: tài khoản cộng đồng · <a data-allow href="#" style="color:var(--primary)">Mở bài gốc ↗</a></div></div></div></div>
+<div>
+<div class="card" style="padding:0;margin-bottom:16px"><h2 style="padding:16px 16px 0">Deadline sắp hết</h2><div class="item" data-open="detail" data-allow><span class="logo s">N</span><div><b>Nova Quest</b><div class="warn">Còn 3 ngày</div></div></div></div>
+<div class="card" style="padding:0"><h2 style="padding:16px 16px 0">Việc cần làm ngay</h2><div class="item"><input type="checkbox" aria-label="Đã xử lý"><div><b>Nova Quest</b><div>Hoàn thành quiz ngày 5/11</div><div class="m">Deadline 08/11/2026</div></div></div></div>
+</div></div>
+</section>
+
+<section class="screen" id="revenue">
+<div class="head"><h1>Doanh thu</h1><span class="sp"></span><button class="btn p">+ Thêm khoản thưởng</button></div>
+<div class="grid4"><div class="stat"><span class="m">Tổng thu thực nhận</span><b>$120</b></div><div class="stat"><span class="m">Thưởng đang chờ nhận</span><b>$60</b></div><div class="stat"><span class="m">Tổng chi phí</span><b>$25</b></div><div class="stat"><span class="m">Lãi thực tế</span><b>$95</b></div></div>
+<p class="m" style="margin-bottom:16px">Chưa quy đổi (không tính vào doanh thu): 1.500 points · 40 LMN</p>
+<div class="tools"><input class="in w" placeholder="Tìm dự án" aria-label="Tìm dự án"><select class="in"><option>Trạng thái nhận: Tất cả</option></select><select class="in"><option>Thời gian: Tháng này</option></select></div>
+<div class="row" style="grid-template-columns:2.2fr 1.6fr 1fr"><div class="lg"><span class="logo">N</span>Nova Quest</div><div>100 USDT <span class="m">($100)</span></div><div><span class="b ok">Đã nhận</span></div></div>
+</section>
+
+<section class="screen" id="settings">
+<div class="head"><h1>Settings</h1></div>
+<div class="tabs"><button class="on">AI Settings</button><button>Data Path</button><button>Appearance</button></div>
+<div class="card"><h2>Provider</h2><div class="tabs"><button class="on">OpenAI</button><button>Anthropic</button><button>OpenCode</button><button>Google</button><button>Custom</button></div>
+<div style="display:grid;gap:16px;max-width:560px"><label>API Key<br><input class="in" style="width:100%" value="••••••••••••" aria-label="API Key"></label>
+<div><b>Model</b><div class="item"><span>gpt-example</span><span class="b unv">Free/Paid: chưa đặt</span><span style="flex:1"></span><button class="btn">Test</button><span class="b ok">OK · tools ✓</span></div><button class="btn">+ Add Model</button></div>
+<div style="display:flex;gap:8px"><button class="btn">Upload JSON</button><button class="btn" aria-label="Help JSON" style="width:40px;padding:0">?</button><button class="btn">Export cấu hình</button></div></div></div>
+</section>
+
+</div></main>
+<button class="fab" id="fab" aria-label="Mở AI Chat">AI</button>
+<div class="chat" id="chat" role="dialog" aria-label="AI Chat Box">
+<div style="display:flex;gap:8px;align-items:center"><b style="flex:1">AI Chat</b><select class="in" style="min-width:0"><option>Gemini · model-a</option></select></div>
+<div style="display:flex;gap:8px"><button class="btn">Thêm dự án</button><button class="btn">Sửa dự án</button><button class="btn">Xóa dự án</button></div>
+<div class="msgs"><div class="bubble">Mình sẽ thêm 2 dự án sau. Bạn có chắc chắn muốn thêm dự án này không?<br>• Nova Quest (Event MMO)<br>• Lumen Chain (Airdrop)<div style="display:flex;gap:8px;margin-top:12px"><button class="btn p">OK</button><button class="btn">Cancel</button></div></div></div>
+<div style="display:flex;gap:8px"><input class="in" style="flex:1;min-width:0" placeholder="Nhập yêu cầu" aria-label="Nhập yêu cầu"><button class="btn p">Gửi</button></div>
+</div>
+</div></div>
+<script>
+var app=document.getElementById('app'),lk=document.getElementById('lk'),fab=document.getElementById('fab'),chat=document.getElementById('chat');
+function show(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.toggle('on',s.id===id)});
+document.querySelectorAll('nav button').forEach(function(b){b.classList.toggle('on',b.dataset.s===id||(id==='detail'&&b.dataset.s==='event'))});
+var st=id==='settings';fab.style.display=st?'none':'';if(st)chat.classList.remove('open')}
+document.querySelectorAll('nav button').forEach(function(b){b.onclick=function(){show(b.dataset.s)}});
+document.querySelectorAll('[data-open]').forEach(function(e){e.onclick=function(){show(e.dataset.open)}});
+lk.onchange=function(){app.classList.toggle('locked',lk.checked);document.querySelector('.lock').style.display=lk.checked?'flex':'none';document.querySelectorAll('nav button').forEach(function(b){b.style.pointerEvents=lk.checked?'none':'';b.style.opacity=lk.checked?.5:''})};
+fab.onclick=function(){chat.classList.toggle('open')};
+</script>
+</body>
+</html>

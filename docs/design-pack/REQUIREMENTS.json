@@ -1,0 +1,347 @@
+{
+  "schema_version": "1.0",
+  "scale": "medium",
+  "has_ui": true,
+  "ui_requirement_mode": "AI_DESIGN",
+  "ui_requirement_note": "Theo chỉ dẫn D.1: Sidebar dọc trái, Dark Navy + Teal. Các số đo còn lại theo RULE_DEFAULT (lưới 4px, WCAG AA). status: proposed cho đến khi User chấp nhận.",
+  "document_language": "vi",
+  "objective": "Ứng dụng desktop (Electron) giúp User cá nhân quản lý các dự án Event MMO và Airdrop: lưu danh sách, theo dõi deadline/trạng thái/chi phí, quét dự án mới bằng AI, quét tin tức, theo dõi doanh thu thực nhận. User chủ động 70%, AI hỗ trợ 30%; app vẫn dùng được đầy đủ khi AI hết token hoặc mất kết nối.",
+  "users": [
+    {
+      "role": "user",
+      "description": "Người dùng cá nhân duy nhất trên máy. Chủ động thao tác, ra lệnh rõ ràng cho AI và xác nhận mọi thay đổi dữ liệu do AI đề xuất."
+    },
+    {
+      "role": "ai_agent",
+      "description": "Trợ lý AI bị giới hạn quyền: chỉ dùng các chức năng lập trình sẵn (Scan Project, Check News, Chat Box quản lý dự án), chỉ chạy khi User ra lệnh, không thao tác đồng thời với User."
+    }
+  ],
+  "features": [
+    {
+      "id": "F-01",
+      "name": "Khung ứng dụng và Sidebar",
+      "description": "Sidebar dọc bên trái gồm 5 tab chính (Event MMO, Airdrop, Scan Project, News, Doanh thu) và mục Settings riêng ở cuối Sidebar. Nội dung tab hiển thị ở khu vực bên phải. Phong cách Dark Navy + Teal, dễ nhìn, thao tác nhanh.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "D.1"
+    },
+    {
+      "id": "F-02",
+      "name": "Danh sách dự án Event MMO và Airdrop",
+      "description": "Hai tab dùng chung một kiểu giao diện, dữ liệu phân loại và lưu riêng theo tab. Mỗi dự án một dòng gồm 5 nhóm: Logo + Tên, Loại/Nhiệm vụ cơ bản, Deadline/Thời gian còn lại, Trạng thái, Nhãn chi phí. Có tìm kiếm; lọc theo FREE/Cost, trạng thái, deadline; ưu tiên dự án sắp hết hạn lên trước. Click mở trang chi tiết.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "D.2, D.5"
+    },
+    {
+      "id": "F-03",
+      "name": "Trang chi tiết dự án",
+      "description": "Trang riêng cho mỗi dự án gồm 5 khu vực: Thông tin dự án (logo, tên, website, mạng xã hội); Thông tin nhiệm vụ (nội dung Event/Airdrop, cách tham gia); Deadline (bắt đầu, kết thúc, còn lại); Trạng thái (Chưa tham gia, Đang thực hiện, Hoàn thành); Ghi chú do User tự nhập và lưu.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "D.3"
+    },
+    {
+      "id": "F-04",
+      "name": "Quản lý dự án thủ công và Import/Export",
+      "description": "User thêm/sửa/xóa dự án bằng form mà không cần AI (suy ra từ A.1: app dùng độc lập khi AI lỗi). Import JSON dự án. Export JSON/TXT mặc định vào thư mục Downloads, cho chọn vị trí khác, thông báo đường dẫn file sau khi xuất, không tạo thư mục exports/ mặc định.",
+      "priority": "must",
+      "status": "proposed",
+      "source": "A.1, E.1.1, E.1.5"
+    },
+    {
+      "id": "F-05",
+      "name": "Nhãn chi phí (Cost)",
+      "description": "Nhãn trực quan: FREE; có chi phí hiện số tiền cụ thể ($1, $10, $20, ...); không có thông tin xác minh hiện 'Chưa xác minh', không tự đoán chi phí. Dùng để hiển thị và lọc.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "D.2.2"
+    },
+    {
+      "id": "F-06",
+      "name": "Quản lý logo dự án",
+      "description": "Ưu tiên lấy logo từ website chính thức, nếu không được thì thử avatar X chính thức, tải và lưu trên máy (thư mục logos/). Không có logo thì dùng chữ cái đầu tên dự án. User có thể chọn ảnh từ bất kỳ thư mục nào; app sao chép vào logos/, lưu đường dẫn trong dữ liệu dự án; đổi logo bất cứ lúc nào. Ảnh gốc bị xóa/di chuyển không ảnh hưởng. Logo đã lưu hiển thị khi offline.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "D.2.3, E.1.6"
+    },
+    {
+      "id": "F-07",
+      "name": "Scan Project",
+      "description": "Tab riêng. User dán nội dung hoặc đính kèm file TXT/MD/JSON. AI đọc, phân tích từng dự án, kiểm tra trùng lặp, dùng Web Search + Web Fetch đối chiếu thông tin thực tế (tính xác thực, nhiệm vụ, chi phí, deadline, rủi ro, tiềm năng), phân loại Event MMO hoặc Airdrop. Kết quả hiển thị 2 nhóm, bảng 3 cột (Tên dự án; Thông tin cơ bản; Đánh giá rủi ro và tiềm năng thu hoạch), mỗi dự án có checkbox và tùy chọn All. User chọn và bấm Gửi thì AI mới thêm dự án đã chọn vào app. Không tự thêm, không suy đoán dữ liệu chưa xác minh.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "B.1, D.6"
+    },
+    {
+      "id": "F-08",
+      "name": "News và Check News",
+      "description": "User bấm Check News: AI đọc JSON danh sách dự án, quét các nguồn liên quan (ưu tiên X), lọc tin, cập nhật 3 khung: Tin quan trọng mới; Deadline sắp hết (cảnh báo đặc biệt khi còn 3 ngày); Việc cần làm ngay. Chỉ lấy tin mới trong ngày, không lặp tin đã có, deadline không tự động xóa kể cả khi qua hạn. Tin đã xác minh ở trên; tin chưa xác minh có nhãn riêng và ở dưới. Chỉ hiển thị tóm tắt ngắn, có tên dự án, trạng thái xác minh, nguồn và link mở bài gốc. Thông báo kiểu X: logo nhỏ, tên dự án nổi bật, nội dung ngắn.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "B.2, D.4"
+    },
+    {
+      "id": "F-09",
+      "name": "AI Chat Box quản lý dự án",
+      "description": "Nút AI nổi (Floating AI Button), mở được từ cả 5 tab, không có tab riêng. Khi mở hiện 3 nút: Thêm dự án, Sửa dự án, Xóa dự án; cũng cho nhập yêu cầu trực tiếp. Mọi thao tác thay đổi dữ liệu: AI xác định đối tượng, hiện nội dung (danh sách/trước-sau), hỏi xác nhận bằng nút OK/Cancel; không có OK thì không thực thi; sau khi thực hiện kiểm tra lại và thông báo kết quả; thất bại thì báo lỗi, không báo thành công giả. Chỉ xóa/sửa đúng dự án User chỉ định; không xác định được thì hỏi lại bằng nút chọn, không tự đoán. Ưu tiên nút bấm. Chọn Provider/Model đã cấu hình ngay trong Chat Box; không nhập API Key/URL/JSON cấu hình trong Chat Box.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "B.3, C.4"
+    },
+    {
+      "id": "F-10",
+      "name": "Tab Doanh thu",
+      "description": "Tổng quan: tổng thu thực nhận, tổng thưởng đang chờ nhận, tổng chi phí, lãi thực tế. Danh sách theo dự án (logo, tên, giá trị thưởng, trạng thái nhận thưởng). Trang chi tiết: thưởng ước tính, số tiền/token thực nhận, ngày nhận, trạng thái Claim, chi phí tham gia và phí giao dịch, lợi nhuận/lỗ thực tế, Transaction Hash hoặc bằng chứng. Tìm kiếm/lọc theo dự án, trạng thái nhận thưởng, thời gian. Tách biệt tiền thực nhận và thưởng dự kiến; điểm chưa quy đổi không tính là doanh thu; hỗ trợ nhiều loại tiền/token; không tự suy đoán giá trị thưởng.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "D.7"
+    },
+    {
+      "id": "F-11",
+      "name": "Settings - AI Settings",
+      "description": "Hỗ trợ 5 Provider: OpenAI, Anthropic, OpenCode, Google, Custom. Thêm Provider/Model bằng Upload JSON (app đọc và kiểm tra, tự nhận diện) hoặc nhập API thủ công (API Key + Add Model, nhiều Model/Provider). Custom thêm: tên Provider, URL/Base URL, Model ID, Headers hoặc cấu hình riêng. Mặc định chỉ hiện trường cần thiết. Nút Test hiện OK hoặc Failed kèm nguyên nhân. Nút Help cạnh Upload JSON: cách chuẩn bị JSON, cấu trúc hợp lệ, trường cần thiết, JSON mẫu, lỗi thường gặp. Tận dụng AI miễn phí: linh hoạt thêm/đổi Provider/Model, không mặc định mọi Provider có gói miễn phí.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "C.1-C.3, E.2.1"
+    },
+    {
+      "id": "F-12",
+      "name": "Settings - Data Path",
+      "description": "Hiện đường dẫn lưu dữ liệu hiện tại, cho chọn và đổi thư mục, có nút mở thư mục Data. App tự tạo và quản lý cấu trúc MMO-APP-DATA (database/, logos/, attachments/).",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "C.1, E.1.3-E.1.4, E.2.3"
+    },
+    {
+      "id": "F-13",
+      "name": "Settings - Appearance",
+      "description": "Tùy chỉnh Font Family, Font Size, Font Weight; có Preview xem trước, Apply để áp dụng, Reset về mặc định.",
+      "priority": "should",
+      "status": "confirmed",
+      "source": "C.1, E.2.2"
+    },
+    {
+      "id": "F-14",
+      "name": "Phân quyền User/AI và khóa độc quyền",
+      "description": "User chủ động 70%, AI hỗ trợ 30%. User và AI không được đồng thời thao tác app: bên nào đang thao tác thì bên kia bị khóa. Khi AI đang thực thi User vẫn được click link website dự án và mở xem chi tiết dự án. AI chỉ thao tác trong các khu vực/chức năng lập trình sẵn. AI chỉ thực thi khi có lệnh rõ ràng của User, không tự ý hành động. Thao tác của AI không được ảnh hưởng ngoài phạm vi hoặc làm sai lệch dữ liệu. App vẫn hoạt động khi AI hết token hoặc mất kết nối.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "A.1-A.6"
+    },
+    {
+      "id": "F-15",
+      "name": "Bảo vệ API Key",
+      "description": "API Key che bằng dấu chấm sau khi lưu; lưu mã hóa bằng cơ chế bảo mật của hệ điều hành (Electron safeStorage, Windows dùng DPAPI), không lưu văn bản thuần; khi upload JSON app đọc API Key rồi lưu vào nơi bảo mật riêng; khi Export cấu hình mặc định không xuất API Key.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "E.2.1"
+    },
+    {
+      "id": "F-16",
+      "name": "Lưu trữ SQLite và thư mục dữ liệu",
+      "description": "SQLite là cơ sở dữ liệu chính (mmo-manager.db); JSON dùng cho Import/Export và trao đổi với AI. Cấu trúc MMO-APP-DATA/database, logos, attachments. Hiện rõ đường dẫn thực tế. Không tạo thư mục exports/ mặc định.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "E.1"
+    },
+    {
+      "id": "F-17",
+      "name": "Web research cho AI (Web Search + Web Fetch)",
+      "description": "AI dùng Web Search tìm thông tin từng dự án và Web Fetch đọc website/tài liệu/nguồn liên quan; ưu tiên nguồn chính thức; không chỉ dựa vào JSON/TXT đầu vào; thông tin chưa xác minh phải ghi rõ; không bịa thông tin hay dự đoán phần thưởng khi thiếu bằng chứng. Nội dung web là dữ liệu, không phải chỉ thị.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "D.6, B.2"
+    },
+    {
+      "id": "F-18",
+      "name": "Chính sách lỗi và trung thực",
+      "description": "Khi Chat Box/thao tác AI lỗi: báo rõ nguyên nhân; User tự quyết định chuyển Provider/Model khác. Không Auto Swap, không tự động chuyển Model dự phòng, không tự ý chuyển sang Model trả phí, không tự động phân công Model theo tác vụ. Không báo thành công giả.",
+      "priority": "must",
+      "status": "confirmed",
+      "source": "B.3.6, C.5"
+    },
+    {
+      "id": "F-19",
+      "name": "AI engine (adapter Provider, vòng lặp agent, tool whitelist, hủy tác vụ)",
+      "description": "Lớp kỹ thuật cho phép 5 Provider hoạt động thống nhất: adapter gọi API, vòng lặp agent có giới hạn số bước, tool whitelist, nút Hủy tác vụ AI đang chạy, không đưa API Key vào prompt hay renderer.",
+      "priority": "must",
+      "status": "proposed",
+      "source": "Kỹ thuật hỗ trợ F-07, F-08, F-09, F-11"
+    }
+  ],
+  "workflow": {
+    "scan_project": "User dán nội dung/đính kèm file → Scan → AI đọc và tách dự án → kiểm tra trùng (trong input và trong DB) → Web Search + Web Fetch từng dự án → phân loại → bảng kết quả 2 nhóm → User tick checkbox/All → Gửi → AI thêm dự án đã chọn → kiểm tra lại sau khi lưu → thông báo kết quả.",
+    "check_news": "User nhấn Check News → app xuất JSON danh sách dự án → AI quét nguồn (ưu tiên X) → phân tích, lọc tin mới trong ngày → app kiểm tra schema, ngày, nguồn, trùng lặp → lưu và cập nhật 3 khung News.",
+    "chat_add": "Thêm dự án → dán JSON/tải file → AI xác định dữ liệu → hiện nội dung + 'Bạn có chắc chắn muốn thêm dự án này không?' → OK/Cancel → OK thì thêm → kiểm tra lại → thông báo.",
+    "chat_delete": "Xóa dự án → nhập/dán danh sách tên → AI xác định và hiện danh sách → OK/Cancel → OK thì xóa → kiểm tra lại → thông báo. Không xác định chính xác thì hỏi lại bằng nút chọn.",
+    "chat_edit": "Sửa dự án → User cung cấp tên + nội dung cần sửa → AI hiện trước/sau → OK/Cancel → OK thì sửa → kiểm tra lại → thông báo. Kể cả đổi tên ABC thành XYZ cũng phải xác nhận.",
+    "exclusive_lock": "AI chỉ chạy khi User ra lệnh (nút Scan, Gửi, Check News, gửi tin Chat, OK). Trong lúc AI chạy UI bị khóa trừ click link website và mở chi tiết dự án. User đang mở form chỉnh sửa thì AI không được bắt đầu chạy."
+  },
+  "platform": "Windows desktop (Electron). Ưu tiên Windows 10/11 x64 (safeStorage dùng DPAPI).",
+  "data_storage": "SQLite (mmo-manager.db) trong thư mục MMO-APP-DATA do User cấu hình + JSON cho Import/Export. Cấu hình AI và khóa mã hóa lưu riêng trong userData của Electron (ngoài thư mục Data).",
+  "technology": "Electron + React + TypeScript + electron-vite + CSS + Node.js (main process). Bổ sung đề xuất: better-sqlite3, zod, electron-builder, vitest (xem OQ-10).",
+  "constraints": [
+    "User và AI không thao tác đồng thời; ngoại lệ khi AI chạy: click link website dự án, mở xem chi tiết dự án",
+    "AI chỉ chạy khi có lệnh rõ ràng của User; không có timer/scheduler tự khởi chạy AI",
+    "Mọi thay đổi dữ liệu do AI đề xuất qua Chat Box phải có OK của User; không OK thì không thực thi",
+    "Không tự thêm, không tự suy đoán dữ liệu chưa xác minh; ghi rõ 'Chưa xác minh'",
+    "Không Auto Swap Model, không tự chuyển sang Model trả phí",
+    "Cấu hình AI chỉ ở Settings; Chat Box chỉ chọn Provider/Model",
+    "Deadline không tự động xóa kể cả khi qua hạn",
+    "Không tạo thư mục exports/ mặc định; Export mặc định vào Downloads",
+    "Logo đã lưu phải hiển thị khi offline",
+    "API Key không bao giờ ở dạng văn bản thuần trên đĩa, không log, không gửi sang renderer sau khi lưu",
+    "Không báo thành công giả; mọi thao tác AI ghi dữ liệu phải đọc lại để kiểm tra",
+    "Không thêm tính năng ngoài Design Pack khi chưa được User duyệt",
+    "Dự án code nằm trong D:\\AI-AGENT\\ (LOCK L1 của bộ rule)"
+  ],
+  "medium": {
+    "roles": [
+      "user: thao tác đầy đủ mọi chức năng",
+      "ai_agent: chỉ gồm Scan, Check News, Chat quản lý dự án qua tool whitelist; không có quyền Settings, không có quyền xóa/sửa khi chưa có OK"
+    ],
+    "data_entities": [
+      "Project (category event_mmo|airdrop, tên, website, socials, nội dung nhiệm vụ, cách tham gia, start/end date, cost_type + amount, status, verification + sources, logo_path, notes, origin)",
+      "RevenueEntry (project_id nullable + tên snapshot, reward_kind cash|token|points, symbol, ước tính, thực nhận, USD do User nhập, claim_status, chi phí, phí giao dịch, tx_hash, bằng chứng)",
+      "NewsItem (project_id, kind important|todo, summary, verification, source_url, published_at, dedupe_hash, todo_deadline, is_done)",
+      "ScanLatest (kết quả scan gần nhất, 1 dòng)",
+      "Settings JSON ngoài DB (dataPath, appearance, provider/model, lựa chọn gần nhất)",
+      "Secret (API Key, headers) mã hóa riêng",
+      "ChatSession và PendingAction chỉ trong bộ nhớ"
+    ],
+    "database": "SQLite một file, truy cập đồng bộ trong main process, migration theo PRAGMA user_version, foreign_keys ON.",
+    "api_integration": "LLM API của OpenAI, Anthropic, OpenCode, Google và Custom (adapter gọi trực tiếp bằng fetch ở main process); Web Search (chức năng search của Provider nếu có); Web Fetch tự cài đặt với bảo vệ SSRF; lấy logo từ website dự án.",
+    "authentication": "Không có đăng nhập (app cục bộ một người dùng). API Key Provider bảo vệ bằng safeStorage của hệ điều hành.",
+    "deployment": "Đóng gói installer Windows bằng electron-builder (đề xuất). Không có server. Không auto-update trong v1."
+  },
+  "open_questions": [
+    {
+      "id": "OQ-1",
+      "topic": "Model không hỗ trợ Web Search",
+      "issue": "D.6 bắt buộc dùng Web Search nhưng Provider Custom/OpenCode có thể không có search gắn sẵn.",
+      "default": "Chặn Scan Project/Check News với thông báo rõ ('Model này không hỗ trợ web search'), không cho kết quả giả. Không Auto Swap.",
+      "alternatives": [
+        "Chế độ giảm cấp: chỉ Web Fetch các URL có sẵn trong input, mọi thứ khác ghi Chưa xác minh",
+        "Thêm Search API bên ngoài (cần thêm trường key trong Settings, ngoài phạm vi C hiện tại)"
+      ]
+    },
+    {
+      "id": "OQ-2",
+      "topic": "Độ chặt của khóa khi AI đang chạy",
+      "issue": "A.3 chỉ cho phép click link và mở chi tiết. Chuyển tab/tìm kiếm/lọc có bị khóa không?",
+      "default": "Đúng nghĩa A.3: khóa mọi thao tác khác; thêm nút Hủy AI (bắt buộc để User không bị kẹt). Hằng LOCK_POLICY để nới lỏng sau.",
+      "alternatives": [
+        "Cho phép thêm: chuyển tab chỉ xem, tìm kiếm, lọc"
+      ]
+    },
+    {
+      "id": "OQ-3",
+      "topic": "Xác nhận cho Scan và Check News",
+      "issue": "B.3.6 yêu cầu OK cho mọi thay đổi dữ liệu, nhưng B.1 đã chốt 'chọn rồi nhấn Gửi', B.2 chỉ có nút Check News.",
+      "default": "Nút Gửi (Scan) và nút Check News là lệnh rõ ràng của User, không thêm hộp OK. OK/Cancel áp dụng cho thêm/sửa/xóa qua Chat Box.",
+      "alternatives": [
+        "Thêm hộp xác nhận trước khi Gửi"
+      ]
+    },
+    {
+      "id": "OQ-4",
+      "topic": "Đánh dấu 'Việc cần làm ngay' đã xử lý",
+      "issue": "Draft không nói User có thể đánh dấu xong.",
+      "default": "Có ô tick 'Đã xử lý' (không xóa mục), mục đã xử lý xuống cuối.",
+      "alternatives": [
+        "Không có tick, mục hiện mãi"
+      ]
+    },
+    {
+      "id": "OQ-5",
+      "topic": "Khung Deadline sắp hết",
+      "issue": "Draft nói 'gần đến hạn, đặc biệt khi còn 3 ngày'.",
+      "default": "Tính trực tiếp từ dự án chưa Hoàn thành: ≤ 3 ngày (nhấn mạnh), 4-14 ngày (sắp tới), quá hạn (nhóm 'Đã qua hạn - giữ để tra cứu', không tự xóa). Hoạt động cả khi offline.",
+      "alternatives": [
+        "Chỉ hiện ≤ 3 ngày"
+      ]
+    },
+    {
+      "id": "OQ-6",
+      "topic": "Nhóm 'Không đủ bằng chứng' trong Scan",
+      "issue": "Draft chỉ có 2 nhóm Event MMO/Airdrop; AI có thể không phân loại được mà không suy đoán.",
+      "default": "Thêm nhóm thứ 3 'Không đủ bằng chứng', hiện lý do, không cho chọn/Gửi.",
+      "alternatives": [
+        "Ép vào 2 nhóm và gắn nhãn Chưa xác minh"
+      ]
+    },
+    {
+      "id": "OQ-7",
+      "topic": "Cách tính tổng Doanh thu",
+      "issue": "Draft cấm suy đoán giá trị, nhưng cần tổng hợp đa tiền tệ.",
+      "default": "Chỉ cộng vào tổng USD những khoản có giá trị USD do User nhập; khoản thực nhận chưa quy đổi và points hiện riêng 'Chưa quy đổi' (số lượng theo symbol) và không tính vào doanh thu. Tổng chi phí = chi phí tham gia + phí giao dịch của các khoản doanh thu. Lãi thực tế = tổng thu thực nhận USD - tổng chi phí.",
+      "alternatives": [
+        "Tự lấy giá token qua API giá (ngoài phạm vi, đề xuất sau)"
+      ]
+    },
+    {
+      "id": "OQ-8",
+      "topic": "Đường dẫn Data mặc định và khi đổi đường dẫn",
+      "issue": "Draft không nêu mặc định và không nêu xử lý dữ liệu cũ khi đổi.",
+      "default": "Mặc định Documents\\MMO-APP-DATA. Khi đổi: hỏi sao chép dữ liệu hiện có sang thư mục mới (kiểm tra rồi mới chuyển), không tự xóa thư mục cũ, không ghi đè database có sẵn.",
+      "alternatives": [
+        "Chỉ trỏ sang thư mục mới, không sao chép"
+      ]
+    },
+    {
+      "id": "OQ-9",
+      "topic": "Logo từ avatar X",
+      "issue": "Trang X cần đăng nhập và render bằng JS nên khó lấy avatar trực tiếp.",
+      "default": "Thử lấy logo từ website chính thức; avatar X chỉ 'cố gắng' (có thể thất bại); thất bại thì dùng chữ cái đầu; không dùng dịch vụ bên thứ ba.",
+      "alternatives": [
+        "Dùng dịch vụ avatar bên thứ ba (gửi tên tài khoản X ra ngoài)"
+      ]
+    },
+    {
+      "id": "OQ-10",
+      "topic": "Dependency bổ sung",
+      "issue": "E.1 chỉ chốt nền tảng; cần thêm thư viện để làm được SQLite, validate, đóng gói, test.",
+      "default": "better-sqlite3 (SQLite), zod (validate input AI/JSON/IPC), electron-builder (đóng gói), vitest (test logic thuần). Không dùng AI SDK, không router, không state lib, không UI lib.",
+      "alternatives": [
+        "Dùng node:sqlite nếu phiên bản Electron đã chọn hỗ trợ ổn định (phải xác minh trong WI-1)"
+      ]
+    },
+    {
+      "id": "OQ-11",
+      "topic": "Thư mục dự án code",
+      "issue": "LOCK L1 yêu cầu trong D:\\AI-AGENT\\.",
+      "default": "D:\\AI-AGENT\\CODE\\mmo-manager\\",
+      "alternatives": []
+    },
+    {
+      "id": "OQ-12",
+      "topic": "Export cấu hình AI",
+      "issue": "E.2.1 nói 'mặc định không xuất API Key', ngụ ý có tùy chọn.",
+      "default": "Có nút Export cấu hình; ô 'Bao gồm API Key' mặc định TẮT, bật thì hiện cảnh báo đỏ.",
+      "alternatives": [
+        "Không bao giờ xuất API Key"
+      ]
+    },
+    {
+      "id": "OQ-13",
+      "topic": "Phạm vi nút Test",
+      "issue": "Test cần kiểm tra 'kết nối và khả năng sử dụng Model'.",
+      "default": "2 yêu cầu nhỏ: (1) hỏi đáp ngắn; (2) thử gọi tool (Scan/Check News/Chat cần tool calling). Hiện OK kèm huy hiệu khả năng (tool calling, web search) hoặc Failed kèm nguyên nhân.",
+      "alternatives": [
+        "Chỉ 1 yêu cầu hỏi đáp"
+      ]
+    },
+    {
+      "id": "OQ-14",
+      "topic": "Giao diện: chỉ Dark",
+      "issue": "Schema UI có light/dark; draft chỉ chốt Dark Navy + Teal và không có công tắc theme.",
+      "default": "Chỉ Dark; không thêm toggle theme.",
+      "alternatives": [
+        "Thêm theme sáng"
+      ]
+    }
+  ],
+  "confirmed_by_user": false,
+  "confirmation_note": "Bản nháp Design Pack tổng hợp từ bản thảo luận A-E và bộ rule. User chưa duyệt: các mục status=proposed và open_questions cần chốt trước khi chuyển sang Phase 2 BUILD."
+}

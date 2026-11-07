@@ -1,0 +1,63 @@
+:root {
+  --color-primary: #14b8a6;
+  --color-primary-hover: #2dd4bf;
+  --color-primary-active: #0f9f8f;
+  --color-on-primary: #04141a;
+  --color-secondary: #18243d;
+  --color-secondary-hover: #1f2e4d;
+  --color-background: #0b1220;
+  --color-surface: #111a2e;
+  --color-surface-raised: #18243d;
+  --color-text: #e6edf7;
+  --color-muted: #9aabc7;
+  --color-border: #2a3a5a;
+  --color-border-strong: #7a8fb5;
+  --color-focus: #2dd4bf;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+  --color-danger-solid: #b91c1c;
+  --color-on-danger-solid: #ffffff;
+  --color-overlay: rgba(5, 9, 18, 0.64);
+
+  --color-primary-soft: rgba(20, 184, 166, 0.16);
+  --color-warning-soft: rgba(251, 191, 36, 0.16);
+  --color-error-soft: rgba(248, 113, 113, 0.16);
+  --color-success-soft: rgba(52, 211, 153, 0.16);
+  --color-info-soft: rgba(96, 165, 250, 0.16);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 2.5rem;
+  --space-8: 3rem;
+  --space-9: 4rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-pill: 999px;
+
+  --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Mono', Consolas, monospace;
+  --font-size-base: 16px;
+  --font-weight-base: 400;
+
+  --sidebar-width: 15rem;
+  --sidebar-collapsed-width: 4.5rem;
+  --lock-banner-height: 3rem;
+  --content-max-width: 75rem;
+  --screen-padding: 1.5rem;
+
+  --shadow-raised: 0 12px 32px rgba(3, 7, 16, 0.45);
+  --transition-fast: 120ms ease;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: var(--sidebar-collapsed-width);
+  }
+}
