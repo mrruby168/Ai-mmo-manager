@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { NewsItem, Project, DeadlineItem, NewsImportPreview } from '@shared/types'
 import { getDeadlineInfo, todayDateOnly } from '@shared/date-utils'
+import {
+  buildDeadlineRows,
+  buildHeadline,
+  formatDmy,
+  MILESTONE_LABEL,
+  oneLine,
+  selectTopImportantPerProject
+} from '@shared/newsView'
 import { ProjectLogo } from '../../common/ProjectLogo'
 import { VerificationBadge } from '../../common/Badge'
 import { Button } from '../../common/Button'
@@ -37,7 +45,6 @@ export function NewsPage(): React.JSX.Element {
 
   const [important, setImportant] = useState<NewsItem[]>([])
   const [todos, setTodos] = useState<NewsItem[]>([])
-  const [deadlines, setDeadlines] = useState<DeadlineItem[]>([])
   const [projectsById, setProjectsById] = useState<Map<string, Project>>(new Map())
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
@@ -52,9 +59,8 @@ export function NewsPage(): React.JSX.Element {
   const [importBusy, setImportBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const [listResult, deadlinesResult, projectsResult] = await Promise.all([
+    const [listResult, projectsResult] = await Promise.all([
       window.api.news.list(),
-      window.api.news.deadlines(),
       window.api.projects.list()
     ])
 
@@ -65,10 +71,6 @@ export function NewsPage(): React.JSX.Element {
       setError(null)
     } else {
       setError(listResult.error.message)
-    }
-
-    if (deadlinesResult.ok) {
-      setDeadlines(deadlinesResult.data)
     }
 
     if (projectsResult.ok) {
@@ -173,17 +175,21 @@ export function NewsPage(): React.JSX.Element {
     refreshData()
   }
 
-  const verifiedImportant = sortByVerification(important.filter((item) => item.verification === 'verified'))
-  const unverifiedImportant = important.filter((item) => item.verification !== 'verified')
+  const today = todayDateOnly()
+  const topImportant = selectTopImportantPerProject(important, today)
+  const deadlineRows = buildDeadlineRows(
+    [...projectsById.values()],
+    [...important, ...todos],
+    today
+  )
+
   const verifiedTodos = sortByVerification(todos.filter((item) => !item.isDone && item.verification === 'verified'))
   const unverifiedTodos = todos.filter((item) => !item.isDone && item.verification !== 'verified')
   const doneTodos = todos.filter((item) => item.isDone)
 
-  const urgent = deadlines.filter((item) => item.daysRemaining <= 3 && item.daysRemaining >= 0)
-  const soon = deadlines.filter((item) => item.daysRemaining >= 4 && item.daysRemaining <= 14)
-  const expired = deadlines.filter((item) => item.daysRemaining < 0)
-
-  const today = todayDateOnly()
+  const urgent = deadlineRows.filter((item) => item.daysRemaining <= 3 && item.daysRemaining >= 0)
+  const soon = deadlineRows.filter((item) => item.daysRemaining >= 4 && item.daysRemaining <= 14)
+  const expired = deadlineRows.filter((item) => item.daysRemaining < 0)
 
   if (loading && important.length === 0 && todos.length === 0) {
     return <LoadingBlock message="Đang tải tin tức…" />
@@ -195,7 +201,7 @@ export function NewsPage(): React.JSX.Element {
         <div className="page-header__title">
           <h1>News</h1>
           <span className="page-header__subtitle">
-            {lastCheckedAt ? `Kiểm tra gần nhất: ${new Date(lastCheckedAt).toLocaleString('vi-VN')}` : 'Chưa kiểm tra lần nào'} · Tin mới trong ngày
+            {lastCheckedAt ? `Kiểm tra gần nhất: ${new Date(lastCheckedAt).toLocaleString('vi-VN')}` : 'Chưa kiểm tra lần nào'} · 7 ngày gần nhất
           </span>
         </div>
         <div className="row row--wrap">
@@ -216,35 +222,28 @@ export function NewsPage(): React.JSX.Element {
         <section className="card stack news-panel">
           <div className="section-title">
             <h2>Tin quan trọng mới</h2>
-            <span className="muted">{important.length} tin</span>
+            <span className="muted">{topImportant.length} dự án</span>
           </div>
 
-          {important.length === 0 ? (
+          {topImportant.length === 0 ? (
             <EmptyState
               title="Chưa có tin nào"
               message={
                 isAiEnabled
-                  ? 'Bấm Check News để AI tìm tin mới trong ngày.'
+                  ? 'Bấm Check News để AI tìm tin trong 7 ngày gần nhất.'
                   : 'Bấm Check News để tạo Prompt, hoặc Import News từ file JSON.'
               }
             />
           ) : (
             <div className="news-list">
-              {verifiedImportant.length > 0 ? (
-                <>
-                  {verifiedImportant.map((item) => (
-                    <NewsFeedItem key={item.id} item={item} project={projectsById.get(item.projectId)} onOpenProject={openProject} />
-                  ))}
-                </>
-              ) : null}
-              {unverifiedImportant.length > 0 ? (
-                <>
-                  <h3 className="news-group-title muted">Chưa xác minh</h3>
-                  {unverifiedImportant.map((item) => (
-                    <NewsFeedItem key={item.id} item={item} project={projectsById.get(item.projectId)} onOpenProject={openProject} unverified />
-                  ))}
-                </>
-              ) : null}
+              {topImportant.map((item) => (
+                <NewsHeadlineRow
+                  key={item.id}
+                  item={item}
+                  project={projectsById.get(item.projectId)}
+                  onOpenProject={openProject}
+                />
+              ))}
             </div>
           )}
         </section>
@@ -253,17 +252,17 @@ export function NewsPage(): React.JSX.Element {
           <section className="card stack news-panel">
             <div className="section-title">
               <h2>Deadline sắp hết</h2>
-              <span className="muted">{urgent.length + soon.length} dự án</span>
+              <span className="muted">{urgent.length + soon.length} mốc</span>
             </div>
             {urgent.length + soon.length === 0 ? (
               <p className="muted">Không có hạn chót nào trong 14 ngày tới. Hạn đã qua hiển thị ở nhóm dưới.</p>
             ) : (
               <div className="deadline-list">
                 {urgent.map((item) => (
-                  <DeadlineRow key={item.projectId} item={item} today={today} urgent onOpenProject={openProject} />
+                  <DeadlineRow key={`${item.projectId}-${item.kind}-${item.date}`} item={item} today={today} urgent onOpenProject={openProject} />
                 ))}
                 {soon.map((item) => (
-                  <DeadlineRow key={item.projectId} item={item} today={today} onOpenProject={openProject} />
+                  <DeadlineRow key={`${item.projectId}-${item.kind}-${item.date}`} item={item} today={today} onOpenProject={openProject} />
                 ))}
               </div>
             )}
@@ -272,7 +271,7 @@ export function NewsPage(): React.JSX.Element {
                 <summary className="expired-group__summary">Đã qua hạn — giữ để tra cứu ({expired.length})</summary>
                 <div className="deadline-list">
                   {expired.map((item) => (
-                    <DeadlineRow key={item.projectId} item={item} today={today} expired onOpenProject={openProject} />
+                    <DeadlineRow key={`${item.projectId}-${item.kind}-${item.date}`} item={item} today={today} expired onOpenProject={openProject} />
                   ))}
                 </div>
               </details>
@@ -383,36 +382,41 @@ export function NewsPage(): React.JSX.Element {
   )
 }
 
-function NewsFeedItem({
+function NewsHeadlineRow({
   item,
   project,
-  onOpenProject,
-  unverified = false
+  onOpenProject
 }: {
   item: NewsItem
   project: Project | undefined
   onOpenProject: (id: string) => void
-  unverified?: boolean
 }): React.JSX.Element {
   const name = project?.name ?? 'Dự án không tồn tại'
+  const headline = buildHeadline(item)
+  const unverified = item.verification !== 'verified'
   return (
-    <article className={`news-item${unverified ? ' news-item--unverified' : ''}`}>
+    <div className={`news-row${unverified ? ' news-row--unverified' : ''}`}>
       <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
-      <div className="news-item__body">
-        <div className="news-item__meta">
-          <button type="button" className="news-item__project" data-lock-allow="true" onClick={() => onOpenProject(item.projectId)}>
-            {name}
-          </button>
-          <span>{new Date(item.publishedAt).toLocaleString('vi-VN')}</span>
-          <VerificationBadge verification={item.verification} />
-        </div>
-        <p>{item.summary}</p>
-        <div className="news-item__meta">
-          {item.sourceName ? <span>{item.sourceName}</span> : null}
-          <ExternalLink url={item.sourceUrl}>Mở bài gốc</ExternalLink>
-        </div>
-      </div>
-    </article>
+      <button
+        type="button"
+        className="news-row__project"
+        data-lock-allow="true"
+        title={name}
+        onClick={() => onOpenProject(item.projectId)}
+      >
+        {name}
+      </button>
+      <span className="news-row__dash" aria-hidden="true">
+        –
+      </span>
+      <span className="news-row__headline" title={`${headline} · ${item.summary}`}>
+        {headline}
+      </span>
+      {unverified ? <span className="news-row__badge">Chưa xác minh</span> : null}
+      <ExternalLink url={item.sourceUrl} className="news-row__link" ariaLabel="Mở bài gốc">
+        {null}
+      </ExternalLink>
+    </div>
   )
 }
 
@@ -431,11 +435,18 @@ function DeadlineRow({
 }): React.JSX.Element {
   const deadline = getDeadlineInfo(item.date, today)
   const label = expired ? `Đã quá hạn ${Math.abs(item.daysRemaining)} ngày` : deadline.text
+  const unverified = item.verification !== 'verified'
   return (
     <button type="button" className={`deadline-item${urgent ? ' deadline-item--urgent' : ''}${expired ? ' deadline-item--expired' : ''}`} data-lock-allow="true" onClick={() => onOpenProject(item.projectId)}>
       <span className="deadline-item__main">
-        <span className="deadline-item__name">{item.projectName}</span>
-        <span className="muted">{item.date}</span>
+        <ProjectLogo projectId={item.projectId} name={item.projectName} hasLogo={Boolean(item.logoPath)} size="news" />
+        <span className="deadline-item__text">
+          <span className="deadline-item__name">{item.projectName}:</span>
+          <span className="deadline-item__kind">
+            {MILESTONE_LABEL[item.kind]} {formatDmy(item.date)}
+          </span>
+          {unverified ? <span className="deadline-item__badge">Chưa xác minh</span> : null}
+        </span>
       </span>
       <span className={urgent ? 'deadline--soon_3d' : expired ? 'deadline--expired' : 'deadline--normal'}>{label}</span>
     </button>
@@ -458,13 +469,22 @@ function TodoRow({
   const name = project?.name ?? 'Dự án không tồn tại'
   return (
     <div className={`todo-item${done ? ' todo-item--done' : ''}`}>
-      <input type="checkbox" id={`todo-${item.id}`} checked={done} onChange={onToggle} aria-label={`Đánh dấu đã xử lý: ${name}`} />
+      <input
+        className="todo-item__check"
+        type="checkbox"
+        id={`todo-${item.id}`}
+        checked={done}
+        onChange={onToggle}
+        aria-label={`Đánh dấu đã xử lý: ${name}`}
+      />
       <label htmlFor={`todo-${item.id}`} className="todo-item__body">
-        <span className="todo-item__project">{name}</span>
-        <span className="todo-item__summary">{item.summary}</span>
-        <span className="todo-item__meta">
-          {item.todoDeadline ? `Hạn: ${item.todoDeadline} · ` : ''}
-          <VerificationBadge verification={item.verification} />
+        <span className="todo-item__title">
+          <span className="todo-item__project">{name}</span>
+          {item.todoDeadline ? <span className="todo-item__deadline">Hạn {formatDmy(item.todoDeadline)}</span> : null}
+          {item.verification !== 'verified' ? <VerificationBadge verification={item.verification} /> : null}
+        </span>
+        <span className="todo-item__summary" title={item.summary}>
+          {oneLine(item.summary, 160)}
         </span>
       </label>
       <button type="button" className="news-item__project" data-lock-allow="true" onClick={() => onOpenProject(item.projectId)} aria-label={`Mở chi tiết ${name}`}>

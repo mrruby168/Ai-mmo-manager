@@ -3,11 +3,13 @@ import type { ReactNode } from 'react'
 export function ExternalLink({
   url,
   children,
-  className
+  className,
+  ariaLabel
 }: {
   url: string
   children: ReactNode
   className?: string
+  ariaLabel?: string
 }): React.JSX.Element {
   async function handleClick(event: React.MouseEvent<HTMLAnchorElement>): Promise<void> {
     event.preventDefault()
@@ -21,6 +23,7 @@ export function ExternalLink({
       data-lock-allow="true"
       rel="noreferrer noopener"
       title={url}
+      aria-label={ariaLabel}
       onClick={(event) => void handleClick(event)}
     >
       {children} <span aria-hidden="true">↗</span>
