@@ -22,13 +22,8 @@
 .sidebar__brand-mark {
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
   display: grid;
   place-items: center;
-  font-size: 0.875rem;
-  font-weight: 700;
 }
 
 .sidebar__item {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useApp } from '../state/AppContext'
 import type { TabId } from '../state/AppContext'
 import { useLock } from '../state/LockContext'
+import appIcon from '../assets/new-icon.svg'
 
 interface TabDefinition {
   id: TabId
@@ -107,7 +108,7 @@ export function Sidebar(): React.JSX.Element {
     <nav className="sidebar" aria-label="Điều hướng chính">
       <div className="sidebar__brand">
         <span className="sidebar__brand-mark" aria-hidden="true">
-          M
+          <img src={appIcon} width={28} height={28} alt="" aria-hidden="true" />
         </span>
         <span className="sidebar__brand-text">MMO Manager</span>
       </div>
