@@ -30,6 +30,24 @@
   --color-popup-border: #40516b;
   --color-popup-text: #ffffff;
   --color-popup-hover: #243a5a;
+
+  /* Chat Box (FIX 5c) — chỉ dùng trong Chat, không đổi theme trang khác. */
+  --chat-panel-bg: #111a2a;
+  --chat-panel-border: #2d3b50;
+  --chat-surface: #172235;
+  --chat-surface-secondary: #1d2a3d;
+  --chat-input-bg: #0f1827;
+  --chat-border-strong: #40516b;
+  --chat-text: #ffffff;
+  --chat-text-secondary: #b8c4d6;
+  --chat-text-muted: #7f8da3;
+  --chat-text-disabled: #59677a;
+  --chat-user-bg: #243a5a;
+  --chat-ai-bg: #182638;
+  --chat-pending-bg: #202d41;
+  --chat-danger-bg: #2a2028;
+  --chat-danger-text: #ff8d9a;
+  --chat-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   --color-warning-soft: rgba(251, 191, 36, 0.16);
   --color-error-soft: rgba(248, 113, 113, 0.16);
   --color-success-soft: rgba(52, 211, 153, 0.16);

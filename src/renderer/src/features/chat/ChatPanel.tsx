@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AppSettings, ChatChoice, PendingAction } from '@shared/types'
+import { chatRoleLabel, formatChatTime } from '@shared/chatView'
+import type { ChatRole } from '@shared/chatView'
 import { Button } from '../../common/Button'
-import { Select } from '../../common/Field'
+import { Listbox } from '../../common/Listbox'
+import type { ListboxOption } from '../../common/Listbox'
+import { ProviderLogo } from '../../common/ProviderLogo'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
 
 interface ChatMessage {
   id: number
-  role: 'user' | 'assistant' | 'system'
+  role: ChatRole
   text: string
+  at: string
   choices?: ChatChoice[]
   pendingAction?: PendingAction | null
 }
@@ -29,11 +34,11 @@ function SparkleIcon({ size = 16 }: ChatIconProps): React.JSX.Element {
   )
 }
 
-function RefreshIcon({ size = 18 }: ChatIconProps): React.JSX.Element {
+function UserIcon({ size = 16 }: ChatIconProps): React.JSX.Element {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-      <path d="M20 12a8 8 0 1 1-2.4-5.7" />
-      <path d="M20 4.5V9h-4.5" />
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5 19.5c0-3.2 3.1-5.5 7-5.5s7 2.3 7 5.5" />
     </svg>
   )
 }
@@ -86,6 +91,16 @@ function StopIcon({ size = 20 }: ChatIconProps): React.JSX.Element {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
       <rect x="6" y="6" width="12" height="12" rx="2" />
+    </svg>
+  )
+}
+
+function WarningIcon({ size = 18 }: ChatIconProps): React.JSX.Element {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3.5L21 20H3l9-16.5z" />
+      <path d="M12 9.5v5" />
+      <path d="M12 17.2v.3" />
     </svg>
   )
 }
@@ -152,6 +167,18 @@ export function ChatPanel(): React.JSX.Element {
   const currentModel = models.find((model) => model.id === modelId) ?? null
   const canChat = isAiEnabled && Boolean(currentProvider && currentModel) && !isAiBusy && !sending
 
+  const providerOptions: ListboxOption[] = providers.map((provider) => ({
+    value: provider.id,
+    label: provider.name,
+    icon: <ProviderLogo name={provider.name} baseUrl={provider.baseUrl} size={18} />
+  }))
+
+  const modelOptions: ListboxOption[] = models.map((model) => ({
+    value: model.id,
+    label: model.label,
+    badge: model.costTier === 'paid' ? 'Paid' : 'Free'
+  }))
+
   function id(): number {
     const value = nextId.current
     nextId.current += 1
@@ -182,8 +209,8 @@ export function ChatPanel(): React.JSX.Element {
     }
   }
 
-  function appendMessage(message: Omit<ChatMessage, 'id'>): void {
-    setMessages((current) => [...current, { ...message, id: id() }])
+  function appendMessage(message: Omit<ChatMessage, 'id' | 'at'>): void {
+    setMessages((current) => [...current, { ...message, id: id(), at: new Date().toISOString() }])
   }
 
   function handleNewChat(): void {
@@ -300,23 +327,17 @@ export function ChatPanel(): React.JSX.Element {
   return (
     <>
       {open && isAiEnabled ? (
-        <div className="chat-panel" role="dialog" aria-label="AI Chat Box">
+        <div className="chat-panel" role="dialog" aria-modal="false" aria-label="AI Chat Box">
           <div className="chat-panel__header">
             <span className="chat-panel__badge" aria-hidden="true">
-              <SparkleIcon size={16} />
+              <SparkleIcon size={18} />
             </span>
             <h2 className="chat-panel__title">AI Chat</h2>
             <span className="chat-panel__spacer" />
-            <button
-              type="button"
-              className="chat-icon-btn"
-              onClick={handleNewChat}
-              disabled={sending}
-              aria-label="Cuộc trò chuyện mới"
-              title="Cuộc trò chuyện mới"
-            >
-              <RefreshIcon />
-            </button>
+            <Button className="chat-new" size="sm" variant="primary" disabled={sending} onClick={handleNewChat}>
+              <PlusIcon />
+              <span>New Chat</span>
+            </Button>
             <button
               type="button"
               className="chat-icon-btn"
@@ -328,44 +349,29 @@ export function ChatPanel(): React.JSX.Element {
             </button>
           </div>
 
-          <div className="chat-model-row" role="group" aria-label="Chọn Provider và Model">
-            <div className="chat-model-pill">
-              <Select
-                className="chat-model-pill__provider"
-                value={providerId}
-                onChange={(event) => handleProviderChange(event.target.value)}
-                disabled={sending || providers.length === 0}
-                aria-label="Chọn Provider"
-                title={currentProvider ? currentProvider.name : 'Chưa cấu hình Provider'}
-              >
-                {providers.length === 0 ? <option value="">Chưa cấu hình</option> : null}
-                {providers.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.name}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                className="chat-model-pill__model"
-                value={modelId}
-                onChange={(event) => handleModelChange(event.target.value)}
-                disabled={sending || models.length === 0}
-                aria-label="Chọn Model"
-                title={currentModel ? `${currentProvider?.name ?? ''} · ${currentModel.label}` : 'Chưa có Model'}
-              >
-                {models.length === 0 ? <option value="">Không có Model</option> : null}
-                {models.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            {currentModel ? (
-              <span className={`chat-model-tier chat-model-tier--${currentModel.costTier}`}>
-                {currentModel.costTier === 'paid' ? 'Paid' : 'Free'}
-              </span>
-            ) : null}
+          <div className="chat-selectors" role="group" aria-label="Chọn Provider và Model">
+            <Listbox
+              className="chat-selector chat-selector--provider"
+              label="Provider"
+              ariaLabel="Chọn Provider"
+              options={providerOptions}
+              value={providerId}
+              placeholder={providers.length === 0 ? 'Chưa cấu hình' : 'Chọn Provider'}
+              disabled={sending || providers.length === 0}
+              onChange={handleProviderChange}
+              title={currentProvider ? currentProvider.name : 'Chưa cấu hình Provider'}
+            />
+            <Listbox
+              className="chat-selector chat-selector--model"
+              label="Model"
+              ariaLabel="Chọn Model"
+              options={modelOptions}
+              value={modelId}
+              placeholder={models.length === 0 ? 'Không có Model' : 'Chọn Model'}
+              disabled={sending || models.length === 0}
+              onChange={handleModelChange}
+              title={currentModel ? `${currentProvider?.name ?? ''} · ${currentModel.label}` : 'Chưa có Model'}
+            />
           </div>
 
           <div className="chat-quick-actions">
@@ -399,35 +405,52 @@ export function ChatPanel(): React.JSX.Element {
                 <p className="chat-empty__hint">Mọi thay đổi dữ liệu đều cần bạn bấm OK trước khi thực hiện.</p>
               </div>
             ) : null}
-            {messages.map((message) => (
-              <div key={message.id} className={`chat-message chat-message--${message.role}`}>
-                {message.text}
-                {message.choices && message.choices.length > 0 ? (
-                  <div className="chat-choices">
-                    {message.choices.map((choice) => (
-                      <Button
-                        key={choice.id}
-                        size="sm"
-                        variant="secondary"
-                        disabled={!canChat}
-                        onClick={() => void handleChoose(choice.id, choice.label)}
-                      >
-                        {choice.label}
-                      </Button>
-                    ))}
+            {messages.map((message) =>
+              message.role === 'system' ? (
+                <div key={message.id} className="chat-notice">
+                  {message.text}
+                </div>
+              ) : (
+                <div key={message.id} className={`chat-row chat-row--${message.role}`}>
+                  <span className={`chat-avatar chat-avatar--${message.role}`} aria-hidden="true">
+                    {message.role === 'user' ? <UserIcon size={16} /> : <SparkleIcon size={16} />}
+                  </span>
+                  <div className="chat-message-stack">
+                    <div className="chat-message-head">
+                      <span className="chat-sender">{chatRoleLabel(message.role)}</span>
+                      <time className="chat-time" dateTime={message.at}>
+                        {formatChatTime(message.at)}
+                      </time>
+                    </div>
+                    <div className={`chat-bubble chat-bubble--${message.role}`}>{message.text}</div>
+                    {message.choices && message.choices.length > 0 ? (
+                      <div className="chat-choices">
+                        {message.choices.map((choice) => (
+                          <Button
+                            key={choice.id}
+                            size="sm"
+                            variant="secondary"
+                            disabled={!canChat}
+                            onClick={() => void handleChoose(choice.id, choice.label)}
+                          >
+                            {choice.label}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {message.pendingAction ? (
+                      <PendingActionCard
+                        action={message.pendingAction}
+                        busy={confirmingActionId === message.pendingAction.id}
+                        onConfirm={() => void handleConfirm(message.pendingAction!.id)}
+                        onCancel={() => void handleCancelAction(message.pendingAction!.id)}
+                      />
+                    ) : null}
                   </div>
-                ) : null}
-                {message.pendingAction ? (
-                  <PendingActionCard
-                    action={message.pendingAction}
-                    busy={confirmingActionId === message.pendingAction.id}
-                    onConfirm={() => void handleConfirm(message.pendingAction!.id)}
-                    onCancel={() => void handleCancelAction(message.pendingAction!.id)}
-                  />
-                ) : null}
-              </div>
-            ))}
-            {sending ? <div className="chat-message chat-message--system">AI đang xử lý…</div> : null}
+                </div>
+              )
+            )}
+            {sending ? <div className="chat-notice">AI đang xử lý…</div> : null}
             <div ref={messagesEndRef} />
           </div>
 
@@ -440,13 +463,13 @@ export function ChatPanel(): React.JSX.Element {
                 AI đang thực thi…
               </div>
             ) : null}
-            <div className="chat-composer__row">
+            <div className="chat-composer__box">
               <textarea
-                className="chat-composer__input field__control"
+                className="chat-composer__input"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder={currentModel ? `Hỏi AI (${currentModel.label})…` : 'Chưa có Model, vào Settings để cấu hình'}
-                rows={2}
+                placeholder={currentModel ? 'Nhập tin nhắn…' : 'Chưa có Model, vào Settings để cấu hình'}
+                rows={1}
                 aria-label="Nội dung tin nhắn"
                 disabled={isAiBusy || sending}
                 onKeyDown={(event) => {
@@ -522,6 +545,12 @@ function PendingActionCard({
 }): React.JSX.Element {
   return (
     <div className="pending-action" role="group" aria-label="Xác nhận hành động">
+      <div className="pending-action__heading">
+        <span className="pending-action__icon" aria-hidden="true">
+          <WarningIcon />
+        </span>
+        <span className="pending-action__label">PendingAction</span>
+      </div>
       <div className="pending-action__title">{action.summary}</div>
       <div className="pending-action__details">
         {action.details.map((detail, index) => (
