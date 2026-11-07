@@ -4,8 +4,18 @@
   box-sizing: border-box;
 }
 
+:root {
+  color-scheme: dark;
+}
+
 html {
   font-size: var(--font-size-base);
+}
+
+/* Popup native của <select> không thừa hưởng biến CSS, phải đặt trực tiếp. */
+select option {
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 html,
