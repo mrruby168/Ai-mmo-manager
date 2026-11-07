@@ -125,6 +125,32 @@ export const newsResultSchema = z.object({
   items: z.array(newsItemSchema).max(500)
 })
 
+/**
+ * FIX 1: hand-entered news in No AI Mode. `sourceUrl` is optional here because
+ * the user may only know the announcement. One `date` field covers all three
+ * panels: todo deadline, milestone date or published date.
+ */
+export const newsManualInputSchema = z
+  .object({
+    projectId: z.string().trim().min(1, 'Chọn dự án').max(64),
+    kind: z.enum(NEWS_KINDS),
+    summary: z.string().trim().min(1, 'Tóm tắt không được rỗng').max(280),
+    verification: z.enum(VERIFICATION_STATES),
+    sourceUrl: optionalUrl,
+    sourceName: z.string().trim().max(200).nullable().optional(),
+    date: dateOnly,
+    milestoneKind: z.enum(MILESTONE_KINDS).nullable().optional()
+  })
+  .superRefine((value, ctx) => {
+    if (value.kind === 'todo' && value.milestoneKind) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['milestoneKind'],
+        message: 'Việc cần làm không có loại mốc'
+      })
+    }
+  })
+
 export const modelConfigSchema = z.object({
   id: z.string().trim().min(1).max(200),
   label: z.string().trim().min(1).max(200),
@@ -218,5 +244,6 @@ export type ScanResultInput = z.infer<typeof scanResultSchema>
 export type ScanItemInput = z.infer<typeof scanItemSchema>
 export type NewsResultInput = z.infer<typeof newsResultSchema>
 export type NewsItemInput = z.infer<typeof newsItemSchema>
+export type NewsManualInput = z.infer<typeof newsManualInputSchema>
 export type AiConfigImport = z.infer<typeof aiConfigImportSchema>
 export type RevenueInput = z.infer<typeof revenueInputSchema>

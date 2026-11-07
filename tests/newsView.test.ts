@@ -169,6 +169,25 @@ describe('newsView — chọn một tin quan trọng mỗi dự án (FIX 1)', ()
 })
 
 describe('newsView — gộp dòng deadline (FIX 1)', () => {
+  it('gắn newsId cho mốc đến từ news và null cho end_date của dự án', () => {
+    const rows = buildDeadlineRows(
+      [project({ endDate: '2026-11-10' })],
+      [
+        {
+          id: 42,
+          projectId: 'PRJ-001',
+          verification: 'verified',
+          milestoneKind: 'snapshot',
+          milestoneDate: '2026-11-09'
+        }
+      ],
+      TODAY
+    )
+
+    expect(rows.find((row) => row.kind === 'snapshot')?.newsId).toBe(42)
+    expect(rows.find((row) => row.kind === 'end')?.newsId).toBeNull()
+  })
+
   it('một dự án có End và Snapshot thì ra hai dòng', () => {
     const rows = buildDeadlineRows(
       [project({ endDate: '2026-11-10' })],

@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppSettings, ChatChoice, PendingAction } from '@shared/types'
+import type { AppSettings, ChatChoice, ModelSelection, PendingAction } from '@shared/types'
 import { chatRoleLabel, formatChatTime } from '@shared/chatView'
 import type { ChatRole } from '@shared/chatView'
 import { Button } from '../../common/Button'
-import { Listbox } from '../../common/Listbox'
-import type { ListboxOption } from '../../common/Listbox'
-import { ProviderLogo } from '../../common/ProviderLogo'
+import { ModelPicker } from '../../common/ModelPicker'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
@@ -167,17 +165,8 @@ export function ChatPanel(): React.JSX.Element {
   const currentModel = models.find((model) => model.id === modelId) ?? null
   const canChat = isAiEnabled && Boolean(currentProvider && currentModel) && !isAiBusy && !sending
 
-  const providerOptions: ListboxOption[] = providers.map((provider) => ({
-    value: provider.id,
-    label: provider.name,
-    icon: <ProviderLogo name={provider.name} baseUrl={provider.baseUrl} size={18} />
-  }))
-
-  const modelOptions: ListboxOption[] = models.map((model) => ({
-    value: model.id,
-    label: model.label,
-    badge: model.costTier === 'paid' ? 'Paid' : 'Free'
-  }))
+  const selection: ModelSelection | null =
+    providerId && modelId ? { providerId, modelId } : null
 
   function id(): number {
     const value = nextId.current
@@ -189,23 +178,6 @@ export function ChatPanel(): React.JSX.Element {
     const result = await window.api.settings.setLastSelection({ providerId: nextProviderId, modelId: nextModelId })
     if (result.ok) {
       setSettings(result.data)
-    }
-  }
-
-  function handleProviderChange(nextProviderId: string): void {
-    const provider = providers.find((entry) => entry.id === nextProviderId)
-    const firstModel = provider?.models[0]
-    setProviderId(nextProviderId)
-    setModelId(firstModel?.id ?? '')
-    if (firstModel) {
-      void persistSelection(nextProviderId, firstModel.id)
-    }
-  }
-
-  function handleModelChange(nextModelId: string): void {
-    setModelId(nextModelId)
-    if (providerId) {
-      void persistSelection(providerId, nextModelId)
     }
   }
 
@@ -350,27 +322,17 @@ export function ChatPanel(): React.JSX.Element {
           </div>
 
           <div className="chat-selectors" role="group" aria-label="Chọn Provider và Model">
-            <Listbox
-              className="chat-selector chat-selector--provider"
-              label="Provider"
-              ariaLabel="Chọn Provider"
-              options={providerOptions}
-              value={providerId}
-              placeholder={providers.length === 0 ? 'Chưa cấu hình' : 'Chọn Provider'}
-              disabled={sending || providers.length === 0}
-              onChange={handleProviderChange}
-              title={currentProvider ? currentProvider.name : 'Chưa cấu hình Provider'}
-            />
-            <Listbox
-              className="chat-selector chat-selector--model"
-              label="Model"
-              ariaLabel="Chọn Model"
-              options={modelOptions}
-              value={modelId}
-              placeholder={models.length === 0 ? 'Không có Model' : 'Chọn Model'}
-              disabled={sending || models.length === 0}
-              onChange={handleModelChange}
-              title={currentModel ? `${currentProvider?.name ?? ''} · ${currentModel.label}` : 'Chưa có Model'}
+            <ModelPicker
+              className="chat-model-picker"
+              label="AI Chat"
+              providers={providers}
+              value={selection}
+              disabled={sending}
+              onChange={(next) => {
+                setProviderId(next.providerId)
+                setModelId(next.modelId)
+                void persistSelection(next.providerId, next.modelId)
+              }}
             />
           </div>
 

@@ -10,8 +10,11 @@ import {
   chatSendPayload,
   dataPathPayload,
   lastSelectionPayload,
+  newsCreatePayload,
+  newsDeletePayload,
   newsImportConfirmPayload,
   newsTogglePayload,
+  newsUpdatePayload,
   projectsCreatePayload,
   projectsExportPayload,
   projectsIdPayload,
@@ -28,6 +31,7 @@ import {
   revenueSavePayload,
   scanStartPayload,
   scanSubmitPayload,
+  taskSelectionPayload,
   webSearchSavePayload,
   webSearchTestPayload
 } from '../src/main/ipc/payloadSchemas'
@@ -114,6 +118,40 @@ const contracts: Array<{ channel: string; schema: { parse: (value: unknown) => u
 
   { channel: IPC.newsToggleTodo, schema: newsTogglePayload, payload: { id: 3, isDone: true } },
   { channel: IPC.newsImportConfirm, schema: newsImportConfirmPayload, payload: { token: 'token-1' } },
+  {
+    channel: IPC.newsCreate,
+    schema: newsCreatePayload,
+    payload: {
+      input: {
+        projectId: 'p-1',
+        kind: 'important',
+        summary: 'Tin mới',
+        verification: 'verified',
+        sourceUrl: null,
+        sourceName: null,
+        date: '2026-11-20',
+        milestoneKind: 'snapshot'
+      }
+    }
+  },
+  {
+    channel: IPC.newsUpdate,
+    schema: newsUpdatePayload,
+    payload: {
+      id: 3,
+      input: {
+        projectId: 'p-1',
+        kind: 'todo',
+        summary: 'Việc cần làm',
+        verification: 'unverified',
+        sourceUrl: 'https://example.com/news',
+        sourceName: 'Example',
+        date: '2026-11-18',
+        milestoneKind: null
+      }
+    }
+  },
+  { channel: IPC.newsDelete, schema: newsDeletePayload, payload: { id: 3 } },
 
   { channel: IPC.scanStart, schema: scanStartPayload, payload: { text: 'danh sách dự án', fileName: 'scan.txt' } },
   { channel: IPC.scanSubmit, schema: scanSubmitPayload, payload: { names: ['Alpha', 'Beta'] } },
@@ -128,6 +166,16 @@ const contracts: Array<{ channel: string; schema: { parse: (value: unknown) => u
   { channel: IPC.chatCancelAction, schema: actionIdPayload, payload: { actionId: 'action-1' } },
 
   { channel: IPC.settingsSetLastSelection, schema: lastSelectionPayload, payload: { providerId: 'p', modelId: 'm' } },
+  {
+    channel: IPC.settingsSetTaskSelection,
+    schema: taskSelectionPayload,
+    payload: { task: 'news', selection: { providerId: 'p', modelId: 'm' } }
+  },
+  {
+    channel: IPC.settingsSetTaskSelection,
+    schema: taskSelectionPayload,
+    payload: { task: 'scan', selection: null }
+  },
   { channel: IPC.settingsSetAiMode, schema: aiModePayload, payload: { aiMode: 'noai' } },
   {
     channel: IPC.settingsSetAppearance,
@@ -215,5 +263,22 @@ describe('IPC validation errors', () => {
     const formatted = formatZodError(result.error as ZodError, IPC.chatSend)
     expect(formatted.message).toContain(IPC.chatSend)
     expect(formatted.message).toContain('Payload')
+  })
+
+  it('rejects invalid news CRUD input and names the channel', () => {
+    const badCreate = newsCreatePayload.safeParse({ input: { projectId: 'p-1', kind: 'important', summary: '' } })
+    expect(badCreate.success).toBe(false)
+    const formatted = formatZodError(badCreate.error as ZodError, IPC.newsCreate)
+    expect(formatted.message).toContain(IPC.newsCreate)
+
+    expect(newsUpdatePayload.safeParse({ id: 0, input: {} }).success).toBe(false)
+    expect(newsDeletePayload.safeParse({ id: -1 }).success).toBe(false)
+  })
+
+  it('rejects an unknown task for task model selection', () => {
+    const result = taskSelectionPayload.safeParse({ task: 'chat', selection: null })
+    expect(result.success).toBe(false)
+    const formatted = formatZodError(result.error as ZodError, IPC.settingsSetTaskSelection)
+    expect(formatted.message).toContain(IPC.settingsSetTaskSelection)
   })
 })

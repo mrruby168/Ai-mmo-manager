@@ -4,6 +4,7 @@ import {
   aiModeSchema,
   appearanceSchema,
   isHttpUrl,
+  newsManualInputSchema,
   providerSaveJsonSchema,
   providerSaveSchema,
   providerTestSchema
@@ -95,6 +96,17 @@ export const newsImportConfirmPayload = z.object({
   token: z.string().trim().min(1).max(64)
 })
 
+/* ---------- news manual CRUD (No AI Mode) ---------- */
+
+export const newsCreatePayload = z.object({ input: newsManualInputSchema })
+
+export const newsUpdatePayload = z.object({
+  id: z.number().int().positive(),
+  input: newsManualInputSchema
+})
+
+export const newsDeletePayload = z.object({ id: z.number().int().positive() })
+
 /* ---------- scan ---------- */
 
 export const scanStartPayload = z.object({
@@ -123,6 +135,16 @@ export const dataPathPayload = z.union([
 export const lastSelectionPayload = z.object({
   providerId: z.string().trim().min(1).max(100),
   modelId: z.string().trim().min(1).max(200)
+})
+
+export const taskSelectionPayload = z.object({
+  task: z.enum(['news', 'scan']),
+  selection: z
+    .object({
+      providerId: z.string().trim().min(1).max(100),
+      modelId: z.string().trim().min(1).max(200)
+    })
+    .nullable()
 })
 
 export const providerSavePayload = z.union([providerSaveSchema, providerSaveJsonSchema])

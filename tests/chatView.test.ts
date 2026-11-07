@@ -43,10 +43,9 @@ describe('Chat Box — bố cục và ràng buộc (FIX 5c)', () => {
     expect(css).not.toContain('.chat-model-tier')
   })
 
-  it('dùng Listbox cho Provider/Model và hiện giờ từng tin', () => {
-    expect(tsx).toContain('import { Listbox }')
-    expect(tsx).toContain('label="Provider"')
-    expect(tsx).toContain('label="Model"')
+  it('dùng ModelPicker dùng chung (bên trong là Listbox) và hiện giờ từng tin', () => {
+    expect(tsx).toContain('import { ModelPicker }')
+    expect(tsx).toContain('label="AI Chat"')
     expect(tsx).toContain('dateTime={message.at}')
     expect(tsx).toContain('formatChatTime(message.at)')
   })

@@ -23,6 +23,9 @@ export const IPC = {
   newsBuildPrompt: 'news:buildPrompt',
   newsImportPreview: 'news:importPreview',
   newsImportConfirm: 'news:importConfirm',
+  newsCreate: 'news:create',
+  newsUpdate: 'news:update',
+  newsDelete: 'news:delete',
 
   scanStart: 'scan:start',
   scanSubmit: 'scan:submit',
@@ -39,6 +42,7 @@ export const IPC = {
   settingsGet: 'settings:get',
   settingsSetAppearance: 'settings:setAppearance',
   settingsSetLastSelection: 'settings:setLastSelection',
+  settingsSetTaskSelection: 'settings:setTaskSelection',
   settingsSetAiMode: 'settings:setAiMode',
   settingsSetDataPath: 'settings:setDataPath',
   settingsOpenDataFolder: 'settings:openDataFolder',

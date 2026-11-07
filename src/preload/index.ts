@@ -43,7 +43,10 @@ const api: RendererApi = {
     check: () => invoke(IPC.newsCheck),
     buildPrompt: () => invoke(IPC.newsBuildPrompt),
     importPreview: () => invoke(IPC.newsImportPreview),
-    importConfirm: (token) => invoke(IPC.newsImportConfirm, { token })
+    importConfirm: (token) => invoke(IPC.newsImportConfirm, { token }),
+    create: (input) => invoke(IPC.newsCreate, { input }),
+    update: (id, input) => invoke(IPC.newsUpdate, { id, input }),
+    remove: (id) => invoke(IPC.newsDelete, { id })
   },
   scan: {
     start: (payload) => invoke(IPC.scanStart, payload),
@@ -62,6 +65,7 @@ const api: RendererApi = {
   settings: {
     get: () => invoke(IPC.settingsGet),
     setLastSelection: (selection) => invoke(IPC.settingsSetLastSelection, selection),
+    setTaskSelection: (task, selection) => invoke(IPC.settingsSetTaskSelection, { task, selection }),
     setAppearance: (appearance) => invoke(IPC.settingsSetAppearance, { appearance }),
     setAiMode: (aiMode) => invoke(IPC.settingsSetAiMode, { aiMode }),
     setDataPath: (payload) => invoke(IPC.settingsSetDataPath, payload),

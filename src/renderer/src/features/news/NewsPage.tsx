@@ -1,24 +1,35 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { NewsItem, Project, DeadlineItem, NewsImportPreview } from '@shared/types'
-import { getDeadlineInfo, todayDateOnly } from '@shared/date-utils'
+import type {
+  AppSettings,
+  DeadlineItem,
+  ModelSelection,
+  NewsImportPreview,
+  NewsItem,
+  NewsManualInput,
+  Project
+} from '@shared/types'
+import type { MilestoneKind, NewsKind } from '@shared/constants'
+import { todayDateOnly } from '@shared/date-utils'
 import {
-  buildDeadlineRows,
-  buildHeadline,
-  formatDmy,
   MILESTONE_LABEL,
+  buildDeadlineRows,
+  formatDmy,
   oneLine,
   selectTopImportantPerProject
 } from '@shared/newsView'
+import { canImportNews } from '@shared/newsAccess'
+import { resolveTaskModel } from '@shared/modelSelection'
 import { ProjectLogo } from '../../common/ProjectLogo'
-import { VerificationBadge } from '../../common/Badge'
 import { Button } from '../../common/Button'
 import { EmptyState, ErrorBlock, LoadingBlock } from '../../common/EmptyState'
 import { ExternalLink } from '../../common/ExternalLink'
-import { Modal } from '../../common/Modal'
+import { Modal, ConfirmDialog } from '../../common/Modal'
+import { ModelPicker } from '../../common/ModelPicker'
+import { TaskModelCard } from '../../common/TaskModelCard'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
-import { canImportNews } from '@shared/newsAccess'
+import { NewsFormDialog } from './NewsFormDialog'
 
 const VERIFICATION_SORT: Record<string, number> = { verified: 0, unverified: 1 }
 
@@ -38,6 +49,16 @@ function sortByVerification(items: NewsItem[]): NewsItem[] {
   )
 }
 
+function deadlineBadge(daysRemaining: number): string {
+  if (daysRemaining < 0) {
+    return 'Overdue'
+  }
+  if (daysRemaining === 0) {
+    return 'Today'
+  }
+  return `${daysRemaining} day`
+}
+
 export function NewsPage(): React.JSX.Element {
   const { refreshData, dataVersion, openProject, isAiEnabled } = useApp()
   const { isAiBusy } = useLock()
@@ -46,6 +67,7 @@ export function NewsPage(): React.JSX.Element {
   const [important, setImportant] = useState<NewsItem[]>([])
   const [todos, setTodos] = useState<NewsItem[]>([])
   const [projectsById, setProjectsById] = useState<Map<string, Project>>(new Map())
+  const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,10 +80,19 @@ export function NewsPage(): React.JSX.Element {
   const [importOpening, setImportOpening] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
 
+  const [formOpen, setFormOpen] = useState(false)
+  const [formInitial, setFormInitial] = useState<NewsItem | null>(null)
+  const [formKind, setFormKind] = useState<NewsKind>('important')
+  const [formMilestone, setFormMilestone] = useState<MilestoneKind | ''>('')
+  const [formBusy, setFormBusy] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<NewsItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   const load = useCallback(async () => {
-    const [listResult, projectsResult] = await Promise.all([
+    const [listResult, projectsResult, settingsResult] = await Promise.all([
       window.api.news.list(),
-      window.api.projects.list()
+      window.api.projects.list(),
+      window.api.settings.get()
     ])
 
     if (listResult.ok) {
@@ -77,6 +108,10 @@ export function NewsPage(): React.JSX.Element {
       setProjectsById(new Map(projectsResult.data.map((project) => [project.id, project])))
     }
 
+    if (settingsResult.ok) {
+      setSettings(settingsResult.data)
+    }
+
     setLoading(false)
   }, [])
 
@@ -84,10 +119,12 @@ export function NewsPage(): React.JSX.Element {
     void load()
   }, [load, dataVersion])
 
-  // Đổi sang AI Mode thì đóng ngay hộp thoại Import đang mở.
+  // Đổi sang AI Mode thì đóng ngay các hộp thoại chỉ dành cho No AI Mode.
   useEffect(() => {
     if (!canImportNews(isAiEnabled)) {
       setImportPreview(null)
+      setFormOpen(false)
+      setDeleteTarget(null)
     }
   }, [isAiEnabled])
 
@@ -107,6 +144,11 @@ export function NewsPage(): React.JSX.Element {
       setPromptText(result.data.prompt)
       setPromptProjectCount(result.data.projectCount)
       setPromptOpen(true)
+      return
+    }
+
+    if (newsModelWarning) {
+      pushToast(newsModelWarning, 'error')
       return
     }
 
@@ -175,6 +217,60 @@ export function NewsPage(): React.JSX.Element {
     refreshData()
   }
 
+  async function handleNewsModelChange(next: ModelSelection): Promise<void> {
+    const result = await window.api.settings.setTaskSelection('news', next)
+    if (!result.ok) {
+      pushToast(result.error.message, 'error')
+      return
+    }
+    setSettings(result.data)
+  }
+
+  function openCreate(kind: NewsKind, milestone: MilestoneKind | '' = ''): void {
+    setFormInitial(null)
+    setFormKind(kind)
+    setFormMilestone(milestone)
+    setFormOpen(true)
+  }
+
+  function openEdit(item: NewsItem): void {
+    setFormInitial(item)
+    setFormKind(item.kind)
+    setFormMilestone(item.milestoneKind ?? '')
+    setFormOpen(true)
+  }
+
+  async function handleFormSubmit(input: NewsManualInput): Promise<void> {
+    setFormBusy(true)
+    const result = formInitial
+      ? await window.api.news.update(formInitial.id, input)
+      : await window.api.news.create(input)
+    setFormBusy(false)
+    if (!result.ok) {
+      pushToast(result.error.message, 'error')
+      return
+    }
+    setFormOpen(false)
+    pushToast(formInitial ? 'Đã cập nhật tin' : 'Đã thêm tin', 'success')
+    refreshData()
+  }
+
+  async function handleDelete(): Promise<void> {
+    if (!deleteTarget || deleting) {
+      return
+    }
+    setDeleting(true)
+    const result = await window.api.news.remove(deleteTarget.id)
+    setDeleting(false)
+    if (!result.ok) {
+      pushToast(result.error.message, 'error')
+      return
+    }
+    setDeleteTarget(null)
+    pushToast('Đã xóa tin', 'success')
+    refreshData()
+  }
+
   const today = todayDateOnly()
   const topImportant = selectTopImportantPerProject(important, today)
   const deadlineRows = buildDeadlineRows(
@@ -191,6 +287,33 @@ export function NewsPage(): React.JSX.Element {
   const soon = deadlineRows.filter((item) => item.daysRemaining >= 4 && item.daysRemaining <= 14)
   const expired = deadlineRows.filter((item) => item.daysRemaining < 0)
 
+  const newsById = new Map([...important, ...todos].map((item) => [item.id, item]))
+  const canEdit = canImportNews(isAiEnabled)
+  const projects = [...projectsById.values()]
+
+  const providers = settings?.ai.providers ?? []
+  const newsModel = resolveTaskModel(
+    providers,
+    settings?.ai.newsSelection ?? null,
+    settings?.ai.lastSelection ?? null
+  )
+  const newsModelHint = newsModel.stale
+    ? 'Model đã chọn không còn khả dụng — đang dùng mặc định'
+    : newsModel.usedDefault
+      ? 'Đang dùng mặc định'
+      : null
+  const appSearchConfigured = (settings?.webSearch.provider ?? 'none') !== 'none'
+  let newsModelWarning: string | null = null
+  if (isAiEnabled) {
+    if (!newsModel.effective) {
+      newsModelWarning = 'Chưa chọn Model cho Check News. Chọn Model ở khung bên dưới (hoặc ở Chat Box làm mặc định).'
+    } else if (!newsModel.effective.model.supportsTools) {
+      newsModelWarning = `Model "${newsModel.effective.model.label}" không hỗ trợ tool calling nên không thể Check News. Chọn Model khác.`
+    } else if (!newsModel.effective.model.supportsWebSearch && !appSearchConfigured) {
+      newsModelWarning = `Model "${newsModel.effective.model.label}" không có Web Search và app chưa cấu hình Web Search. Chọn Model có Web Search hoặc vào Settings → Web Search.`
+    }
+  }
+
   if (loading && important.length === 0 && todos.length === 0) {
     return <LoadingBlock message="Đang tải tin tức…" />
   }
@@ -205,24 +328,61 @@ export function NewsPage(): React.JSX.Element {
           </span>
         </div>
         <div className="row row--wrap">
-          {canImportNews(isAiEnabled) ? (
+          {canEdit ? (
             <Button variant="secondary" loading={importOpening} disabled={isAiBusy || importOpening || importBusy} onClick={() => void handleImportPreview()}>
               Import News
             </Button>
           ) : null}
-          <Button variant="primary" loading={checking || promptLoading} disabled={isAiBusy || checking || promptLoading} onClick={() => void handleCheck()}>
+          <Button
+            variant="primary"
+            loading={checking || promptLoading}
+            disabled={isAiBusy || checking || promptLoading || (isAiEnabled && newsModelWarning !== null)}
+            title={isAiEnabled && newsModelWarning ? newsModelWarning : undefined}
+            onClick={() => void handleCheck()}
+          >
             Check News
           </Button>
         </div>
       </div>
 
+      {isAiEnabled ? (
+        <TaskModelCard
+          title="Model cho Check News"
+          summary={
+            newsModel.effective
+              ? `${newsModel.effective.model.label} · ${newsModel.effective.provider.name}`
+              : 'Chưa có Model'
+          }
+          hint={newsModelHint}
+          warning={newsModelWarning}
+        >
+          <ModelPicker
+            label="Check News"
+            providers={providers}
+            value={settings?.ai.newsSelection ?? null}
+            disabled={checking || isAiBusy}
+            hint={newsModelHint}
+            onChange={(next) => void handleNewsModelChange(next)}
+          />
+        </TaskModelCard>
+      ) : null}
+
       {error ? <ErrorBlock message={error} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
 
       <div className="news-grid">
-        <section className="card stack news-panel">
-          <div className="section-title">
-            <h2>Tin quan trọng mới</h2>
-            <span className="muted">{topImportant.length} dự án</span>
+        <section className="card stack news-panel news-panel--important">
+          <div className="section-title news-panel__head">
+            <h2>
+              <span aria-hidden="true">🔔</span> Tin quan trọng mới
+            </h2>
+            <div className="row row--wrap">
+              <span className="muted">{topImportant.length} dự án</span>
+              {canEdit ? (
+                <Button size="sm" variant="secondary" onClick={() => openCreate('important')}>
+                  Thêm
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           {topImportant.length === 0 ? (
@@ -231,67 +391,151 @@ export function NewsPage(): React.JSX.Element {
               message={
                 isAiEnabled
                   ? 'Bấm Check News để AI tìm tin trong 7 ngày gần nhất.'
-                  : 'Bấm Check News để tạo Prompt, hoặc Import News từ file JSON.'
+                  : 'Bấm Thêm để nhập tin, hoặc Import News từ file JSON.'
               }
             />
           ) : (
-            <div className="news-list">
+            <div className="news-panel__scroll">
               {topImportant.map((item) => (
-                <NewsHeadlineRow
+                <ImportantCard
                   key={item.id}
                   item={item}
                   project={projectsById.get(item.projectId)}
                   onOpenProject={openProject}
+                  onEdit={canEdit ? () => openEdit(item) : null}
+                  onDelete={canEdit ? () => setDeleteTarget(item) : null}
                 />
               ))}
             </div>
           )}
         </section>
 
-        <div className="stack">
+        <div className="stack news-panel-group">
           <section className="card stack news-panel">
-            <div className="section-title">
-              <h2>Deadline sắp hết</h2>
-              <span className="muted">{urgent.length + soon.length} mốc</span>
+            <div className="section-title news-panel__head">
+              <h2>
+                <span aria-hidden="true">⏰</span> Deadline sắp hết
+              </h2>
+              <div className="row row--wrap">
+                <span className="muted">{urgent.length + soon.length} mốc</span>
+                {canEdit ? (
+                  <Button size="sm" variant="secondary" onClick={() => openCreate('important', 'end')}>
+                    Thêm
+                  </Button>
+                ) : null}
+              </div>
             </div>
-            {urgent.length + soon.length === 0 ? (
-              <p className="muted">Không có hạn chót nào trong 14 ngày tới. Hạn đã qua hiển thị ở nhóm dưới.</p>
+            {urgent.length + soon.length === 0 && expired.length === 0 ? (
+              <p className="muted">Không có hạn chót nào trong 14 ngày tới.</p>
             ) : (
-              <div className="deadline-list">
+              <div className="news-panel__scroll">
+                {urgent.length + soon.length === 0 ? (
+                  <p className="muted">Không có hạn chót nào trong 14 ngày tới. Hạn đã qua hiển thị ở nhóm dưới.</p>
+                ) : null}
                 {urgent.map((item) => (
-                  <DeadlineRow key={`${item.projectId}-${item.kind}-${item.date}`} item={item} today={today} urgent onOpenProject={openProject} />
+                  <DeadlineCard
+                    key={`${item.projectId}-${item.kind}-${item.date}`}
+                    item={item}
+                    onOpenProject={openProject}
+                    onEdit={
+                      canEdit && item.newsId != null && newsById.get(item.newsId)
+                        ? () => openEdit(newsById.get(item.newsId as number)!)
+                        : null
+                    }
+                    onDelete={
+                      canEdit && item.newsId != null && newsById.get(item.newsId)
+                        ? () => setDeleteTarget(newsById.get(item.newsId as number)!)
+                        : null
+                    }
+                  />
                 ))}
                 {soon.map((item) => (
-                  <DeadlineRow key={`${item.projectId}-${item.kind}-${item.date}`} item={item} today={today} onOpenProject={openProject} />
+                  <DeadlineCard
+                    key={`${item.projectId}-${item.kind}-${item.date}`}
+                    item={item}
+                    onOpenProject={openProject}
+                    onEdit={
+                      canEdit && item.newsId != null && newsById.get(item.newsId)
+                        ? () => openEdit(newsById.get(item.newsId as number)!)
+                        : null
+                    }
+                    onDelete={
+                      canEdit && item.newsId != null && newsById.get(item.newsId)
+                        ? () => setDeleteTarget(newsById.get(item.newsId as number)!)
+                        : null
+                    }
+                  />
                 ))}
+                {expired.length > 0 ? (
+                  <details className="expired-group">
+                    <summary className="expired-group__summary">Đã qua hạn — giữ để tra cứu ({expired.length})</summary>
+                    {expired.map((item) => (
+                      <DeadlineCard
+                        key={`${item.projectId}-${item.kind}-${item.date}`}
+                        item={item}
+                        onOpenProject={openProject}
+                        onEdit={
+                          canEdit && item.newsId != null && newsById.get(item.newsId)
+                            ? () => openEdit(newsById.get(item.newsId as number)!)
+                            : null
+                        }
+                        onDelete={
+                          canEdit && item.newsId != null && newsById.get(item.newsId)
+                            ? () => setDeleteTarget(newsById.get(item.newsId as number)!)
+                            : null
+                        }
+                      />
+                    ))}
+                  </details>
+                ) : null}
               </div>
             )}
-            {expired.length > 0 ? (
-              <details className="expired-group">
-                <summary className="expired-group__summary">Đã qua hạn — giữ để tra cứu ({expired.length})</summary>
-                <div className="deadline-list">
-                  {expired.map((item) => (
-                    <DeadlineRow key={`${item.projectId}-${item.kind}-${item.date}`} item={item} today={today} expired onOpenProject={openProject} />
-                  ))}
-                </div>
-              </details>
-            ) : null}
           </section>
 
           <section className="card stack news-panel">
-            <div className="section-title">
-              <h2>Việc cần làm ngay</h2>
-              <span className="muted">{todos.filter((item) => !item.isDone).length} chưa xử lý</span>
+            <div className="section-title news-panel__head">
+              <h2>
+                <span aria-hidden="true">🎯</span> Việc cần làm ngay
+              </h2>
+              <div className="row row--wrap">
+                <span className="muted">{todos.filter((item) => !item.isDone).length} chưa xử lý</span>
+                {canEdit ? (
+                  <Button size="sm" variant="secondary" onClick={() => openCreate('todo')}>
+                    Thêm
+                  </Button>
+                ) : null}
+              </div>
             </div>
             {todos.length === 0 ? (
-              <p className="muted">Chưa có việc nào. Check News sẽ liệt kê việc cần làm trong ngày.</p>
+              <p className="muted">
+                {isAiEnabled
+                  ? 'Chưa có việc nào. Check News sẽ liệt kê việc cần làm trong ngày.'
+                  : 'Chưa có việc nào. Bấm Thêm để nhập việc cần làm.'}
+              </p>
             ) : (
-              <div className="todo-list">
+              <div className="news-panel__scroll">
                 {[...verifiedTodos, ...unverifiedTodos].map((item) => (
-                  <TodoRow key={item.id} item={item} project={projectsById.get(item.projectId)} onToggle={() => void handleToggleTodo(item)} onOpenProject={openProject} />
+                  <TodoCard
+                    key={item.id}
+                    item={item}
+                    project={projectsById.get(item.projectId)}
+                    onToggle={() => void handleToggleTodo(item)}
+                    onOpenProject={openProject}
+                    onEdit={canEdit ? () => openEdit(item) : null}
+                    onDelete={canEdit ? () => setDeleteTarget(item) : null}
+                  />
                 ))}
                 {doneTodos.map((item) => (
-                  <TodoRow key={item.id} item={item} project={projectsById.get(item.projectId)} done onToggle={() => void handleToggleTodo(item)} onOpenProject={openProject} />
+                  <TodoCard
+                    key={item.id}
+                    item={item}
+                    project={projectsById.get(item.projectId)}
+                    done
+                    onToggle={() => void handleToggleTodo(item)}
+                    onOpenProject={openProject}
+                    onEdit={canEdit ? () => openEdit(item) : null}
+                    onDelete={canEdit ? () => setDeleteTarget(item) : null}
+                  />
                 ))}
               </div>
             )}
@@ -378,118 +622,197 @@ export function NewsPage(): React.JSX.Element {
           </div>
         ) : null}
       </Modal>
+
+      <NewsFormDialog
+        open={formOpen}
+        projects={projects}
+        initial={formInitial}
+        defaultKind={formKind}
+        defaultMilestone={formMilestone}
+        busy={formBusy}
+        onClose={() => setFormOpen(false)}
+        onSubmit={handleFormSubmit}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Xóa tin / mốc"
+        message={
+          deleteTarget
+            ? `Xóa "${oneLine(deleteTarget.summary, 80)}"? Hành động này không thể hoàn tác.`
+            : ''
+        }
+        confirmLabel="Xóa"
+        danger
+        busy={deleting}
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </>
   )
 }
 
-function NewsHeadlineRow({
+function CardActions({
+  onEdit,
+  onDelete
+}: {
+  onEdit: (() => void) | null
+  onDelete: (() => void) | null
+}): React.JSX.Element | null {
+  if (!onEdit && !onDelete) {
+    return null
+  }
+  return (
+    <span className="news-card__actions">
+      {onEdit ? (
+        <Button size="sm" variant="ghost" iconOnly aria-label="Sửa tin" title="Sửa" onClick={onEdit}>
+          ✎
+        </Button>
+      ) : null}
+      {onDelete ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          iconOnly
+          aria-label="Xóa tin"
+          title="Xóa"
+          onClick={onDelete}
+        >
+          🗑
+        </Button>
+      ) : null}
+    </span>
+  )
+}
+
+function ImportantCard({
   item,
   project,
-  onOpenProject
+  onOpenProject,
+  onEdit,
+  onDelete
 }: {
   item: NewsItem
   project: Project | undefined
   onOpenProject: (id: string) => void
+  onEdit: (() => void) | null
+  onDelete: (() => void) | null
 }): React.JSX.Element {
   const name = project?.name ?? 'Dự án không tồn tại'
-  const headline = buildHeadline(item)
+  const summary = oneLine(item.summary, 160)
   const unverified = item.verification !== 'verified'
   return (
-    <div className={`news-row${unverified ? ' news-row--unverified' : ''}`}>
-      <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
+    <article className="news-card">
       <button
         type="button"
-        className="news-row__project"
+        className="news-card__open"
         data-lock-allow="true"
-        title={name}
+        title={`${name} · ${item.summary}`}
         onClick={() => onOpenProject(item.projectId)}
       >
-        {name}
+        <span className="news-card__logo">
+          <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
+        </span>
+        <span className="news-card__line">
+          <span className="news-card__name">{name}</span>
+          <span className="news-card__text">{summary}</span>
+        </span>
       </button>
-      <span className="news-row__dash" aria-hidden="true">
-        –
-      </span>
-      <span className="news-row__headline" title={`${headline} · ${item.summary}`}>
-        {headline}
-      </span>
-      {unverified ? <span className="news-row__badge">Chưa xác minh</span> : null}
-      <ExternalLink url={item.sourceUrl} className="news-row__link" ariaLabel="Mở bài gốc">
-        {null}
-      </ExternalLink>
-    </div>
+      {unverified ? <span className="news-card__flag">Chưa xác minh</span> : null}
+      {item.sourceUrl ? (
+        <ExternalLink url={item.sourceUrl} className="news-card__link" ariaLabel="Mở bài gốc">
+          {null}
+        </ExternalLink>
+      ) : null}
+      <CardActions onEdit={onEdit} onDelete={onDelete} />
+    </article>
   )
 }
 
-function DeadlineRow({
+function DeadlineCard({
   item,
-  today,
-  urgent = false,
-  expired = false,
-  onOpenProject
+  onOpenProject,
+  onEdit,
+  onDelete
 }: {
   item: DeadlineItem
-  today: string
-  urgent?: boolean
-  expired?: boolean
   onOpenProject: (id: string) => void
+  onEdit: (() => void) | null
+  onDelete: (() => void) | null
 }): React.JSX.Element {
-  const deadline = getDeadlineInfo(item.date, today)
-  const label = expired ? `Đã quá hạn ${Math.abs(item.daysRemaining)} ngày` : deadline.text
-  const unverified = item.verification !== 'verified'
   return (
-    <button type="button" className={`deadline-item${urgent ? ' deadline-item--urgent' : ''}${expired ? ' deadline-item--expired' : ''}`} data-lock-allow="true" onClick={() => onOpenProject(item.projectId)}>
-      <span className="deadline-item__main">
-        <ProjectLogo projectId={item.projectId} name={item.projectName} hasLogo={Boolean(item.logoPath)} size="news" />
-        <span className="deadline-item__text">
-          <span className="deadline-item__name">{item.projectName}:</span>
-          <span className="deadline-item__kind">
+    <article className="news-card news-card--deadline">
+      <button
+        type="button"
+        className="news-card__open"
+        data-lock-allow="true"
+        title={`${item.projectName} · ${MILESTONE_LABEL[item.kind]} ${formatDmy(item.date)}`}
+        onClick={() => onOpenProject(item.projectId)}
+      >
+        <span className="news-card__logo">
+          <ProjectLogo projectId={item.projectId} name={item.projectName} hasLogo={Boolean(item.logoPath)} size="news" />
+        </span>
+        <span className="news-card__line">
+          <span className="news-card__name">{item.projectName}</span>
+          <span className="news-card__text">
             {MILESTONE_LABEL[item.kind]} {formatDmy(item.date)}
           </span>
-          {unverified ? <span className="deadline-item__badge">Chưa xác minh</span> : null}
         </span>
-      </span>
-      <span className={urgent ? 'deadline--soon_3d' : expired ? 'deadline--expired' : 'deadline--normal'}>{label}</span>
-    </button>
+      </button>
+      {item.verification !== 'verified' ? <span className="news-card__flag">Chưa xác minh</span> : null}
+      <span className="news-card__badge">{deadlineBadge(item.daysRemaining)}</span>
+      <CardActions onEdit={onEdit} onDelete={onDelete} />
+    </article>
   )
 }
 
-function TodoRow({
+function TodoCard({
   item,
   project,
   done = false,
   onToggle,
-  onOpenProject
+  onOpenProject,
+  onEdit,
+  onDelete
 }: {
   item: NewsItem
   project: Project | undefined
   done?: boolean
   onToggle: () => void
   onOpenProject: (id: string) => void
+  onEdit: (() => void) | null
+  onDelete: (() => void) | null
 }): React.JSX.Element {
   const name = project?.name ?? 'Dự án không tồn tại'
   return (
-    <div className={`todo-item${done ? ' todo-item--done' : ''}`}>
+    <article className={`news-card news-card--todo${done ? ' news-card--done' : ''}`}>
       <input
-        className="todo-item__check"
+        className="news-card__check"
         type="checkbox"
         id={`todo-${item.id}`}
         checked={done}
         onChange={onToggle}
         aria-label={`Đánh dấu đã xử lý: ${name}`}
       />
-      <label htmlFor={`todo-${item.id}`} className="todo-item__body">
-        <span className="todo-item__title">
-          <span className="todo-item__project">{name}</span>
-          {item.todoDeadline ? <span className="todo-item__deadline">Hạn {formatDmy(item.todoDeadline)}</span> : null}
-          {item.verification !== 'verified' ? <VerificationBadge verification={item.verification} /> : null}
+      <button
+        type="button"
+        className="news-card__open"
+        data-lock-allow="true"
+        title={item.summary}
+        onClick={() => onOpenProject(item.projectId)}
+      >
+        <span className="news-card__logo">
+          <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
         </span>
-        <span className="todo-item__summary" title={item.summary}>
-          {oneLine(item.summary, 160)}
+        <span className="news-card__body">
+          <span className="news-card__line">
+            <span className="news-card__name">{name}</span>
+          </span>
+          <span className="news-card__text news-card__text--single">{oneLine(item.summary, 160)}</span>
         </span>
-      </label>
-      <button type="button" className="news-item__project" data-lock-allow="true" onClick={() => onOpenProject(item.projectId)} aria-label={`Mở chi tiết ${name}`}>
-        Chi tiết
       </button>
-    </div>
+      {item.verification !== 'verified' ? <span className="news-card__flag">Chưa xác minh</span> : null}
+      <CardActions onEdit={onEdit} onDelete={onDelete} />
+    </article>
   )
 }

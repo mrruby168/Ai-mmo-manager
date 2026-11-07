@@ -10,7 +10,7 @@ import { addProjects, getProject, setProjectLogo } from '../services/projectServ
 import { fetchLogoForProject } from '../services/logoService'
 import { logError } from '../services/logger'
 import { createModelClient } from './providers'
-import { getModelConnection, getSelectedModelMeta } from './providerService'
+import { getModelConnection, getTaskModelMeta } from './providerService'
 import { getScanTools, SCAN_RESULT_KIND } from './tools'
 import { runAgent } from './agentRunner'
 import { runAiTask } from './aiTaskRunner'
@@ -190,15 +190,15 @@ async function extractCandidates(text: string): Promise<{ candidates: Candidate[
 }
 
 function requireSelection() {
-  const meta = getSelectedModelMeta()
+  const meta = getTaskModelMeta('scan')
   if (!meta) {
-    throw new AiError('unsupported', 'Chưa chọn Model, hãy chọn ở Chat Box trước khi Scan')
+    throw new AiError('unsupported', 'Chưa chọn Model cho Scan. Chọn Model ở khung của tab Scan (hoặc Chat Box làm mặc định)')
   }
   if (!meta.supportsTools) {
-    throw new AiError('unsupported', 'Model đã chọn không hỗ trợ tool calling, không thể Scan. Hãy chọn Model khác ở Chat Box')
+    throw new AiError('unsupported', 'Model đã chọn không hỗ trợ tool calling, không thể Scan. Hãy chọn Model khác ở khung Model của tab Scan')
   }
   if (!meta.supportsWebSearch) {
-    throw new AiError('unsupported', `Model "${meta.modelLabel}" không hỗ trợ Web Search, không thể Scan. Hãy chọn Model khác ở Chat Box`)
+    throw new AiError('unsupported', `Model "${meta.modelLabel}" không hỗ trợ Web Search, không thể Scan. Hãy chọn Model khác ở khung Model của tab Scan`)
   }
   return getModelConnection(meta.providerId, meta.modelId)
 }

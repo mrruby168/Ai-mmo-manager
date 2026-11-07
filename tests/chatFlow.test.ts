@@ -29,7 +29,11 @@ describe('CHAT_SYSTEM_PROMPT', () => {
   })
 
   it('keeps the shared core rules and the tool/OK contract', () => {
-    expect(CHAT_SYSTEM_PROMPT).toContain('QUY TẮC BẮT BUỘC')
+    expect(CHAT_SYSTEM_PROMPT).toContain('### VAI TRÒ')
+    expect(CHAT_SYSTEM_PROMPT).toContain('### BỐI CẢNH')
+    expect(CHAT_SYSTEM_PROMPT).toContain('### QUY TẮC')
+    expect(CHAT_SYSTEM_PROMPT).toContain('### CÔNG CỤ')
+    expect(CHAT_SYSTEM_PROMPT).toContain('### ĐỊNH DẠNG ĐẦU RA')
     expect(CHAT_SYSTEM_PROMPT).toContain('<untrusted_web_content>')
     expect(CHAT_SYSTEM_PROMPT).toContain('list_projects')
     expect(CHAT_SYSTEM_PROMPT).toContain('get_project')

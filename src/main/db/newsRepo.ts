@@ -96,6 +96,55 @@ export function toggleNewsTodo(id: number, isDone: boolean): boolean {
   return Number(result.changes) > 0
 }
 
+export function getNewsById(id: number): NewsItem | null {
+  const row = getDatabase().prepare(`SELECT ${COLUMNS} FROM news_items WHERE id = ?`).get(id)
+  return row ? mapRow(row as unknown as NewsRow) : null
+}
+
+/** FIX 1: one important news per project, counted before insert/update. */
+export function countImportantNews(projectId: string, excludeId?: number): number {
+  const row = excludeId
+    ? getDatabase()
+        .prepare("SELECT COUNT(*) AS total FROM news_items WHERE project_id = ? AND kind = 'important' AND id <> ?")
+        .get(projectId, excludeId)
+    : getDatabase()
+        .prepare("SELECT COUNT(*) AS total FROM news_items WHERE project_id = ? AND kind = 'important'")
+        .get(projectId)
+  return Number(row?.total ?? 0)
+}
+
+/** Manual edit: keeps the row id and `fetched_at`, overwrites the editable fields. */
+export function updateNews(id: number, record: NewsRecord): boolean {
+  const result = getDatabase()
+    .prepare(
+      `UPDATE news_items SET
+        project_id = ?, kind = ?, summary = ?, verification = ?, source_url = ?,
+        source_name = ?, published_at = ?, todo_deadline = ?, dedupe_hash = ?,
+        milestone_kind = ?, milestone_date = ?
+      WHERE id = ?`
+    )
+    .run(
+      record.projectId,
+      record.kind,
+      record.summary,
+      record.verification,
+      record.sourceUrl,
+      record.sourceName,
+      record.publishedAt,
+      record.todoDeadline,
+      record.dedupeHash,
+      record.milestoneKind,
+      record.milestoneDate,
+      id
+    )
+  return Number(result.changes) > 0
+}
+
+export function deleteNews(id: number): boolean {
+  const result = getDatabase().prepare('DELETE FROM news_items WHERE id = ?').run(id)
+  return Number(result.changes) > 0
+}
+
 /**
  * FIX 3: lần Check News gần nhất phải cập nhật cả khi không có tin mới.
  * Ưu tiên mốc ghi trong `meta`, sau đó mới tới tin cũ (DB trước FIX 3).

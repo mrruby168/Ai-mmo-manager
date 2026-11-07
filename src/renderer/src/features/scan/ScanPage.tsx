@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { todayDateOnly } from '@shared/date-utils'
-import type { ScanItem } from '@shared/types'
+import type { AppSettings, ModelSelection, ScanItem } from '@shared/types'
+import { resolveTaskModel } from '@shared/modelSelection'
 import { Badge, CostBadge, RiskBadge, VerificationBadge } from '../../common/Badge'
 import { Button } from '../../common/Button'
 import { EmptyState, ErrorBlock } from '../../common/EmptyState'
 import { Field, Textarea } from '../../common/Field'
 import { ExternalLink } from '../../common/ExternalLink'
+import { ModelPicker } from '../../common/ModelPicker'
+import { TaskModelCard } from '../../common/TaskModelCard'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
@@ -31,6 +34,7 @@ export function ScanPage(): React.JSX.Element {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
+  const [settings, setSettings] = useState<AppSettings | null>(null)
 
   useEffect(() => {
     void window.api.scan.latest().then((result) => {
@@ -47,54 +51,59 @@ export function ScanPage(): React.JSX.Element {
     })
   }, [])
 
-  async function currentModel(): Promise<{ label: string; webSearch: boolean } | null> {
-    const result = await window.api.settings.get()
-    if (!result.ok) {
-      return null
-    }
-    const selection = result.data.ai.lastSelection
-    if (!selection) {
-      return null
-    }
-    const provider = result.data.ai.providers.find((entry) => entry.id === selection.providerId)
-    const model = provider?.models.find((entry) => entry.id === selection.modelId)
-    if (!provider || !model) {
-      return null
-    }
-    return { label: `${model.label} · ${provider.name}`, webSearch: model.supportsWebSearch }
-  }
-
-  const [scanDisabledReason, setScanDisabledReason] = useState<string | null>(null)
-  const [modelLabel, setModelLabel] = useState<string | null>(null)
-
   useEffect(() => {
-    if (!isAiEnabled) {
-      setScanDisabledReason('Vui lòng bật AI Mode trong Settings để sử dụng Scan.')
-      setModelLabel(null)
-      return
-    }
     let active = true
-    void currentModel().then((model) => {
-      if (!active) {
-        return
+    void window.api.settings.get().then((result) => {
+      if (active && result.ok) {
+        setSettings(result.data)
       }
-      if (!model) {
-        setScanDisabledReason('Chưa chọn Model. Chọn ở Chat Box trước khi Scan.')
-        setModelLabel(null)
-        return
-      }
-      if (!model.webSearch) {
-        setScanDisabledReason('Model đang chọn không hỗ trợ Web Search. Chọn Model khác ở Chat Box.')
-        setModelLabel(model.label)
-        return
-      }
-      setScanDisabledReason(null)
-      setModelLabel(model.label)
     })
     return () => {
       active = false
     }
-  }, [dataVersion, isAiEnabled])
+  }, [dataVersion])
+
+  const providers = settings?.ai.providers ?? []
+  const scanModel = resolveTaskModel(
+    providers,
+    settings?.ai.scanSelection ?? null,
+    settings?.ai.lastSelection ?? null
+  )
+  const modelLabel = scanModel.effective
+    ? `${scanModel.effective.model.label} · ${scanModel.effective.provider.name}`
+    : null
+  const modelPickerHint = scanModel.stale
+    ? 'Model đã chọn không còn khả dụng — đang dùng mặc định'
+    : scanModel.usedDefault
+      ? 'Đang dùng mặc định'
+      : null
+  const scanModelWarning =
+    scanModel.effective &&
+    (!scanModel.effective.model.supportsTools || !scanModel.effective.model.supportsWebSearch)
+      ? `Model ${scanModel.effective.model.label} thiếu ${
+          !scanModel.effective.model.supportsTools ? 'tool calling' : 'Web Search'
+        } — Scan sẽ không chạy.`
+      : null
+
+  let scanDisabledReason: string | null = null
+  if (!isAiEnabled) {
+    scanDisabledReason = 'Vui lòng bật AI Mode trong Settings để sử dụng Scan.'
+  } else if (!scanModel.effective) {
+    scanDisabledReason = 'Chưa chọn Model. Chọn Model ở khung của tab Scan trước khi Scan.'
+  } else if (!scanModel.effective.model.supportsTools) {
+    scanDisabledReason = `Model "${scanModel.effective.model.label}" không hỗ trợ tool calling. Chọn Model khác ở khung của tab Scan.`
+  } else if (!scanModel.effective.model.supportsWebSearch) {
+    scanDisabledReason = `Model "${scanModel.effective.model.label}" không hỗ trợ Web Search. Chọn Model khác ở khung của tab Scan.`
+  }
+
+  async function handleScanModelChange(next: ModelSelection): Promise<void> {
+    const result = await window.api.settings.setTaskSelection('scan', next)
+    if (!result.ok) {
+      pushToast(result.error.message, 'error')
+      return
+    }
+    setSettings(result.data)
+  }
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = event.target.files?.[0]
@@ -227,6 +236,24 @@ export function ScanPage(): React.JSX.Element {
           )}
         </div>
       </div>
+
+      {isAiEnabled ? (
+        <TaskModelCard
+          title="Model cho Scan Project"
+          summary={modelLabel ? `Đang dùng: ${modelLabel}` : 'Chưa có Model'}
+          hint={modelPickerHint}
+          warning={scanModelWarning}
+        >
+          <ModelPicker
+            label="Scan Project"
+            providers={providers}
+            value={settings?.ai.scanSelection ?? null}
+            disabled={scanning || isAiBusy}
+            hint={modelPickerHint}
+            onChange={(next) => void handleScanModelChange(next)}
+          />
+        </TaskModelCard>
+      ) : null}
 
       {scanDisabledReason ? <div className="banner banner--warning" role="alert">{scanDisabledReason}</div> : null}
 

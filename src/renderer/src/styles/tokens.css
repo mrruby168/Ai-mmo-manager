@@ -53,6 +53,27 @@
   --color-success-soft: rgba(52, 211, 153, 0.16);
   --color-info-soft: rgba(96, 165, 250, 0.16);
 
+  /* FIX 3: gradient rất nhẹ, cùng tông Dark + Soft Royal Blue, chỉ tạo chiều sâu. */
+  --gradient-app-bg:
+    radial-gradient(1200px 620px at 10% -12%, rgba(91, 141, 239, 0.1), transparent 62%),
+    radial-gradient(900px 520px at 100% 0%, rgba(91, 141, 239, 0.06), transparent 58%),
+    linear-gradient(180deg, #0c1424 0%, #0b1220 100%);
+  --gradient-sidebar:
+    linear-gradient(180deg, rgba(91, 141, 239, 0.08), rgba(91, 141, 239, 0.02) 46%, transparent 100%);
+  --gradient-surface:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 42%);
+  --gradient-news-card:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(180deg, #151f34, #101828);
+  --gradient-news-logo:
+    linear-gradient(145deg, #26374f, #16233a);
+  --gradient-news-badge:
+    linear-gradient(180deg, rgba(248, 113, 113, 0.18), rgba(248, 113, 113, 0.05)),
+    linear-gradient(180deg, #241a22, #1a1319);
+  --color-news-card-border: rgba(122, 143, 181, 0.3);
+  --color-news-card-border-strong: rgba(230, 237, 247, 0.14);
+  --scrollbar-thin-width: 6px;
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;

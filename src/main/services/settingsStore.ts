@@ -9,7 +9,7 @@ import {
   WEB_SEARCH_PROVIDERS
 } from '@shared/constants'
 import type { AiMode, WebSearchProvider } from '@shared/constants'
-import type { AiSettings, AppSettings, AppearanceSettings, WebSearchSettings } from '@shared/types'
+import type { AiSettings, AiTask, AppSettings, AppearanceSettings, ModelSelection, WebSearchSettings } from '@shared/types'
 
 let cache: AppSettings | null = null
 
@@ -30,7 +30,7 @@ export function defaultAppearance(): AppearanceSettings {
 }
 
 export function defaultAiSettings(): AiSettings {
-  return { providers: [], lastSelection: null }
+  return { providers: [], lastSelection: null, newsSelection: null, scanSelection: null }
 }
 
 function buildDefaults(): AppSettings {
@@ -95,7 +95,9 @@ function normalizeAi(value: Partial<AiSettings> | undefined): AiSettings {
   }
   return {
     providers: value.providers,
-    lastSelection: value.lastSelection ?? null
+    lastSelection: value.lastSelection ?? null,
+    newsSelection: value.newsSelection ?? null,
+    scanSelection: value.scanSelection ?? null
   }
 }
 
@@ -158,6 +160,16 @@ export function saveAiSettings(ai: AiSettings): AppSettings {
 export function saveLastSelection(selection: AiSettings['lastSelection']): AppSettings {
   const current = getSettings().ai
   return updateSettings({ ai: normalizeAi({ ...current, lastSelection: selection }) })
+}
+
+/**
+ * FIX 2: News and Scan keep their own model. A stale selection is preserved on
+ * purpose so the renderer can tell the user it fell back to the default.
+ */
+export function saveTaskSelection(task: AiTask, selection: ModelSelection | null): AppSettings {
+  const current = getSettings().ai
+  const patch = task === 'news' ? { newsSelection: selection } : { scanSelection: selection }
+  return updateSettings({ ai: normalizeAi({ ...current, ...patch }) })
 }
 
 export function saveAiMode(aiMode: AiMode): AppSettings {

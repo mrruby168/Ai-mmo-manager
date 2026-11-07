@@ -14,8 +14,13 @@ describe('Import News theo AI Mode (FIX 2)', () => {
 
   it('NewsPage ẩn nút và chặn mở hộp thoại ở AI Mode', () => {
     const source = readFileSync(NEWS_PAGE, 'utf8')
-    expect(source).toMatch(/\{canImportNews\(isAiEnabled\) \? \(/)
-    expect(source).toMatch(/if \(!canImportNews\(isAiEnabled\)\) \{\s*return/)
+    expect(source).toContain('const canEdit = canImportNews(isAiEnabled)')
+    // Import + add/edit/delete đều nằm sau `canEdit`.
+    expect(source).toMatch(/\{canEdit \? \(\s*<Button[\s\S]{0,220}Import News/)
+    expect(source).toMatch(/onEdit=\{canEdit \? \(\) => openEdit\(item\) : null\}/)
+    expect(source).toMatch(/onDelete=\{canEdit \? \(\) => setDeleteTarget\(item\) : null\}/)
+    // Đổi sang AI Mode thì đóng hộp thoại và chặn thao tác.
     expect(source).toMatch(/if \(!canImportNews\(isAiEnabled\)\) \{\s*setImportPreview\(null\)/)
+    expect(source).toMatch(/if \(!canImportNews\(isAiEnabled\)\) \{\s*return/)
   })
 })

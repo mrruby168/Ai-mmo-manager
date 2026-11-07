@@ -7,8 +7,21 @@ import { LIMITS } from '@shared/constants'
 import { EVENTS, IPC } from '@shared/ipc-channels'
 import type { NewsImportPreview } from '@shared/types'
 import { registerHandler, broadcastToRenderers } from './guard'
-import { newsImportConfirmPayload, newsTogglePayload } from './payloadSchemas'
-import { getNewsSnapshot, getDeadlines, toggleTodo } from '../services/newsService'
+import {
+  newsCreatePayload,
+  newsDeletePayload,
+  newsImportConfirmPayload,
+  newsTogglePayload,
+  newsUpdatePayload
+} from './payloadSchemas'
+import {
+  createManualNews,
+  deleteManualNews,
+  getNewsSnapshot,
+  getDeadlines,
+  toggleTodo,
+  updateManualNews
+} from '../services/newsService'
 import { runCheckNews } from '../ai/checkNewsService'
 import { buildCheckNewsPrompt } from '../services/newsPromptService'
 import {
@@ -148,6 +161,40 @@ export function registerNewsIpc(): void {
         rejected: outcome.rejected,
         message: outcome.added > 0 ? `Đã nhập ${outcome.added} tin` : 'Không có tin mới'
       }
+    }
+  })
+
+  // FIX 1: manual add/edit/delete, UI only shown in No AI Mode.
+  registerHandler({
+    channel: IPC.newsCreate,
+    mutating: true,
+    parse: (raw) => newsCreatePayload.parse(raw),
+    handler: (input) => {
+      const created = createManualNews(input.input)
+      broadcastToRenderers(EVENTS.dataChanged, { entity: 'news' })
+      return created
+    }
+  })
+
+  registerHandler({
+    channel: IPC.newsUpdate,
+    mutating: true,
+    parse: (raw) => newsUpdatePayload.parse(raw),
+    handler: (input) => {
+      const updated = updateManualNews(input.id, input.input)
+      broadcastToRenderers(EVENTS.dataChanged, { entity: 'news' })
+      return updated
+    }
+  })
+
+  registerHandler({
+    channel: IPC.newsDelete,
+    mutating: true,
+    parse: (raw) => newsDeletePayload.parse(raw),
+    handler: (input) => {
+      const removed = deleteManualNews(input.id)
+      broadcastToRenderers(EVENTS.dataChanged, { entity: 'news' })
+      return removed
     }
   })
 }

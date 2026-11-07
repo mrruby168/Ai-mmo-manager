@@ -9,6 +9,7 @@ import { aiConfigImportSchema, providerConfigSchema, providerSaveSchema } from '
 import { normaliseBaseUrl, resolveBaseUrl } from '@shared/provider-presets'
 import type {
   AiSettings,
+  AiTask,
   ModelSelection,
   ProviderConfig,
   ProviderModel,
@@ -132,7 +133,11 @@ function persistProviders(nextProviders: ProviderConfig[], currentAi: AiSettings
 
   saveAiSettings({
     providers,
-    lastSelection: normaliseSelection(providers, currentAi.lastSelection)
+    // Chat keeps the strict normalisation: a removed model becomes null.
+    lastSelection: normaliseSelection(providers, currentAi.lastSelection),
+    // News/Scan keep a stale selection so the UI can report the fallback.
+    newsSelection: currentAi.newsSelection ?? null,
+    scanSelection: currentAi.scanSelection ?? null
   })
   return listProviders()
 }
@@ -276,7 +281,20 @@ export interface SelectedModelMeta {
 }
 
 export function getSelectedModelMeta(): SelectedModelMeta | null {
-  const selection = getSettings().ai.lastSelection
+  return resolveSelectionMeta(getSettings().ai.lastSelection)
+}
+
+/**
+ * FIX 2: resolve the model of one AI task. News/Scan fall back to the Chat
+ * selection when their own picker is empty or points at a removed model.
+ */
+export function getTaskModelMeta(task: AiTask): SelectedModelMeta | null {
+  const ai = getSettings().ai
+  const taskSelection = task === 'news' ? ai.newsSelection : ai.scanSelection
+  return resolveSelectionMeta(taskSelection) ?? resolveSelectionMeta(ai.lastSelection)
+}
+
+function resolveSelectionMeta(selection: ModelSelection | null): SelectedModelMeta | null {
   if (!selection) {
     return null
   }

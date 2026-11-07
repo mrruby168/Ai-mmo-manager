@@ -89,6 +89,8 @@ export interface DeadlineNews {
   verification: VerificationState
   milestoneKind: MilestoneKind | null
   milestoneDate: string | null
+  /** `news_items.id`; optional so older callers can still omit it. */
+  id?: number
 }
 
 export function formatDmy(date: string): string {
@@ -426,7 +428,13 @@ export function buildDeadlineRows(
   const rows = new Map<string, DeadlineItem>()
   const projectEndKeys = new Set<string>()
 
-  function toRow(project: DeadlineProject, kind: MilestoneKind, date: string, verification: VerificationState): DeadlineItem {
+  function toRow(
+    project: DeadlineProject,
+    kind: MilestoneKind,
+    date: string,
+    verification: VerificationState,
+    newsId: number | null
+  ): DeadlineItem {
     return {
       projectId: project.id,
       projectName: project.name,
@@ -435,7 +443,8 @@ export function buildDeadlineRows(
       kind,
       verification,
       daysRemaining: daysRemaining(date, today),
-      logoPath: project.logoPath
+      logoPath: project.logoPath,
+      newsId
     }
   }
 
@@ -444,7 +453,7 @@ export function buildDeadlineRows(
       continue
     }
     const rowKey = `${project.id}|end|${project.endDate}`
-    rows.set(rowKey, toRow(project, 'end', project.endDate, project.verification))
+    rows.set(rowKey, toRow(project, 'end', project.endDate, project.verification, null))
     projectEndKeys.add(rowKey)
   }
 
@@ -458,8 +467,11 @@ export function buildDeadlineRows(
     const key = `${project.id}|${item.milestoneKind}|${date}`
     const existing = rows.get(key)
     if (existing) {
+      const newsId = item.id ?? existing.newsId ?? null
       if (existing.verification !== 'verified' && item.verification === 'verified') {
-        rows.set(key, { ...existing, verification: 'verified' })
+        rows.set(key, { ...existing, verification: 'verified', newsId })
+      } else if (existing.newsId == null && newsId != null) {
+        rows.set(key, { ...existing, newsId })
       }
       continue
     }
@@ -472,7 +484,7 @@ export function buildDeadlineRows(
       }
     }
 
-    rows.set(key, toRow(project, item.milestoneKind, date, item.verification))
+    rows.set(key, toRow(project, item.milestoneKind, date, item.verification, item.id ?? null))
   }
 
   return [...rows.values()]

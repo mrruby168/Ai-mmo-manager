@@ -26,7 +26,8 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-background);
+  background: var(--gradient-app-bg);
+  background-attachment: fixed;
   color: var(--color-text);
   font-family: var(--font-ui);
   font-size: 1rem;
@@ -213,7 +214,7 @@ ol {
 }
 
 .card {
-  background: var(--color-surface);
+  background: var(--gradient-surface), var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-5);

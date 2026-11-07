@@ -14,7 +14,7 @@ import {
   testProvider
 } from '../ai/providerService'
 import { changeDataPath, getDataFolderToOpen } from '../services/dataPathService'
-import { getSettings, saveAiMode, saveAppearance, saveLastSelection } from '../services/settingsStore'
+import { getSettings, saveAiMode, saveAppearance, saveLastSelection, saveTaskSelection } from '../services/settingsStore'
 import { getWebSearchView, saveWebSearch, testWebSearch } from '../services/webSearchService'
 import { broadcastToRenderers, registerHandler } from './guard'
 import {
@@ -26,6 +26,7 @@ import {
   providerParseJsonPayload,
   providerSavePayload,
   providerTestPayload,
+  taskSelectionPayload,
   webSearchSavePayload,
   webSearchTestPayload
 } from './payloadSchemas'
@@ -62,6 +63,25 @@ export function registerSettingsIpc(): void {
     mutating: true,
     parse: (raw) => appearancePayload.parse(raw),
     handler: (input) => saveAppearance(input.appearance)
+  })
+
+  registerHandler({
+    channel: IPC.settingsSetTaskSelection,
+    mutating: true,
+    parse: (raw) => taskSelectionPayload.parse(raw),
+    handler: (input) => {
+      if (input.selection) {
+        const settings = getSettings()
+        const provider = settings.ai.providers.find((entry) => entry.id === input.selection!.providerId)
+        const model = provider?.models.find((entry) => entry.id === input.selection!.modelId)
+        if (!provider || !model) {
+          throw new Error('Model đã chọn không tồn tại hoặc đã bị xóa')
+        }
+      }
+      const next = saveTaskSelection(input.task, input.selection)
+      broadcastToRenderers(EVENTS.dataChanged, { entity: 'settings' })
+      return next
+    }
   })
 
   registerHandler({

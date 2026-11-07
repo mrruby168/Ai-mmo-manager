@@ -7,7 +7,7 @@ import { listProjects } from '../db/projectsRepo'
 import { listNews, setLastNewsCheckedAt } from '../db/newsRepo'
 import { saveNewsBatch } from '../services/newsService'
 import { createModelClient } from './providers'
-import { getModelConnection, getSelectedModelMeta } from './providerService'
+import { getModelConnection, getTaskModelMeta } from './providerService'
 import { getNewsTools, NEWS_RESULT_KIND } from './tools'
 import type { AgentTool } from './agentRunner'
 import { runAgent } from './agentRunner'
@@ -54,14 +54,14 @@ interface CheckSelection {
  * HOẶC app đã cấu hình Web Search). Thiếu cả hai thì báo rõ hai cách xử lý.
  */
 function requireSelection(): CheckSelection {
-  const meta = getSelectedModelMeta()
+  const meta = getTaskModelMeta('news')
   if (!meta) {
-    throw new AiError('unsupported', 'Chưa chọn Model, hãy chọn ở Chat Box trước khi Check News')
+    throw new AiError('unsupported', 'Chưa chọn Model cho Check News. Chọn Model ở khung của tab News (hoặc Chat Box làm mặc định)')
   }
   if (!meta.supportsTools) {
     throw new AiError(
       'unsupported',
-      `Model "${meta.modelLabel}" không hỗ trợ tool calling nên không thể Check News. Hãy chọn Model khác ở Chat Box`
+      `Model "${meta.modelLabel}" không hỗ trợ tool calling nên không thể Check News. Hãy chọn Model khác ở khung Model của tab News`
     )
   }
 
@@ -78,7 +78,7 @@ function requireSelection(): CheckSelection {
   if (!meta.supportsWebSearch && !search) {
     throw new AiError(
       'unsupported',
-      `Model "${meta.modelLabel}" không có Web Search và app chưa cấu hình Web Search. Có hai cách xử lý: (1) chọn Model có Web Search ở Chat Box, hoặc (2) vào Settings → Web Search để thêm API key Tavily/Brave hay URL SearXNG.`
+      `Model "${meta.modelLabel}" không có Web Search và app chưa cấu hình Web Search. Có hai cách xử lý: (1) chọn Model có Web Search ở khung Model của tab News, hoặc (2) vào Settings → Web Search để thêm API key Tavily/Brave hay URL SearXNG.`
     )
   }
 

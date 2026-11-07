@@ -130,6 +130,8 @@ export interface DeadlineItem {
   verification: VerificationState
   daysRemaining: number
   logoPath: string | null
+  /** `news_items.id` when the milestone came from a news row, null for `projects.end_date`. */
+  newsId?: number | null
 }
 
 export interface ScanItem {
@@ -177,9 +179,15 @@ export interface ModelSelection {
   modelId: string
 }
 
+/** FIX 2: each AI tab keeps its own model, independent from Chat. */
+export type AiTask = 'news' | 'scan'
+
 export interface AiSettings {
   providers: ProviderConfig[]
+  /** Chat Box selection, also the fallback for News/Scan. */
   lastSelection: ModelSelection | null
+  newsSelection: ModelSelection | null
+  scanSelection: ModelSelection | null
 }
 
 export interface AppearanceSettings {
@@ -286,6 +294,19 @@ export interface NewsSnapshot {
   lastCheckedAt: string | null
 }
 
+/** FIX 1: payload typed by hand in No AI Mode. */
+export interface NewsManualInput {
+  projectId: string
+  kind: NewsKind
+  summary: string
+  verification: VerificationState
+  sourceUrl: string | null
+  sourceName: string | null
+  /** Published date, milestone date or todo deadline depending on `kind`/`milestoneKind`. */
+  date: string
+  milestoneKind: MilestoneKind | null
+}
+
 export interface NewsPromptResult {
   prompt: string
   projectCount: number
@@ -365,6 +386,9 @@ export interface RendererApi {
     buildPrompt(): Promise<IpcResult<NewsPromptResult>>
     importPreview(): Promise<IpcResult<NewsImportPreview>>
     importConfirm(token: string): Promise<IpcResult<NewsImportResult>>
+    create(input: unknown): Promise<IpcResult<NewsItem>>
+    update(id: number, input: unknown): Promise<IpcResult<NewsItem>>
+    remove(id: number): Promise<IpcResult<{ id: number }>>
   }
   scan: {
     start(payload: { text: string; fileName?: string }): Promise<IpcResult<{ items: ScanItem[]; rejected: number; message: string }>>
@@ -384,6 +408,7 @@ export interface RendererApi {
     get(): Promise<IpcResult<AppSettings>>
     setAppearance(appearance: AppearanceSettings): Promise<IpcResult<AppSettings>>
     setLastSelection(selection: ModelSelection): Promise<IpcResult<AppSettings>>
+    setTaskSelection(task: AiTask, selection: ModelSelection | null): Promise<IpcResult<AppSettings>>
     setAiMode(aiMode: AiMode): Promise<IpcResult<AppSettings>>
     setDataPath(payload: { path: string; copyExisting: boolean }): Promise<IpcResult<AppSettings>>
     chooseDataPath(): Promise<IpcResult<{ canceled: boolean; path: string | null }>>
