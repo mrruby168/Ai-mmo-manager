@@ -9,9 +9,13 @@ const NEWS_PAGE = join(ROOT, 'src', 'renderer', 'src', 'features', 'news', 'News
 const SCAN_PAGE = join(ROOT, 'src', 'renderer', 'src', 'features', 'scan', 'ScanPage.tsx')
 const CHAT_PANEL = join(ROOT, 'src', 'renderer', 'src', 'features', 'chat', 'ChatPanel.tsx')
 
+// CI checkouts may use CRLF (windows runner + autocrlf); normalize so multi-line
+// source assertions stay line-ending agnostic.
+const readSource = (path: string): string => readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
+
 describe('Card chọn Model — mở rộng/thu nhỏ', () => {
-  const card = readFileSync(CARD, 'utf8')
-  const css = readFileSync(COMPONENTS, 'utf8')
+  const card = readSource(CARD)
+  const css = readSource(COMPONENTS)
 
   it('mặc định thu nhỏ và có nút aria-expanded/aria-controls', () => {
     expect(card).toContain('defaultOpen = false')
@@ -48,9 +52,9 @@ describe('Card chọn Model — mở rộng/thu nhỏ', () => {
 })
 
 describe('News/Scan dùng card thu gọn, Chat giữ nguyên', () => {
-  const news = readFileSync(NEWS_PAGE, 'utf8')
-  const scan = readFileSync(SCAN_PAGE, 'utf8')
-  const chat = readFileSync(CHAT_PANEL, 'utf8')
+  const news = readSource(NEWS_PAGE)
+  const scan = readSource(SCAN_PAGE)
+  const chat = readSource(CHAT_PANEL)
 
   it('News dùng TaskModelCard và vẫn truyền cảnh báo model', () => {
     expect(news).toContain('<TaskModelCard')
