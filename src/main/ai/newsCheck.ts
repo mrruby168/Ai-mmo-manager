@@ -1,4 +1,5 @@
 import { isSameLocalDay } from '@shared/date-utils'
+import { mentionsMilestone } from '@shared/newsView'
 import { isHttpUrl, newsItemSchema } from '@shared/schemas'
 import type { MilestoneKind, NewsKind, VerificationState } from '@shared/constants'
 import { SafeFetchError, safeFetch } from '../services/safeFetch'
@@ -93,10 +94,12 @@ function mentionsProject(text: string, projectName: string): boolean {
 }
 
 /**
- * A source URL is proof only when it can be fetched and the page actually
- * mentions the project. 404/410 means the source is gone, so the news item is
- * dropped. Any other failure (bot wall, X/Twitter, timeout) keeps the item but
- * downgrades it to "unverified" instead of pretending it was checked.
+ * A source URL is proof only when it can be fetched, the page actually
+ * mentions the project, and — for a dated milestone — the page also shows the
+ * milestone keyword plus that date. 404/410 means the source is gone, so the
+ * news item is dropped. Any other failure (bot wall, X/Twitter, timeout) keeps
+ * the item but downgrades it to "unverified" instead of pretending it was
+ * checked.
  */
 export async function verifyNewsSources(
   items: VerifiedNewsItem[],
@@ -131,7 +134,10 @@ export async function verifyNewsSources(
     }
 
     const name = projectNames.get(item.projectId) ?? ''
-    if (mentionsProject(fetched.text ?? '', name)) {
+    const text = fetched.text ?? ''
+    const nameOk = mentionsProject(text, name)
+    const milestoneOk = mentionsMilestone(text, item.milestoneKind, item.milestoneDate)
+    if (nameOk && milestoneOk) {
       kept.push(item)
     } else {
       unverified += 1
@@ -148,6 +154,10 @@ export interface NewsCheckSummary {
   failedBatches: number
   totalBatches: number
   searchUnverifiedBatches: number
+  /** FIX 3: số lô bị bỏ vì không có bất kỳ bằng chứng tìm kiếm nào. */
+  noEvidenceBatches?: number
+  /** FIX 3: lý do lỗi đầu tiên để không còn `continue` im lặng. */
+  firstFailure?: string | null
 }
 
 export function buildNewsCheckMessage(summary: NewsCheckSummary): string {
@@ -158,10 +168,18 @@ export function buildNewsCheckMessage(summary: NewsCheckSummary): string {
   if (summary.failedBatches > 0) {
     parts.push(`${summary.failedBatches}/${summary.totalBatches} lô AI không trả kết quả hợp lệ, hãy thử lại`)
   }
-  if (summary.searchUnverifiedBatches > 0) {
+  if ((summary.noEvidenceBatches ?? 0) > 0) {
     parts.push(
-      `${summary.searchUnverifiedBatches}/${summary.totalBatches} lô không có dấu vết web search, kết quả không đáng tin`
+      `${summary.noEvidenceBatches}/${summary.totalBatches} lô không có bằng chứng web search nên đã bỏ toàn bộ tin của lô đó`
     )
   }
-  return parts.length > 0 ? parts.join(' · ') : 'Không có tin mới trong ngày'
+  if (summary.searchUnverifiedBatches > 0) {
+    parts.push(
+      `${summary.searchUnverifiedBatches}/${summary.totalBatches} lô không có dấu vết tìm kiếm web, kết quả không đáng tin`
+    )
+  }
+  if (summary.firstFailure) {
+    parts.push(`Lỗi đầu tiên: ${summary.firstFailure}`)
+  }
+  return parts.length > 0 ? parts.join(' · ') : 'Không có tin mới trong 7 ngày gần nhất'
 }

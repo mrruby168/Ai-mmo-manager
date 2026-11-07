@@ -109,8 +109,24 @@ describe('tool JSON schemas', () => {
     )
   })
 
-  it('omits parameters for Gemini tools that take no arguments', () => {
-    const declarations = toGoogleTools(
+  it('adds web_search only when a search provider is supplied', () => {
+    expect(getNewsTools().map((tool) => tool.name)).not.toContain('web_search')
+
+    const withSearch = getNewsTools({
+      search: { provider: 'tavily', search: async () => [] }
+    })
+    const names = withSearch.map((tool) => tool.name)
+
+    expect(names).toEqual(expect.arrayContaining(['web_fetch', 'web_search', 'list_projects', 'get_project', 'submit_news']))
+
+    const searchTool = withSearch.find((tool) => tool.name === 'web_search')!
+    const issues: string[] = []
+    collectSchemaIssues(searchTool.parameters, 'web_search.parameters', issues)
+    expect(issues).toEqual([])
+    expect(searchTool.parameters.required).toEqual(['query'])
+  })
+
+  it('omits parameters for Gemini tools that take no arguments', () => {    const declarations = toGoogleTools(
       [
         { name: 'list_projects', description: 'no args', parameters: { type: 'object', properties: {} } },
         {

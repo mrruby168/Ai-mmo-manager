@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PROJECT_CATEGORIES } from '@shared/constants'
+import { PROJECT_CATEGORIES, WEB_SEARCH_PROVIDERS } from '@shared/constants'
 import {
   aiModeSchema,
   appearanceSchema,
@@ -132,6 +132,22 @@ export const providerDeletePayload = z.object({ id: z.string().trim().min(1).max
 export const providerTestPayload = providerTestSchema
 
 export const providerParseJsonPayload = providerSaveJsonSchema
+
+/* ---------- web search (D2) ---------- */
+
+const webSearchProviderSchema = z.enum(WEB_SEARCH_PROVIDERS)
+
+export const webSearchSavePayload = z.object({
+  provider: webSearchProviderSchema,
+  baseUrl: z.string().trim().max(2048).nullable().optional(),
+  apiKey: z.string().trim().max(4096).optional()
+})
+
+export const webSearchTestPayload = z.object({
+  provider: webSearchProviderSchema.optional(),
+  baseUrl: z.string().trim().max(2048).nullable().optional(),
+  apiKey: z.string().trim().max(4096).optional()
+})
 
 /* ---------- app ---------- */
 

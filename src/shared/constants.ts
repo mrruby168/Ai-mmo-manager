@@ -25,6 +25,10 @@ export type NewsKind = (typeof NEWS_KINDS)[number]
 export const MILESTONE_KINDS = ['end', 'snapshot', 'claim', 'whitelist', 'tge', 'listing', 'other'] as const
 export type MilestoneKind = (typeof MILESTONE_KINDS)[number]
 
+/** D2: app cung cấp Web Search cho Check News khi Model không có tìm kiếm gốc. */
+export const WEB_SEARCH_PROVIDERS = ['none', 'tavily', 'brave', 'searxng'] as const
+export type WebSearchProvider = (typeof WEB_SEARCH_PROVIDERS)[number]
+
 export const RISK_LEVELS = ['low', 'medium', 'high', 'unknown'] as const
 export type RiskLevel = (typeof RISK_LEVELS)[number]
 

@@ -5,8 +5,10 @@ import {
   buildHeadline,
   extractMilestoneFromText,
   formatDmy,
+  mentionsMilestone,
   oneLine,
-  selectTopImportantPerProject
+  selectTopImportantPerProject,
+  textContainsDate
 } from '../src/shared/newsView'
 import type { DeadlineProject, ImportantNewsItem } from '../src/shared/newsView'
 
@@ -240,5 +242,48 @@ describe('newsView — gộp dòng deadline (FIX 1)', () => {
     expect(oneLine('  a   b\n c  ', 20)).toBe('a b c')
     expect(oneLine('abcdef', 4)).toBe('abc…')
     expect(oneLine('abcdef', 0)).toBe('')
+  })
+})
+
+describe('textContainsDate', () => {
+  it('nhận ISO, dd/mm/yyyy, dd/mm', () => {
+    expect(textContainsDate('Snapshot 2026-11-10', '2026-11-10')).toBe(true)
+    expect(textContainsDate('Snapshot 10/11/2026', '2026-11-10')).toBe(true)
+    expect(textContainsDate('Snapshot 10/11', '2026-11-10')).toBe(true)
+    expect(textContainsDate('Snapshot 10/11/26', '2026-11-10')).toBe(true)
+  })
+
+  it('nhận dạng tiếng Việt và tiếng Anh', () => {
+    expect(textContainsDate('Snapshot 10 tháng 11', '2026-11-10')).toBe(true)
+    expect(textContainsDate('Snapshot thg. 11 ngày 10', '2026-11-10')).toBe(false)
+    expect(textContainsDate('Snapshot on Nov 10', '2026-11-10')).toBe(true)
+    expect(textContainsDate('Snapshot on Nov. 10th', '2026-11-10')).toBe(true)
+  })
+
+  it('không khớp ngày khác hoặc chuỗi không phải ngày', () => {
+    expect(textContainsDate('Snapshot 2026-11-11', '2026-11-10')).toBe(false)
+    expect(textContainsDate('Snapshot 11/10/2026', '2026-11-10')).toBe(false)
+    expect(textContainsDate('Snapshot soon', '2026-11-10')).toBe(false)
+    expect(textContainsDate('anything', 'not-a-date')).toBe(false)
+  })
+})
+
+describe('mentionsMilestone', () => {
+  it('bỏ qua khi không có mốc hoặc ngày', () => {
+    expect(mentionsMilestone('bất kỳ', null, null)).toBe(true)
+    expect(mentionsMilestone('Snapshot ngày 2026-11-10', null, '2026-11-10')).toBe(true)
+    expect(mentionsMilestone('Snapshot mở ngay', 'snapshot', null)).toBe(true)
+  })
+
+  it('yêu cầu cả từ khóa loại mốc và ngày khi có đủ', () => {
+    expect(mentionsMilestone('Alpha snapshot on 2026-11-10', 'snapshot', '2026-11-10')).toBe(true)
+    expect(mentionsMilestone('Alpha snapshot on 2026-11-11', 'snapshot', '2026-11-10')).toBe(false)
+    expect(mentionsMilestone('Alpha news on 2026-11-10', 'snapshot', '2026-11-10')).toBe(false)
+  })
+
+  it('hiểu từ khóa tiếng Việt và viết tắt', () => {
+    expect(mentionsMilestone('Sự kiện kết thúc ngày 10/11/2026', 'end', '2026-11-10')).toBe(true)
+    expect(mentionsMilestone('Mở WL ngày 10/11/2026', 'whitelist', '2026-11-10')).toBe(true)
+    expect(mentionsMilestone('TGE ngày 10/11/2026', 'tge', '2026-11-10')).toBe(true)
   })
 })

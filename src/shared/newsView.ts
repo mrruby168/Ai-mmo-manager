@@ -200,15 +200,111 @@ export function extractMilestoneFromText(text: string, defaultYear: number = new
   return { kind: kind.kind, date: date ? date.date : null }
 }
 
+const MONTH_NAMES = [
+  '',
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december'
+]
+
+const MONTH_ABBREVIATIONS: Record<number, string[]> = {
+  1: ['jan'],
+  2: ['feb'],
+  3: ['mar'],
+  4: ['apr'],
+  5: ['may'],
+  6: ['jun'],
+  7: ['jul'],
+  8: ['aug'],
+  9: ['sep', 'sept'],
+  10: ['oct'],
+  11: ['nov'],
+  12: ['dec']
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Có ngày `yyyy-mm-dd` xuất hiện dưới một trong các dạng người viết thường dùng. */
+export function textContainsDate(text: string, date: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  if (!match) {
+    return false
+  }
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const haystack = text.toLowerCase()
+
+  if (haystack.includes(date)) {
+    return true
+  }
+
+  const slash = new RegExp(`(^|[^\\d])0?${day}/0?${month}(?:/(?:20)?${String(year).slice(2)}|/${year})?(?!\\d)`)
+  if (slash.test(haystack)) {
+    return true
+  }
+
+  const vietnamese = new RegExp(`(^|[^\\d])0?${day}\\s*(?:tháng|thg\\.?)\\s*0?${month}(?!\\d)`)
+  if (vietnamese.test(haystack)) {
+    return true
+  }
+
+  const monthWords = [MONTH_NAMES[month], ...(MONTH_ABBREVIATIONS[month] ?? [])].filter(Boolean)
+  for (const word of monthWords) {
+    const english = new RegExp(`\\b${escapeRegExp(word)}\\.?\\s+0?${day}(?:st|nd|rd|th)?\\b`)
+    if (english.test(haystack)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+const MILESTONE_KEYWORDS: Record<MilestoneKind, RegExp> = {
+  end: /\bends?\b|\bending\b|kết\s*thúc/iu,
+  snapshot: /\bsnapshot\b/iu,
+  claim: /\bclaims?\b|\bclaiming\b/iu,
+  whitelist: /\bwhitelist\b|\bWL\b/u,
+  tge: /\bTGE\b/u,
+  listing: /\blisting\b/iu,
+  other: /./
+}
+
+/**
+ * FIX 3 / F.4: trang nguồn phải nhắc đúng loại mốc và đúng ngày thì mới giữ
+ * `verified`. `date` null thì chỉ cần từ khóa; `kind` null thì chỉ cần ngày.
+ */
+export function mentionsMilestone(text: string, kind: MilestoneKind | null, date: string | null): boolean {
+  if (!kind && !date) {
+    return true
+  }
+  if (kind && !MILESTONE_KEYWORDS[kind].test(text)) {
+    return false
+  }
+  if (date && !textContainsDate(text, date)) {
+    return false
+  }
+  return true
+}
+
 /** Ưu tiên trường đã lưu trong DB, chỉ đoán từ summary khi tin cũ chưa có. */
 export function resolveMilestone(item: HeadlineItem): Milestone | null {
   if (item.milestoneKind) {
     return { kind: item.milestoneKind, date: normalizeDate(item.milestoneDate) }
   }
   return extractMilestoneFromText(item.summary, defaultYearOf(item))
-}
-
-function defaultYearOf(item: HeadlineItem): number {
+}function defaultYearOf(item: HeadlineItem): number {
   const source = 'publishedAt' in item && typeof item.publishedAt === 'string' ? item.publishedAt : ''
   const match = /^(\d{4})/.exec(source)
   return match ? Number(match[1]) : new Date().getFullYear()

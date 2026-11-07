@@ -10,7 +10,8 @@ import type {
   ProviderType,
   RewardKind,
   RiskLevel,
-  VerificationState
+  VerificationState,
+  WebSearchProvider
 } from './constants'
 
 export interface SocialLinks {
@@ -187,12 +188,30 @@ export interface AppearanceSettings {
   fontWeight: number
 }
 
+/** D2: cấu hình Web Search của app (API key nằm trong secretStore, không ở đây). */
+export interface WebSearchSettings {
+  provider: WebSearchProvider
+  /** Chỉ dùng cho SearXNG; null với provider khác. */
+  baseUrl: string | null
+}
+
+export interface WebSearchView extends WebSearchSettings {
+  hasApiKey: boolean
+}
+
+export interface WebSearchTestResult {
+  ok: boolean
+  message: string
+  resultCount: number
+}
+
 export interface AppSettings {
   schemaVersion: 1
   dataPath: string
   appearance: AppearanceSettings
   ai: AiSettings
   aiMode: AiMode
+  webSearch: WebSearchSettings
 }
 
 export type LockOwner = 'none' | 'ai'
@@ -375,6 +394,17 @@ export interface RendererApi {
     parseProviderJson(json: string): Promise<IpcResult<{ providers: ProviderConfig[]; errors: string[] }>>
     testProvider(payload: { providerId: string; modelId: string }): Promise<IpcResult<ProviderTestResult>>
     exportConfig(): Promise<IpcResult<ExportResult>>
+    webSearch(): Promise<IpcResult<WebSearchView>>
+    saveWebSearch(input: {
+      provider: WebSearchProvider
+      baseUrl?: string | null
+      apiKey?: string
+    }): Promise<IpcResult<WebSearchView>>
+    testWebSearch(input?: {
+      provider?: WebSearchProvider
+      baseUrl?: string | null
+      apiKey?: string
+    }): Promise<IpcResult<WebSearchTestResult>>
   }
   lock: {
     get(): Promise<IpcResult<LockState>>

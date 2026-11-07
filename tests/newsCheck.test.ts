@@ -126,6 +126,49 @@ describe('verifyNewsSources', () => {
     expect(result.unverified).toBe(1)
     expect(result.items[0].verification).toBe('unverified')
   })
+
+  it('keeps verification when the page mentions both the milestone keyword and its date', async () => {
+    const result = await verifyNewsSources(
+      [verifiedItem({ milestoneKind: 'snapshot', milestoneDate: '2026-11-10' })],
+      names,
+      async () => ({ status: 200, text: 'Alpha Drop snapshot is on 10/11/2026 at 12:00 UTC' })
+    )
+
+    expect(result.unverified).toBe(0)
+    expect(result.items[0].verification).toBe('verified')
+  })
+
+  it('downgrades when the page mentions the project but not the milestone keyword', async () => {
+    const result = await verifyNewsSources(
+      [verifiedItem({ milestoneKind: 'snapshot', milestoneDate: '2026-11-10' })],
+      names,
+      async () => ({ status: 200, text: 'Alpha Drop news on 2026-11-10' })
+    )
+
+    expect(result.unverified).toBe(1)
+    expect(result.items[0].verification).toBe('unverified')
+  })
+
+  it('downgrades when the page mentions the milestone but a different date', async () => {
+    const result = await verifyNewsSources(
+      [verifiedItem({ milestoneKind: 'snapshot', milestoneDate: '2026-11-10' })],
+      names,
+      async () => ({ status: 200, text: 'Alpha Drop snapshot is on 2026-11-11' })
+    )
+
+    expect(result.unverified).toBe(1)
+    expect(result.items[0].verification).toBe('unverified')
+  })
+
+  it('does not require milestone checks for news without a milestone', async () => {
+    const result = await verifyNewsSources([verifiedItem()], names, async () => ({
+      status: 200,
+      text: 'Alpha Drop announces a new task'
+    }))
+
+    expect(result.unverified).toBe(0)
+    expect(result.items[0].verification).toBe('verified')
+  })
 })
 
 describe('buildNewsCheckMessage', () => {
@@ -138,7 +181,7 @@ describe('buildNewsCheckMessage', () => {
       searchUnverifiedBatches: 0
     })
 
-    expect(message).not.toBe('Không có tin mới trong ngày')
+    expect(message).not.toBe('Không có tin mới trong 7 ngày gần nhất')
     expect(message).toContain('2/3 lô AI không trả kết quả hợp lệ')
   })
 
@@ -151,7 +194,22 @@ describe('buildNewsCheckMessage', () => {
       searchUnverifiedBatches: 2
     })
 
-    expect(message).toContain('không có dấu vết web search')
+    expect(message).toContain('không có dấu vết tìm kiếm web')
+  })
+
+  it('reports batches dropped for missing evidence and the first failure reason', () => {
+    const message = buildNewsCheckMessage({
+      added: 0,
+      rejected: 3,
+      failedBatches: 1,
+      totalBatches: 2,
+      searchUnverifiedBatches: 0,
+      noEvidenceBatches: 1,
+      firstFailure: 'Lô 2: không có bằng chứng web search nên bỏ 3 tin AI tự khai'
+    })
+
+    expect(message).toContain('1/2 lô không có bằng chứng web search')
+    expect(message).toContain('Lỗi đầu tiên: Lô 2')
   })
 
   it('reports no news only when every batch succeeded and nothing was found', () => {
@@ -163,6 +221,6 @@ describe('buildNewsCheckMessage', () => {
         totalBatches: 2,
         searchUnverifiedBatches: 0
       })
-    ).toBe('Không có tin mới trong ngày')
+    ).toBe('Không có tin mới trong 7 ngày gần nhất')
   })
 })

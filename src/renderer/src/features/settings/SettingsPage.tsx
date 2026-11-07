@@ -8,11 +8,13 @@ import { AiSettingsPanel } from './AiSettingsPanel'
 import { AiModePanel } from './AiModePanel'
 import { AppearancePanel } from './AppearancePanel'
 import { DataPathPanel } from './DataPathPanel'
+import { WebSearchPanel } from './WebSearchPanel'
 
-type SettingsSection = 'ai' | 'data' | 'appearance'
+type SettingsSection = 'ai' | 'websearch' | 'data' | 'appearance'
 
 const SECTIONS: Array<{ id: SettingsSection; label: string }> = [
   { id: 'ai', label: 'AI Settings' },
+  { id: 'websearch', label: 'Web Search' },
   { id: 'data', label: 'Data Path' },
   { id: 'appearance', label: 'Appearance' }
 ]
@@ -84,6 +86,9 @@ export function SettingsPage(): React.JSX.Element {
       {!error && settings ? (
         <div className="settings-panel">
           {section === 'ai' ? <AiSettingsPanel providers={providers} onChanged={refreshData} /> : null}
+          {section === 'websearch' ? (
+            <WebSearchPanel webSearch={settings.webSearch} onChanged={refreshData} />
+          ) : null}
           {section === 'data' ? (
             <DataPathPanel dataPath={settings.dataPath} onChanged={refreshData} />
           ) : null}

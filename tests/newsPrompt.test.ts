@@ -58,6 +58,27 @@ describe('buildNewsPrompt', () => {
     expect(prompt).not.toContain('sk-')
     expect(prompt.toLowerCase()).not.toContain('api key:')
   })
+
+  it('asks for the last 7 days and a single important news per project', () => {
+    const prompt = buildNewsPrompt([project()], now)
+
+    expect(prompt).toContain('7 NGÀY GẦN NHẤT')
+    expect(prompt).toContain('MỘT tin kind="important"')
+  })
+
+  it('includes the milestone fields and tells the model not to invent dates', () => {
+    const prompt = buildNewsPrompt([project()], now)
+    const schema = newsResultJsonSchema()
+    const itemProperties = (
+      (schema.properties as Record<string, Record<string, unknown>>).items as Record<string, unknown>
+    ).items as Record<string, Record<string, unknown>>
+    const properties = itemProperties.properties as Record<string, unknown>
+
+    expect(properties).toHaveProperty('milestoneKind')
+    expect(properties).toHaveProperty('milestoneDate')
+    expect(prompt).toContain('milestoneKind')
+    expect(prompt).toContain('Không bịa ngày')
+  })
 })
 
 describe('isWithinNewsWindow', () => {

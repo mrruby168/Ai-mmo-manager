@@ -5,10 +5,11 @@ import {
   DEFAULT_FONT_FAMILY,
   FONT_SIZE_RANGE,
   FONT_WEIGHT_RANGE,
-  SAFE_FONT_FAMILIES
+  SAFE_FONT_FAMILIES,
+  WEB_SEARCH_PROVIDERS
 } from '@shared/constants'
-import type { AiMode } from '@shared/constants'
-import type { AiSettings, AppSettings, AppearanceSettings } from '@shared/types'
+import type { AiMode, WebSearchProvider } from '@shared/constants'
+import type { AiSettings, AppSettings, AppearanceSettings, WebSearchSettings } from '@shared/types'
 
 let cache: AppSettings | null = null
 
@@ -38,7 +39,32 @@ function buildDefaults(): AppSettings {
     dataPath: defaultDataPath(),
     appearance: defaultAppearance(),
     ai: defaultAiSettings(),
-    aiMode: 'ai'
+    aiMode: 'ai',
+    webSearch: defaultWebSearch()
+  }
+}
+
+export function defaultWebSearch(): WebSearchSettings {
+  return { provider: 'none', baseUrl: null }
+}
+
+function isWebSearchProvider(value: unknown): value is WebSearchProvider {
+  return typeof value === 'string' && (WEB_SEARCH_PROVIDERS as readonly string[]).includes(value)
+}
+
+/**
+ * File cũ không có `webSearch` phải chạy y như trước: mặc định `none`.
+ * baseUrl chỉ giữ cho SearXNG để tránh ghi nhầm URL của provider khác.
+ */
+function normalizeWebSearch(value: Partial<WebSearchSettings> | undefined): WebSearchSettings {
+  if (!value || !isWebSearchProvider(value.provider)) {
+    return defaultWebSearch()
+  }
+  const provider = value.provider
+  const rawBaseUrl = typeof value.baseUrl === 'string' ? value.baseUrl.trim() : ''
+  return {
+    provider,
+    baseUrl: provider === 'searxng' && rawBaseUrl.length > 0 ? rawBaseUrl : null
   }
 }
 
@@ -82,7 +108,8 @@ export function normalizeSettings(value: Partial<AppSettings>): AppSettings {
     ai: normalizeAi(value.ai),
     // Files written before AI modes existed have no field; they must keep
     // behaving exactly as before, i.e. AI enabled.
-    aiMode: value.aiMode === 'noai' ? 'noai' : 'ai'
+    aiMode: value.aiMode === 'noai' ? 'noai' : 'ai',
+    webSearch: normalizeWebSearch(value.webSearch)
   }
 }
 
@@ -135,4 +162,8 @@ export function saveLastSelection(selection: AiSettings['lastSelection']): AppSe
 
 export function saveAiMode(aiMode: AiMode): AppSettings {
   return updateSettings({ aiMode: aiMode === 'noai' ? 'noai' : 'ai' })
+}
+
+export function saveWebSearchSettings(webSearch: WebSearchSettings): AppSettings {
+  return updateSettings({ webSearch: normalizeWebSearch(webSearch) })
 }

@@ -72,7 +72,10 @@ const api: RendererApi = {
     deleteProvider: (id) => invoke(IPC.providersDelete, { id }),
     parseProviderJson: (json) => invoke(IPC.providersParseJson, { json }),
     testProvider: (payload) => invoke(IPC.providersTest, payload),
-    exportConfig: () => invoke(IPC.providersExportConfig)
+    exportConfig: () => invoke(IPC.providersExportConfig),
+    webSearch: () => invoke(IPC.settingsGetWebSearch),
+    saveWebSearch: (input) => invoke(IPC.settingsSaveWebSearch, input),
+    testWebSearch: (input) => invoke(IPC.settingsTestWebSearch, input ?? {})
   },
   lock: {
     get: () => invoke(IPC.lockGet),

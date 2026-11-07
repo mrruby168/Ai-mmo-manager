@@ -96,8 +96,24 @@ export function toggleNewsTodo(id: number, isDone: boolean): boolean {
   return Number(result.changes) > 0
 }
 
+/**
+ * FIX 3: lần Check News gần nhất phải cập nhật cả khi không có tin mới.
+ * Ưu tiên mốc ghi trong `meta`, sau đó mới tới tin cũ (DB trước FIX 3).
+ */
 export function getLastNewsFetchAt(): string | null {
+  const meta = getDatabase().prepare("SELECT value FROM meta WHERE key = 'news_last_checked_at'").get()
+  if (meta && typeof meta.value === 'string' && meta.value.length > 0) {
+    return meta.value
+  }
   const row = getDatabase().prepare('SELECT MAX(fetched_at) AS fetched_at FROM news_items').get()
   const value = row ? row.fetched_at : null
   return typeof value === 'string' ? value : null
+}
+
+export function setLastNewsCheckedAt(iso: string): void {
+  getDatabase()
+    .prepare(
+      "INSERT INTO meta (key, value) VALUES ('news_last_checked_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    )
+    .run(iso)
 }

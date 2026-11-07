@@ -15,6 +15,7 @@ import {
 } from '../ai/providerService'
 import { changeDataPath, getDataFolderToOpen } from '../services/dataPathService'
 import { getSettings, saveAiMode, saveAppearance, saveLastSelection } from '../services/settingsStore'
+import { getWebSearchView, saveWebSearch, testWebSearch } from '../services/webSearchService'
 import { broadcastToRenderers, registerHandler } from './guard'
 import {
   aiModePayload,
@@ -24,7 +25,9 @@ import {
   providerDeletePayload,
   providerParseJsonPayload,
   providerSavePayload,
-  providerTestPayload
+  providerTestPayload,
+  webSearchSavePayload,
+  webSearchTestPayload
 } from './payloadSchemas'
 
 function parentWindow(): BrowserWindow | undefined {
@@ -114,6 +117,28 @@ export function registerSettingsIpc(): void {
   registerHandler({
     channel: IPC.providersList,
     handler: () => listProviders()
+  })
+
+  registerHandler({
+    channel: IPC.settingsGetWebSearch,
+    handler: () => getWebSearchView()
+  })
+
+  registerHandler({
+    channel: IPC.settingsSaveWebSearch,
+    mutating: true,
+    parse: (raw) => webSearchSavePayload.parse(raw),
+    handler: (input) => {
+      const view = saveWebSearch(input)
+      broadcastToRenderers(EVENTS.dataChanged, { entity: 'settings' })
+      return view
+    }
+  })
+
+  registerHandler({
+    channel: IPC.settingsTestWebSearch,
+    parse: (raw) => webSearchTestPayload.parse(raw ?? {}),
+    handler: (input) => testWebSearch(input)
   })
 
   registerHandler({

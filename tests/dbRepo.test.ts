@@ -3,7 +3,7 @@ import { closeDatabase, openDatabase, withTransaction } from '../src/main/db/con
 import { allocateProjectId, deleteProject, getProject, insertProject, listProjects, updateProject } from '../src/main/db/projectsRepo'
 import type { ProjectRecord } from '../src/main/db/projectsRepo'
 import { deleteRevenue, insertRevenue, listRevenue } from '../src/main/db/revenueRepo'
-import { insertNews, listNews, toggleNewsTodo } from '../src/main/db/newsRepo'
+import { getLastNewsFetchAt, insertNews, listNews, setLastNewsCheckedAt, toggleNewsTodo } from '../src/main/db/newsRepo'
 import { getScanLatest, saveScanLatest } from '../src/main/db/scanRepo'
 
 openDatabase(':memory:')
@@ -166,6 +166,15 @@ describe('revenue and news repos', () => {
     expect(item?.milestoneDate).toBe('2026-11-10')
     expect(toggleNewsTodo(item!.id, true)).toBe(true)
     expect(listNews('todo')[0]?.isDone).toBe(true)
+  })
+
+  it('keeps the last checked timestamp even when no news was added', () => {
+    expect(getLastNewsFetchAt()).toBe('2026-11-05T08:05:00.000Z')
+
+    setLastNewsCheckedAt('2026-11-07T01:00:00.000Z')
+    setLastNewsCheckedAt('2026-11-07T02:00:00.000Z')
+
+    expect(getLastNewsFetchAt()).toBe('2026-11-07T02:00:00.000Z')
   })
 })
 

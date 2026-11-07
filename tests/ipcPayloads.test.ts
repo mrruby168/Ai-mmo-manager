@@ -27,7 +27,9 @@ import {
   revenueListPayload,
   revenueSavePayload,
   scanStartPayload,
-  scanSubmitPayload
+  scanSubmitPayload,
+  webSearchSavePayload,
+  webSearchTestPayload
 } from '../src/main/ipc/payloadSchemas'
 import { formatZodError } from '../src/main/ipc/zodErrorMessage'
 
@@ -151,6 +153,24 @@ const contracts: Array<{ channel: string; schema: { parse: (value: unknown) => u
   { channel: IPC.providersTest, schema: providerTestSchema, payload: { providerId: 'p', modelId: 'm' } },
   { channel: IPC.providersParseJson, schema: providerSaveJsonSchema, payload: { json: '{"providers":[]}' } },
 
+  { channel: IPC.settingsSaveWebSearch, schema: webSearchSavePayload, payload: { provider: 'none' } },
+  {
+    channel: IPC.settingsSaveWebSearch,
+    schema: webSearchSavePayload,
+    payload: { provider: 'tavily', baseUrl: null, apiKey: 'tvly-test' }
+  },
+  {
+    channel: IPC.settingsSaveWebSearch,
+    schema: webSearchSavePayload,
+    payload: { provider: 'searxng', baseUrl: 'https://searx.example.org' }
+  },
+  { channel: IPC.settingsTestWebSearch, schema: webSearchTestPayload, payload: {} },
+  {
+    channel: IPC.settingsTestWebSearch,
+    schema: webSearchTestPayload,
+    payload: { provider: 'tavily', apiKey: 'tvly-test' }
+  },
+
   { channel: IPC.appOpenExternal, schema: appOpenExternalPayload, payload: { url: 'https://example.com' } }
 ]
 
@@ -161,6 +181,11 @@ describe('preload ↔ main IPC payload contract', () => {
 
   it('rejects a non-http URL for app:openExternal', () => {
     expect(appOpenExternalPayload.safeParse({ url: 'javascript:alert(1)' }).success).toBe(false)
+  })
+
+  it('rejects an unknown web search provider', () => {
+    expect(webSearchSavePayload.safeParse({ provider: 'duckduckgo' }).success).toBe(false)
+    expect(webSearchTestPayload.safeParse({ provider: 'duckduckgo' }).success).toBe(false)
   })
 })
 
