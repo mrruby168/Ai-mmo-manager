@@ -153,6 +153,13 @@
 .btn--primary {
   background: var(--color-primary);
   color: var(--color-on-primary);
+  font-weight: 600;
+  /* Chữ trắng trên #5B8DEF chỉ đạt 3.23:1, nên giữ cỡ chữ tối thiểu 14px. */
+  font-size: max(0.875rem, 14px);
+}
+
+.btn--primary > svg {
+  color: var(--color-on-primary);
 }
 
 .btn--primary:hover:not(:disabled) {
@@ -1146,7 +1153,7 @@ select.field__control {
   place-items: center;
   cursor: pointer;
   z-index: 60;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(20, 184, 166, 0.18);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), 0 0 0 4px var(--color-primary-ring);
   transition: transform var(--transition-fast), filter var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -1169,7 +1176,7 @@ select.field__control {
   position: absolute;
   inset: -4px;
   border-radius: 50%;
-  border: 2px solid rgba(45, 212, 191, 0.35);
+  border: 2px solid var(--color-primary-ring-strong);
   border-top-color: var(--color-primary-hover);
   animation: spin 900ms linear infinite;
 }

@@ -1132,7 +1132,7 @@
     {
       "path": "src/renderer/src/styles/tokens.css",
       "type": "style",
-      "responsibility": "Design tokens: màu Dark Navy + Teal, spacing 4px, radius, font vars.",
+      "responsibility": "Design tokens: màu Dark Navy + Soft Royal Blue, spacing 4px, radius, font vars.",
       "feature": [
         "F-01"
       ],

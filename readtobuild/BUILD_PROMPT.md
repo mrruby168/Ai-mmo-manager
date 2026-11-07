@@ -51,7 +51,7 @@ Bạn là AI-AGENT theo bộ rule RULE-OPENCODE đang nạp (`AGENTS.md`, `rules
 - Cấu trúc file đúng `PROJECT_MAP.json` (planned) và `ARCHITECTURE.md` §11; file có trong Map thì tạo ngay (Blueprint exception), vẫn Glob trước khi Write; sửa file có sẵn bằng Edit.
 - Phụ thuộc một chiều: Renderer → IPC → Services/AI → Data → Shared. `db/connection.ts` nhận đường dẫn làm tham số (không import `dataPathService`). Renderer chỉ import `src/shared`.
 - Logic thuần để ở `src/shared` để test T3 bằng vitest/Node thường (native module `better-sqlite3` đã build cho ABI Electron không nạp được trong Node thường — R-1); lớp DB kiểm bằng T2 trong Electron.
-- UI theo `UI_SPEC.json`: Dark Navy + Teal, lưới 4px, token màu/kích thước lấy từ file đó, mọi nhãn trạng thái có chữ, focus ring, hit area ≥ 44px, `prefers-reduced-motion`. Đừng đoán số đo.
+- UI theo `UI_SPEC.json`: Dark Navy + Soft Royal Blue, lưới 4px, token màu/kích thước lấy từ file đó, mọi nhãn trạng thái có chữ, focus ring, hit area ≥ 44px, `prefers-reduced-motion`. Đừng đoán số đo.
 - Tên script npm lấy từ `package.json` thật sau khi tạo, không đoán.
 
 ### 5. Kế hoạch WI (đề xuất; điều chỉnh sau khi đối chiếu Design Pack)

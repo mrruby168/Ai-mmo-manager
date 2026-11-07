@@ -1,8 +1,8 @@
 :root {
-  --color-primary: #14b8a6;
-  --color-primary-hover: #2dd4bf;
-  --color-primary-active: #0f9f8f;
-  --color-on-primary: #04141a;
+  --color-primary: #5b8def;
+  --color-primary-hover: #709bf2;
+  --color-primary-active: #4779d0;
+  --color-on-primary: #ffffff;
   --color-secondary: #18243d;
   --color-secondary-hover: #1f2e4d;
   --color-background: #0b1220;
@@ -12,7 +12,7 @@
   --color-muted: #9aabc7;
   --color-border: #2a3a5a;
   --color-border-strong: #7a8fb5;
-  --color-focus: #2dd4bf;
+  --color-focus: #8cb0ff;
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-error: #f87171;
@@ -21,7 +21,9 @@
   --color-on-danger-solid: #ffffff;
   --color-overlay: rgba(5, 9, 18, 0.64);
 
-  --color-primary-soft: rgba(20, 184, 166, 0.16);
+  --color-primary-soft: rgba(91, 141, 239, 0.16);
+  --color-primary-ring: rgba(91, 141, 239, 0.18);
+  --color-primary-ring-strong: rgba(91, 141, 239, 0.35);
   --color-warning-soft: rgba(251, 191, 36, 0.16);
   --color-error-soft: rgba(248, 113, 113, 0.16);
   --color-success-soft: rgba(52, 211, 153, 0.16);

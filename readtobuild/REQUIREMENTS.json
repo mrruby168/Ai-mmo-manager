@@ -3,7 +3,7 @@
   "scale": "medium",
   "has_ui": true,
   "ui_requirement_mode": "AI_DESIGN",
-  "ui_requirement_note": "Theo chỉ dẫn D.1: Sidebar dọc trái, Dark Navy + Teal. Các số đo còn lại theo RULE_DEFAULT (lưới 4px, WCAG AA). status: proposed cho đến khi User chấp nhận.",
+  "ui_requirement_note": "Theo chỉ dẫn D.1: Sidebar dọc trái, Dark Navy + Soft Royal Blue. Các số đo còn lại theo RULE_DEFAULT (lưới 4px, WCAG AA). status: proposed cho đến khi User chấp nhận.",
   "document_language": "vi",
   "objective": "Ứng dụng desktop (Electron) giúp User cá nhân quản lý các dự án Event MMO và Airdrop: lưu danh sách, theo dõi deadline/trạng thái/chi phí, quét dự án mới bằng AI, quét tin tức, theo dõi doanh thu thực nhận. User chủ động 70%, AI hỗ trợ 30%; app vẫn dùng được đầy đủ khi AI hết token hoặc mất kết nối.",
   "users": [
@@ -20,7 +20,7 @@
     {
       "id": "F-01",
       "name": "Khung ứng dụng và Sidebar",
-      "description": "Sidebar dọc bên trái gồm 5 tab chính (Event MMO, Airdrop, Scan Project, News, Doanh thu) và mục Settings riêng ở cuối Sidebar. Nội dung tab hiển thị ở khu vực bên phải. Phong cách Dark Navy + Teal, dễ nhìn, thao tác nhanh.",
+      "description": "Sidebar dọc bên trái gồm 5 tab chính (Event MMO, Airdrop, Scan Project, News, Doanh thu) và mục Settings riêng ở cuối Sidebar. Nội dung tab hiển thị ở khu vực bên phải. Phong cách Dark Navy + Soft Royal Blue, dễ nhìn, thao tác nhanh.",
       "priority": "must",
       "status": "confirmed",
       "source": "D.1"
@@ -335,7 +335,7 @@
     {
       "id": "OQ-14",
       "topic": "Giao diện: chỉ Dark",
-      "issue": "Schema UI có light/dark; draft chỉ chốt Dark Navy + Teal và không có công tắc theme.",
+      "issue": "Schema UI có light/dark; draft chỉ chốt Dark Navy + Soft Royal Blue và không có công tắc theme.",
       "default": "Chỉ Dark; không thêm toggle theme.",
       "alternatives": [
         "Thêm theme sáng"

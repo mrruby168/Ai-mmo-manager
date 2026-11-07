@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "design_mode": "AI_DESIGN",
-  "design_note": "Theo chỉ dẫn D.1: Sidebar dọc trái, phong cách Dark Navy + Teal, dễ nhìn, thao tác nhanh. Số đo theo RULE_DEFAULT (lưới 4px, WCAG AA). Chỉ có theme tối; không có công tắc theme (OQ-14). Trạng thái proposed cho đến khi User duyệt.",
+  "design_note": "Theo chỉ dẫn D.1: Sidebar dọc trái, phong cách Dark Navy + Soft Royal Blue, dễ nhìn, thao tác nhanh. Số đo theo RULE_DEFAULT (lưới 4px, WCAG AA). Chỉ có theme tối; không có công tắc theme (OQ-14). Trạng thái proposed cho đến khi User duyệt.",
   "spacing_scale_px": [
     4,
     8,
@@ -245,10 +245,13 @@
     "light": null,
     "default_theme": "dark",
     "dark": {
-      "primary": "#14B8A6",
-      "primary_hover": "#2DD4BF",
-      "primary_active": "#0F9F8F",
-      "on_primary": "#04141A",
+      "primary": "#5B8DEF",
+      "primary_hover": "#709BF2",
+      "primary_active": "#4779D0",
+      "on_primary": "#FFFFFF",
+      "primary_soft": "rgba(91,141,239,0.16)",
+      "primary_ring": "rgba(91,141,239,0.18)",
+      "primary_ring_strong": "rgba(91,141,239,0.35)",
       "secondary": "#18243D",
       "secondary_hover": "#1F2E4D",
       "background": "#0B1220",
@@ -258,7 +261,7 @@
       "muted_text": "#9AABC7",
       "border": "#2A3A5A",
       "border_strong": "#7A8FB5",
-      "focus_ring": "#2DD4BF",
+      "focus_ring": "#8CB0FF",
       "success": "#34D399",
       "warning": "#FBBF24",
       "error": "#F87171",
@@ -272,14 +275,14 @@
       "text_on_surface": 14.72,
       "muted_on_surface": 7.45,
       "muted_on_surface_raised": 6.64,
-      "primary_on_surface": 9.32,
-      "on_primary_on_primary": 7.53,
+      "primary_on_surface": 5.37,
+      "on_primary_on_primary": 3.23,
       "success_on_surface": 9.02,
       "warning_on_surface": 10.39,
       "error_on_surface": 6.27,
       "info_on_surface": 6.82,
       "border_strong_on_surface_raised": 4.73,
-      "note": "Tính theo công thức WCAG 2.x; border thường chỉ là đường phân tách trang trí, viền ô nhập dùng border_strong (≥ 3:1)."
+      "note": "Tính theo công thức WCAG 2.x; border thường chỉ là đường phân tách trang trí, viền ô nhập dùng border_strong (≥ 3:1). Chữ trắng trên primary chỉ đạt 3.23:1 (hover 2.74:1), dưới WCAG AA 4.5:1; đã chấp nhận có chủ đích, bù bằng font-weight 600 và cỡ chữ tối thiểu 14px."
     },
     "semantic_usage": {
       "success": "Hoàn thành, Đã xác minh, Đã nhận (Claimed)",
@@ -312,7 +315,7 @@
         "disabled",
         "selected"
       ],
-      "interaction": "5 tab dọc theo thứ tự: Event MMO, Airdrop, Scan Project, News, Doanh thu; Settings ghim ở cuối. Tab đang chọn: nền surface_raised + vạch teal 3px bên trái + chữ text. Khi khóa AI: toàn bộ mục disabled (A.3). Dưới 1024px thu gọn thành icon + tooltip."
+      "interaction": "5 tab dọc theo thứ tự: Event MMO, Airdrop, Scan Project, News, Doanh thu; Settings ghim ở cuối. Tab đang chọn: nền surface_raised + vạch xanh royal 3px bên trái + chữ text. Khi khóa AI: toàn bộ mục disabled (A.3). Dưới 1024px thu gọn thành icon + tooltip."
     },
     {
       "name": "LockBanner",
@@ -353,7 +356,7 @@
         "disabled",
         "loading"
       ],
-      "interaction": "Biến thể primary (nền teal, chữ on_primary), secondary, ghost, danger (nền danger_solid). Hit area tối thiểu 44×44 bằng vùng bấm mở rộng. loading: spinner, vô hiệu bấm lại."
+      "interaction": "Biến thể primary (nền primary, chữ on_primary, font-weight 600, cỡ chữ ≥14px), secondary, ghost, danger (nền danger_solid). Hit area tối thiểu 44×44 bằng vùng bấm mở rộng. loading: spinner, vô hiệu bấm lại."
     },
     {
       "name": "Input / Select / Textarea",
@@ -454,7 +457,7 @@
         "letter_fallback",
         "loading"
       ],
-      "interaction": "Ảnh từ mmo-logo://<id>; thiếu ảnh dùng chữ cái đầu tên trên nền màu cố định theo hash của tên (8 sắc xanh/teal/tím tối, chữ ≥ 4.5:1)."
+      "interaction": "Ảnh từ mmo-logo://<id>; thiếu ảnh dùng chữ cái đầu tên trên nền màu cố định theo hash của tên (8 sắc xanh dương/tím tối, chữ ≥ 4.5:1)."
     },
     {
       "name": "CostBadge",
