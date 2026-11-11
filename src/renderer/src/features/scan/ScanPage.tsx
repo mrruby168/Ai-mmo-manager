@@ -19,7 +19,7 @@ const SCAN_FILE_ACCEPT = '.txt,.md,.json,text/plain,text/markdown,application/js
 
 export function ScanPage(): React.JSX.Element {
   const { refreshData, dataVersion, isAiEnabled } = useApp()
-  const { isAiBusy } = useLock()
+  const { isAiBusy, isBusy } = useLock()
   const { pushToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -47,6 +47,10 @@ export function ScanPage(): React.JSX.Element {
 
   useEffect(() => {
     return window.api.events.onAiProgress((progress) => {
+      // Nhiều tác vụ chạy song song: chỉ hiện tiến trình của kênh Scan.
+      if (!progress.taskId.startsWith('scan-')) {
+        return
+      }
       setProgressText(progress.message)
     })
   }, [])
@@ -84,6 +88,8 @@ export function ScanPage(): React.JSX.Element {
           !scanModel.effective.model.supportsTools ? 'tool calling' : 'Web Search'
         } — Scan sẽ không chạy.`
       : null
+
+  const scanBusy = isBusy('scan')
 
   let scanDisabledReason: string | null = null
   if (!isAiEnabled) {
@@ -125,7 +131,7 @@ export function ScanPage(): React.JSX.Element {
       pushToast('Vui lòng bật AI Mode trong Settings để sử dụng Scan.', 'info')
       return
     }
-    if (isAiBusy || scanning || text.trim().length === 0) {
+    if (scanBusy || scanning || text.trim().length === 0) {
       return
     }
     setScanning(true)
@@ -207,7 +213,7 @@ export function ScanPage(): React.JSX.Element {
     refreshData()
   }
 
-  const canScan = isAiEnabled && !isAiBusy && !scanning && text.trim().length > 0 && scanDisabledReason === null
+  const canScan = isAiEnabled && !scanBusy && !scanning && text.trim().length > 0 && scanDisabledReason === null
   const allSelectable = selectableItems()
   const allSelected = allSelectable.length > 0 && allSelectable.every((item) => selected.has(item.name))
 
@@ -248,7 +254,7 @@ export function ScanPage(): React.JSX.Element {
             label="Scan Project"
             providers={providers}
             value={settings?.ai.scanSelection ?? null}
-            disabled={scanning || isAiBusy}
+            disabled={scanning || scanBusy}
             hint={modelPickerHint}
             onChange={(next) => void handleScanModelChange(next)}
           />

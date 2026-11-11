@@ -53,10 +53,12 @@ function Router(): React.JSX.Element {
     }
   })()
 
+  const chatHidden = route.tab === 'scan' || route.tab === 'news'
+
   return (
     <>
       {page}
-      {route.tab !== 'settings' ? <ChatPanel /> : null}
+      {route.tab !== 'settings' ? <ChatPanel hidden={chatHidden} /> : null}
     </>
   )
 }

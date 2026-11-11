@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LOCK_POLICY } from '@shared/constants'
-import type { LockState } from '@shared/types'
+import { deriveRunningTasks, isChannelBusy } from '@shared/lockView'
+import type { AiChannel, LockState, LockTask } from '@shared/types'
 
 const idleLock: LockState = {
   owner: 'none',
@@ -13,7 +14,12 @@ const idleLock: LockState = {
 
 interface LockContextValue {
   lock: LockState
+  /** Mọi tác vụ AI đang chạy (mỗi kênh tối đa một tác vụ). */
+  runningTasks: LockTask[]
+  /** Có BẤT KỲ tác vụ AI nào đang chạy — dùng cho thao tác ghi dữ liệu. */
   isAiBusy: boolean
+  /** Kênh cụ thể có đang bận không — dùng cho nút bắt đầu tác vụ AI. */
+  isBusy: (channel: AiChannel) => boolean
   canMutate: boolean
   beginUserEditing: () => Promise<boolean>
   endUserEditing: () => Promise<void>
@@ -63,16 +69,21 @@ export function LockProvider({ children }: { children: ReactNode }): React.JSX.E
     return (LOCK_POLICY.allowedWhileAiBusy as readonly string[]).includes(action)
   }, [])
 
+  const runningTasks = useMemo(() => deriveRunningTasks(lock), [lock])
+  const isBusy = useCallback((channel: AiChannel) => isChannelBusy(runningTasks, channel), [runningTasks])
+
   const value = useMemo<LockContextValue>(
     () => ({
       lock,
+      runningTasks,
       isAiBusy: lock.owner === 'ai',
+      isBusy,
       canMutate: lock.owner !== 'ai',
       beginUserEditing,
       endUserEditing,
       isAllowedWhileAiBusy
     }),
-    [lock, beginUserEditing, endUserEditing, isAllowedWhileAiBusy]
+    [lock, runningTasks, isBusy, beginUserEditing, endUserEditing, isAllowedWhileAiBusy]
   )
 
   return <LockContext.Provider value={value}>{children}</LockContext.Provider>

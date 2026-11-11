@@ -224,12 +224,25 @@ export interface AppSettings {
 
 export type LockOwner = 'none' | 'ai'
 
+/** Ba kênh AI độc lập: Check News, Scan Project và Chat. */
+export type AiChannel = 'news' | 'scan' | 'chat'
+
+export interface LockTask {
+  taskId: string
+  /** null = tác vụ cũ không khai báo kênh (xung đột với mọi tác vụ). */
+  channel: AiChannel | null
+  label: string
+  startedAt: string
+}
+
 export interface LockState {
   owner: LockOwner
   taskId: string | null
   label: string | null
   startedAt: string | null
   userEditing: boolean
+  /** Danh sách tác vụ đang chạy; tùy chọn để không phá vỡ payload cũ. */
+  tasks?: LockTask[]
 }
 
 export interface AiProgress {
@@ -402,7 +415,7 @@ export interface RendererApi {
     newSession(): Promise<IpcResult<{ ok: boolean }>>
     confirm(actionId: string): Promise<IpcResult<{ message: string; ok: boolean }>>
     cancelAction(actionId: string): Promise<IpcResult<{ canceled: boolean }>>
-    cancelTask(): Promise<IpcResult<{ canceled: boolean }>>
+    cancelTask(channel?: AiChannel): Promise<IpcResult<{ canceled: boolean }>>
   }
   settings: {
     get(): Promise<IpcResult<AppSettings>>

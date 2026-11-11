@@ -103,9 +103,17 @@ function WarningIcon({ size = 18 }: ChatIconProps): React.JSX.Element {
   )
 }
 
-export function ChatPanel(): React.JSX.Element {
+interface ChatPanelProps {
+  /**
+   * Ẩn toàn bộ giao diện chat (panel + nút nổi) bằng CSS mà không gỡ component
+   * khỏi cây React, để lịch sử hội thoại và lượt đang gửi không bị mất.
+   */
+  hidden?: boolean
+}
+
+export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.Element {
   const { refreshData, isAiEnabled } = useApp()
-  const { isAiBusy } = useLock()
+  const { isBusy } = useLock()
   const { pushToast } = useToast()
   const nextId = useRef(1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -163,7 +171,8 @@ export function ChatPanel(): React.JSX.Element {
   const currentProvider = providers.find((provider) => provider.id === providerId) ?? null
   const models = currentProvider?.models ?? []
   const currentModel = models.find((model) => model.id === modelId) ?? null
-  const canChat = isAiEnabled && Boolean(currentProvider && currentModel) && !isAiBusy && !sending
+  const chatBusy = isBusy('chat')
+  const canChat = isAiEnabled && Boolean(currentProvider && currentModel) && !chatBusy && !sending
 
   const selection: ModelSelection | null =
     providerId && modelId ? { providerId, modelId } : null
@@ -220,7 +229,7 @@ export function ChatPanel(): React.JSX.Element {
   }
 
   async function handleStop(): Promise<void> {
-    const result = await window.api.chat.cancelTask()
+    const result = await window.api.chat.cancelTask('chat')
     if (!result.ok) {
       setError(result.error.message)
       return
@@ -288,7 +297,7 @@ export function ChatPanel(): React.JSX.Element {
     ? AI_DISABLED_MESSAGE
     : !currentProvider || !currentModel
       ? 'Chưa cấu hình Provider/Model trong Settings.'
-      : isAiBusy
+      : chatBusy
         ? 'AI đang thực thi…'
         : sending
           ? 'Đang gửi…'
@@ -297,8 +306,9 @@ export function ChatPanel(): React.JSX.Element {
             : null
 
   return (
-    <>
-      {open && isAiEnabled ? (
+    <div className="chat-host" style={{ display: hidden ? 'none' : 'contents' }} data-lock-allow="true">
+      <>
+        {open && isAiEnabled ? (
         <div className="chat-panel" role="dialog" aria-modal="false" aria-label="AI Chat Box">
           <div className="chat-panel__header">
             <span className="chat-panel__badge" aria-hidden="true">
@@ -419,7 +429,7 @@ export function ChatPanel(): React.JSX.Element {
           {error ? <div className="chat-error" role="alert">{error}</div> : null}
 
           <div className="chat-composer">
-            {isAiBusy ? (
+            {chatBusy ? (
               <div className="chat-busy" role="status">
                 <span className="chat-busy__spinner" aria-hidden="true" />
                 AI đang thực thi…
@@ -433,7 +443,7 @@ export function ChatPanel(): React.JSX.Element {
                 placeholder={currentModel ? 'Nhập tin nhắn…' : 'Chưa có Model, vào Settings để cấu hình'}
                 rows={1}
                 aria-label="Nội dung tin nhắn"
-                disabled={isAiBusy || sending}
+                disabled={chatBusy || sending}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                     event.preventDefault()
@@ -476,7 +486,7 @@ export function ChatPanel(): React.JSX.Element {
       ) : null}
       <button
         type="button"
-        className={`chat-fab${isAiBusy ? ' chat-fab--busy' : ''}${isAiEnabled ? '' : ' chat-fab--disabled'}`}
+        className={`chat-fab${chatBusy ? ' chat-fab--busy' : ''}${isAiEnabled ? '' : ' chat-fab--disabled'}`}
         onClick={() => {
           if (!isAiEnabled) {
             pushToast(AI_DISABLED_MESSAGE, 'info')
@@ -490,7 +500,8 @@ export function ChatPanel(): React.JSX.Element {
       >
         {open && isAiEnabled ? <CloseIcon size={26} /> : <SparkleIcon size={26} />}
       </button>
-    </>
+      </>
+    </div>
   )
 }
 
