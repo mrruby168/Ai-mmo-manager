@@ -103,7 +103,15 @@ function WarningIcon({ size = 18 }: ChatIconProps): React.JSX.Element {
   )
 }
 
-export function ChatPanel(): React.JSX.Element {
+interface ChatPanelProps {
+  /**
+   * Ẩn toàn bộ giao diện chat (panel + nút nổi) bằng CSS mà không gỡ component
+   * khỏi cây React, để lịch sử hội thoại và lượt đang gửi không bị mất.
+   */
+  hidden?: boolean
+}
+
+export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.Element {
   const { refreshData, isAiEnabled } = useApp()
   const { isAiBusy } = useLock()
   const { pushToast } = useToast()
@@ -297,8 +305,9 @@ export function ChatPanel(): React.JSX.Element {
             : null
 
   return (
-    <>
-      {open && isAiEnabled ? (
+    <div className="chat-host" style={{ display: hidden ? 'none' : 'contents' }}>
+      <>
+        {open && isAiEnabled ? (
         <div className="chat-panel" role="dialog" aria-modal="false" aria-label="AI Chat Box">
           <div className="chat-panel__header">
             <span className="chat-panel__badge" aria-hidden="true">
@@ -490,7 +499,8 @@ export function ChatPanel(): React.JSX.Element {
       >
         {open && isAiEnabled ? <CloseIcon size={26} /> : <SparkleIcon size={26} />}
       </button>
-    </>
+      </>
+    </div>
   )
 }
 
