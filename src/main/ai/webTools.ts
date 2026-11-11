@@ -1,4 +1,5 @@
 import { isHttpUrl } from '@shared/schemas'
+import { extractRelevantText } from '@shared/pageExcerpt'
 import { SafeFetchError, safeFetch } from '../services/safeFetch'
 
 const ENTITY_MAP: Record<string, string> = {
@@ -50,7 +51,16 @@ export function wrapUntrustedWebContent(sourceUrl: string, content: string): str
   return `<untrusted_web_content source="${sourceUrl.replace(/["<>]/g, '')}">\n${content}\n</untrusted_web_content>`
 }
 
-export async function webFetch(args: Record<string, unknown>, signal: AbortSignal): Promise<string> {
+export interface WebFetchOptions {
+  /** Keep only airdrop/deadline/milestone lines, up to `maxChars` (Scan and Check News). */
+  focus?: { maxChars: number }
+}
+
+export async function webFetch(
+  args: Record<string, unknown>,
+  signal: AbortSignal,
+  options: WebFetchOptions = {}
+): Promise<string> {
   const rawUrl = typeof args.url === 'string' ? args.url.trim() : ''
   if (!isHttpUrl(rawUrl)) {
     return JSON.stringify({ error: 'URL không hợp lệ, chỉ nhận http:// hoặc https://' })
@@ -72,7 +82,9 @@ export async function webFetch(args: Record<string, unknown>, signal: AbortSigna
 
   const isHtml = fetched.contentType === 'text/html'
   const body = isHtml ? htmlToText(fetched.text) : fetched.text.trim()
-  const limited = body.slice(0, 40_000)
+  const limited = options.focus
+    ? extractRelevantText(body.slice(0, 200_000), { maxChars: options.focus.maxChars })
+    : body.slice(0, 40_000)
 
   return wrapUntrustedWebContent(fetched.url, limited)
 }

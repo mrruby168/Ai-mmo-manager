@@ -12,6 +12,28 @@ export interface AgentTool extends AiToolSpec {
   handler: (args: Record<string, unknown>, context: AgentToolContext) => Promise<unknown> | unknown
 }
 
+export interface AgentUsage {
+  inputTokens: number
+  outputTokens: number
+  /** Web searches reported by the provider for this response. */
+  searches: number
+}
+
+/** Thrown when the loop runs out of steps; the caller may treat it as one failed batch. */
+export class AgentStepLimitError extends AiError {
+  constructor(maxSteps: number) {
+    super('unknown', `AI vượt quá ${maxSteps} bước mà chưa hoàn tất, hãy thử lại`)
+    this.name = 'AgentStepLimitError'
+  }
+}
+
+export interface CompactToolResults {
+  /** Tool results of the last N assistant turns are sent in full. */
+  keepFullTurns: number
+  /** Older tool results are cut to this many characters. */
+  maxChars: number
+}
+
 export interface AgentInput {
   client: ModelClient
   system: string
@@ -22,6 +44,12 @@ export interface AgentInput {
   maxTokens?: number
   signal: AbortSignal
   onStep?: (step: string) => void
+  /** Ask the provider to cache system + tools + history between steps. */
+  promptCache?: boolean
+  /** Shorten stale tool results in the copy sent to the model (stored history stays intact). */
+  compactToolResults?: CompactToolResults
+  /** Called after every model response, for cost accounting. */
+  onUsage?: (usage: AgentUsage) => void
 }
 
 export interface AgentWebSearchTrace {
@@ -86,8 +114,37 @@ function clipToolResult(content: string): string {
   return `${content.slice(0, LIMITS.aiToolResultMaxChars)}…[đã cắt bớt, quá dài]`
 }
 
+/**
+ * Returns a copy of `messages` where tool results older than the last
+ * `keepFullTurns` assistant turns are shortened. Without this, every page the
+ * model opened is re-billed as input on every later step.
+ */
+export function compactToolMessages(messages: AiMessage[], options: CompactToolResults): AiMessage[] {
+  const assistantIndexes: number[] = []
+  messages.forEach((message, index) => {
+    if (message.role === 'assistant') {
+      assistantIndexes.push(index)
+    }
+  })
+  const keep = Math.max(1, options.keepFullTurns)
+  if (assistantIndexes.length <= keep) {
+    return messages
+  }
+  const cutoff = assistantIndexes[assistantIndexes.length - keep]
+
+  return messages.map((message, index) => {
+    if (message.role !== 'tool' || index >= cutoff || message.content.length <= options.maxChars) {
+      return message
+    }
+    const wrapped = message.content.startsWith('<untrusted_web_content')
+    const clipped = `${message.content.slice(0, options.maxChars)}…[đã rút gọn, nội dung cũ]`
+    return { ...message, content: wrapped ? `${clipped}\n</untrusted_web_content>` : clipped }
+  })
+}
+
 export async function runAgent(input: AgentInput): Promise<AgentResult> {
   const maxSteps = input.maxSteps ?? LIMITS.aiMaxSteps
+  const compaction = input.compactToolResults
   const maxTokens = input.maxTokens ?? 4096
   const messages = [...input.messages]
   const toolsByName = new Map(input.tools.map((tool) => [tool.name, tool]))
@@ -109,11 +166,12 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     try {
       response = await input.client.complete({
         system: input.system,
-        messages,
+        messages: compaction ? compactToolMessages(messages, compaction) : messages,
         tools: toolSpecs,
         enableWebSearch: input.enableWebSearch ?? false,
         signal: input.signal,
-        maxTokens
+        maxTokens,
+        ...(input.promptCache ? { promptCache: true } : {})
       })
     } catch (error) {
       if (input.signal.aborted) {
@@ -121,6 +179,12 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
       }
       throw error
     }
+
+    input.onUsage?.({
+      inputTokens: response.usage?.inputTokens ?? 0,
+      outputTokens: response.usage?.outputTokens ?? 0,
+      searches: response.searchCount ?? (response.webSearch?.used ? 1 : 0)
+    })
 
     messages.push({
       role: 'assistant',
@@ -213,7 +277,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     }
   }
 
-  throw new AiError('unknown', `AI vượt quá ${maxSteps} bước mà chưa hoàn tất, hãy thử lại`)
+  throw new AgentStepLimitError(maxSteps)
 }
 
 export function newTaskId(prefix: string): string {

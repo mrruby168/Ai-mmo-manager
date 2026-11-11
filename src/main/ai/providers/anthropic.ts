@@ -2,10 +2,43 @@ import { logError, logInfo } from '../../services/logger'
 import type { AiMessage, AiRequest, AiResponse, AiToolCall, AiToolSpec, ModelClient, ProviderConnection } from '../types'
 import { AiError, extractErrorDetail, mapFetchFailure, mapHttpStatus } from '../types'
 import { joinEndpoint } from '@shared/provider-presets'
-import { traceFromAnthropicBlocks } from '../searchTrace'
+import { countAnthropicSearches, traceFromAnthropicBlocks } from '../searchTrace'
 
 const ANTHROPIC_VERSION = '2026-10-21'
 const MAX_PAUSE_CONTINUATIONS = 2
+const CACHE_CONTROL = { type: 'ephemeral' } as const
+
+/**
+ * Prompt caching: marks the end of the stable prefix (system, last custom tool,
+ * last user message) so repeated agent steps re-read it at the cached price.
+ * Only blocks created here are mutated; assistant raw payloads are left alone.
+ */
+export function applyAnthropicPromptCache(body: Record<string, unknown>): void {
+  if (typeof body.system === 'string' && body.system.length > 0) {
+    body.system = [{ type: 'text', text: body.system, cache_control: CACHE_CONTROL }]
+  }
+
+  const tools = body.tools
+  if (Array.isArray(tools)) {
+    for (let index = tools.length - 1; index >= 0; index -= 1) {
+      const tool = tools[index] as Record<string, unknown>
+      if (tool && typeof tool === 'object' && 'input_schema' in tool) {
+        tools[index] = { ...tool, cache_control: CACHE_CONTROL }
+        break
+      }
+    }
+  }
+
+  const messages = body.messages
+  if (Array.isArray(messages) && messages.length > 0) {
+    const last = messages[messages.length - 1] as AnthropicMessage
+    if (last.role === 'user' && Array.isArray(last.content) && last.content.length > 0) {
+      const blocks = [...last.content]
+      blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: CACHE_CONTROL }
+      messages[messages.length - 1] = { ...last, content: blocks }
+    }
+  }
+}
 
 export type AnthropicContentBlock = Record<string, unknown>
 
@@ -153,6 +186,9 @@ export function createAnthropicClient(connection: ProviderConnection): ModelClie
       if (tools.length > 0) {
         body.tools = tools
       }
+      if (request.promptCache === true) {
+        applyAnthropicPromptCache(body)
+      }
 
       const accumulatedBlocks: AnthropicContentBlock[] = []
       let accumulatedText = ''
@@ -232,7 +268,8 @@ export function createAnthropicClient(connection: ProviderConnection): ModelClie
           toolCalls,
           usage: inputTokens + outputTokens > 0 ? { inputTokens, outputTokens } : null,
           raw: { provider: 'anthropic', payload: accumulatedBlocks },
-          webSearch
+          webSearch,
+          searchCount: countAnthropicSearches(accumulatedBlocks)
         }
       }
 
