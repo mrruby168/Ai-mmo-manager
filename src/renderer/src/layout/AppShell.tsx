@@ -3,6 +3,7 @@ import { useApp } from '../state/AppContext'
 import { useLock } from '../state/LockContext'
 import { useToast } from '../state/ToastContext'
 import { LockBanner } from './LockBanner'
+import { UpdateBanner } from './UpdateBanner'
 import { Sidebar } from './Sidebar'
 
 export function AppShell({ children }: { children: ReactNode }): React.JSX.Element {
@@ -21,6 +22,7 @@ export function AppShell({ children }: { children: ReactNode }): React.JSX.Eleme
       <Sidebar />
       <div className="app-main">
         <LockBanner />
+        <UpdateBanner />
         <main className="app-content">
           <div className="app-content__inner">{children}</div>
         </main>

@@ -71,6 +71,31 @@ export const UPDATE_RELEASE_URL_BASE = 'https://github.com/mrruby168/Ai-mmo-mana
 
 export const DEFAULT_FONT_FAMILY = 'Segoe UI, system-ui, -apple-system, sans-serif'
 
+/**
+ * Kiểm tra đường dẫn `child` có nằm bên trong thư mục `parent` hay không.
+ * Chuẩn hóa dấu gạch chéo Windows, không phân biệt hoa thường, chống thoát `..`.
+ */
+export function isPathInside(child: string, parent: string): boolean {
+  const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase()
+  const resolveSegments = (p: string): string[] => {
+    const resolved: string[] = []
+    for (const part of p.split('/')) {
+      if (!part || part === '.') {
+        continue
+      }
+      if (part === '..') {
+        resolved.pop()
+      } else {
+        resolved.push(part)
+      }
+    }
+    return resolved
+  }
+  const c = resolveSegments(normalize(child)).join('/')
+  const p = resolveSegments(normalize(parent)).join('/')
+  return c === p || c.startsWith(p + '/')
+}
+
 export const SAFE_FONT_FAMILIES = [
   'Segoe UI, system-ui, -apple-system, sans-serif',
   'Arial, Helvetica, sans-serif',

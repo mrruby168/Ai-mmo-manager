@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import type { UpdateServiceDeps } from '../src/main/services/updateService'
 import { createUpdateService } from '../src/main/services/updateService'
+import { isPathInside } from '@shared/constants'
 
 interface UpdaterMock {
   emitter: EventEmitter
@@ -239,5 +240,16 @@ describe('updateService', () => {
     expect(updater.allowPrerelease).toBe(false)
     expect(updater.allowDowngrade).toBe(false)
     expect(service.getState().portable).toBe(false)
+  })
+
+  it('isPathInside: trong/ngoài, hoa thường, gạch chéo, .., tiền tố giống nhau', () => {
+    expect(isPathInside('C:\\App\\data', 'C:\\App')).toBe(true)
+    expect(isPathInside('C:/App/data', 'C:/App')).toBe(true)
+    expect(isPathInside('C:\\App', 'C:\\App')).toBe(true)
+    expect(isPathInside('C:\\APP\\DATA', 'C:\\App')).toBe(true)
+    expect(isPathInside('C:\\App2\\data', 'C:\\App')).toBe(false)
+    expect(isPathInside('C:\\App\\..\\Outside', 'C:\\App')).toBe(false)
+    expect(isPathInside('D:\\data', 'C:\\App')).toBe(false)
+    expect(isPathInside('C:\\App', 'C:\\App\\data')).toBe(false)
   })
 })
