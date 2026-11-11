@@ -2,7 +2,7 @@ import { EVENTS, IPC } from '@shared/ipc-channels'
 import { registerHandler, broadcastToRenderers } from './guard'
 import { scanStartPayload, scanSubmitPayload } from './payloadSchemas'
 import { runScan, getScanLatestResult, submitScanSelection } from '../ai/scanService'
-import { cancelAiTask } from '../ai/aiTaskRunner'
+import { cancelAiChannel } from '../ai/aiTaskRunner'
 
 export function registerScanIpc(): void {
   registerHandler({
@@ -29,6 +29,6 @@ export function registerScanIpc(): void {
 
   registerHandler({
     channel: IPC.scanCancel,
-    handler: () => ({ canceled: cancelAiTask() })
+    handler: () => ({ canceled: cancelAiChannel('scan') })
   })
 }

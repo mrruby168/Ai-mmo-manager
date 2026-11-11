@@ -60,7 +60,7 @@ const api: RendererApi = {
     newSession: () => invoke(IPC.chatNewSession),
     confirm: (actionId) => invoke(IPC.chatConfirm, { actionId }),
     cancelAction: (actionId) => invoke(IPC.chatCancelAction, { actionId }),
-    cancelTask: () => invoke(IPC.aiCancel)
+    cancelTask: (channel) => invoke(IPC.aiCancel, channel ? { channel } : undefined)
   },
   settings: {
     get: () => invoke(IPC.settingsGet),

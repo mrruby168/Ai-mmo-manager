@@ -29,6 +29,11 @@ export const chatSendPayload = z.union([
 
 export const actionIdPayload = z.object({ actionId: z.string().trim().min(1).max(64) })
 
+/** `ai:cancel` accepts nothing (hủy tất cả), `{}` hoặc một kênh cụ thể. */
+export const aiCancelPayload = z
+  .object({ channel: z.enum(['news', 'scan', 'chat']).optional() })
+  .optional()
+
 /* ---------- projects ---------- */
 
 export const projectsIdPayload = z.object({ id: z.string().min(1).max(64) })

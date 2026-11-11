@@ -1,8 +1,8 @@
 import { IPC } from '@shared/ipc-channels'
 import { registerHandler } from './guard'
-import { actionIdPayload, chatSendPayload } from './payloadSchemas'
+import { actionIdPayload, aiCancelPayload, chatSendPayload } from './payloadSchemas'
 import { startNewChatSession, sendChatMessage, chooseChatOption, confirmChatAction, cancelChatAction } from '../ai/chatService'
-import { cancelAiTask } from '../ai/aiTaskRunner'
+import { cancelAiTask, cancelAiChannel } from '../ai/aiTaskRunner'
 
 export function registerChatIpc(): void {
   registerHandler({
@@ -39,6 +39,10 @@ export function registerChatIpc(): void {
 
   registerHandler({
     channel: IPC.aiCancel,
-    handler: () => ({ canceled: cancelAiTask() })
+    parse: (raw) => aiCancelPayload.parse(raw),
+    handler: (input) => {
+      const channel = input?.channel
+      return { canceled: channel ? cancelAiChannel(channel) : cancelAiTask() }
+    }
   })
 }
