@@ -60,13 +60,20 @@ export const IPC = {
   lockUserBegin: 'lock:userBegin',
   lockUserEnd: 'lock:userEnd',
 
-  appOpenExternal: 'app:openExternal'
+  appOpenExternal: 'app:openExternal',
+
+  updateGetState: 'update:getState',
+  updateCheck: 'update:check',
+  updateDownload: 'update:download',
+  updateInstall: 'update:install',
+  updateOpenRelease: 'update:openRelease'
 } as const
 
 export const EVENTS = {
   lockChanged: 'lock:changed',
   aiProgress: 'ai:progress',
-  dataChanged: 'data:changed'
+  dataChanged: 'data:changed',
+  updateState: 'update:state'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

@@ -372,6 +372,18 @@ export interface ChatReply {
   choices: ChatChoice[]
 }
 
+export type UpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error'
+
+export interface UpdateState {
+  phase: UpdatePhase
+  currentVersion: string
+  latestVersion?: string
+  percent?: number
+  message?: string
+  releaseUrl?: string
+  portable?: boolean
+}
+
 export interface RendererApi {
   projects: {
     list(category?: ProjectCategory): Promise<IpcResult<Project[]>>
@@ -452,9 +464,17 @@ export interface RendererApi {
   app: {
     openExternal(url: string): Promise<IpcResult<{ opened: boolean }>>
   }
+  update: {
+    getState(): Promise<IpcResult<UpdateState>>
+    check(): Promise<IpcResult<UpdateState>>
+    download(): Promise<IpcResult<{ downloaded: boolean }>>
+    install(): Promise<IpcResult<{ installed: boolean }>>
+    openRelease(): Promise<IpcResult<{ opened: boolean }>>
+  }
   events: {
     onLockChanged(listener: (state: LockState) => void): () => void
     onDataChanged(listener: (payload: { entity: string }) => void): () => void
     onAiProgress(listener: (progress: AiProgress) => void): () => void
+    onUpdateState(listener: (state: UpdateState) => void): () => void
   }
 }

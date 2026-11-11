@@ -64,6 +64,11 @@ export const DEADLINE_WINDOWS = {
 export const FONT_SIZE_RANGE = { min: 12, defaultValue: 16, max: 20 } as const
 export const FONT_WEIGHT_RANGE = { min: 300, defaultValue: 400, max: 700 } as const
 
+export const UPDATE_CHECK_DELAY_MS = 60_000
+export const UPDATE_CHECK_TIMEOUT_MS = 20_000
+/** Chỉ cho phép mở link Release thuộc repo này. */
+export const UPDATE_RELEASE_URL_BASE = 'https://github.com/mrruby168/Ai-mmo-manager/releases'
+
 export const DEFAULT_FONT_FAMILY = 'Segoe UI, system-ui, -apple-system, sans-serif'
 
 export const SAFE_FONT_FAMILIES = [

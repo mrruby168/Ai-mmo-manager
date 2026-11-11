@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import { EVENTS, IPC } from '../shared/ipc-channels'
-import type { AiProgress, IpcResult, LockState, RendererApi } from '../shared/types'
+import type { AiProgress, IpcResult, LockState, RendererApi, UpdateState } from '../shared/types'
 
 async function invoke<T>(channel: string, payload?: unknown): Promise<IpcResult<T>> {
   return (await ipcRenderer.invoke(channel, payload)) as IpcResult<T>
@@ -89,10 +89,18 @@ const api: RendererApi = {
   app: {
     openExternal: (url) => invoke(IPC.appOpenExternal, { url })
   },
+  update: {
+    getState: () => invoke(IPC.updateGetState),
+    check: () => invoke(IPC.updateCheck),
+    download: () => invoke(IPC.updateDownload),
+    install: () => invoke(IPC.updateInstall),
+    openRelease: () => invoke(IPC.updateOpenRelease)
+  },
   events: {
     onLockChanged: (listener) => subscribe<LockState>(EVENTS.lockChanged, listener),
     onDataChanged: (listener) => subscribe<{ entity: string }>(EVENTS.dataChanged, listener),
-    onAiProgress: (listener) => subscribe<AiProgress>(EVENTS.aiProgress, listener)
+    onAiProgress: (listener) => subscribe<AiProgress>(EVENTS.aiProgress, listener),
+    onUpdateState: (listener) => subscribe<UpdateState>(EVENTS.updateState, listener)
   }
 }
 

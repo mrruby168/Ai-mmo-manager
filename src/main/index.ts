@@ -1,10 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join, normalize, sep } from 'node:path'
 import { app, BrowserWindow, dialog, protocol, session, shell } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { closeDatabase } from './db/connection'
 import { getProject } from './db/projectsRepo'
+import { hasActiveAiTask } from './ai/aiTaskRunner'
 import { registerAllIpc } from './ipc'
 import { initializeDataDirectory, getCurrentLayout } from './services/dataPathService'
+import { getLockState } from './services/lockManager'
+import { createUpdateService } from './services/updateService'
 import { logError, logInfo } from './services/logger'
 import { logoMimeForPath, resolveLogoAbsolutePath } from './services/logoService'
 import { parseLogoProjectId } from './services/logoUrl'
@@ -76,7 +80,7 @@ function registerLogoProtocol(): void {
   })
 }
 
-function createWindow(): void {
+function createWindow(updateService: { scheduleStartupCheck(): void } | null): void {
   const window = new BrowserWindow({
     width: 1360,
     height: 820,
@@ -95,6 +99,10 @@ function createWindow(): void {
 
   window.once('ready-to-show', () => {
     window.show()
+    // Chỉ dò cập nhật SAU khi cửa sổ chính đã tải xong, sau 1 phút.
+    if (updateService) {
+      updateService.scheduleStartupCheck()
+    }
   })
 
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -132,10 +140,40 @@ function bootstrap(): void {
     return
   }
 
-  registerAllIpc()
+  const updater = autoUpdater
+  updater.autoDownload = false
+  updater.autoInstallOnAppQuit = false
+  updater.allowPrerelease = false
+  updater.allowDowngrade = false
+  updater.setFeedURL({
+    provider: 'github',
+    owner: 'mrruby168',
+    repo: 'Ai-mmo-manager',
+    releaseType: 'release'
+  })
+
+  const updateService = createUpdateService({
+    updater,
+    isPackaged: !isDev,
+    isPortable: Boolean(process.env.PORTABLE_EXECUTABLE_FILE),
+    currentVersion: app.getVersion(),
+    hasActiveAiTask: () => hasActiveAiTask(),
+    getUserEditing: () => getLockState().userEditing,
+    closeDatabase,
+    broadcast: (state) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send('update:state', state)
+      }
+    },
+    log: { info: logInfo, error: logError },
+    setTimer: setTimeout,
+    clearTimer: clearTimeout
+  })
+
+  registerAllIpc(updateService)
   registerLogoProtocol()
   applyCsp()
-  createWindow()
+  createWindow(updateService)
 }
 
 app.whenReady().then(() => {
@@ -143,7 +181,7 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+      createWindow(null)
     }
   })
 })
