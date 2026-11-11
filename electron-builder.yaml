@@ -2,6 +2,12 @@ appId: com.mrruby168.mmomanager
 productName: MMO Manager
 copyright: Copyright © 2026
 
+publish:
+  - provider: github
+    owner: mrruby168
+    repo: Ai-mmo-manager
+    releaseType: release
+
 directories:
   output: dist
 

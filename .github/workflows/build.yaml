@@ -33,12 +33,24 @@ jobs:
       - name: Build app (electron-vite + electron-builder)
         run: npm run dist
 
+      - name: Verify release tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          $tag = "${{ github.ref_name }}" -replace '^v', ''
+          $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($tag -ne $pkg) {
+            Write-Host "Tag version '$tag' không khớp package.json '$pkg'"
+            exit 1
+          }
+
       - name: Create GitHub Release with exe files (tag build)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*.exe
+            dist/latest.yml
+            dist/*.blockmap
           fail_on_unmatched_files: false
           generate_release_notes: true
 
@@ -46,5 +58,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/latest.yml
+            dist/*.blockmap
           if-no-files-found: error
