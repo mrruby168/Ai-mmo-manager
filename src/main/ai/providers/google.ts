@@ -2,7 +2,7 @@ import { logError, logInfo } from '../../services/logger'
 import type { AiMessage, AiRequest, AiResponse, AiToolCall, AiToolSpec, ModelClient, ProviderConnection } from '../types'
 import { AiError, extractErrorDetail, mapFetchFailure, mapHttpStatus } from '../types'
 import { joinEndpoint } from '@shared/provider-presets'
-import { traceFromGoogleCandidate } from '../searchTrace'
+import { countGoogleSearches, traceFromGoogleCandidate } from '../searchTrace'
 
 export interface GooglePart {
   text?: string
@@ -254,7 +254,8 @@ export function createGoogleClient(connection: ProviderConnection): ModelClient 
         toolCalls,
         usage,
         raw: { provider: 'google', payload: parts },
-        webSearch
+        webSearch,
+        searchCount: countGoogleSearches(candidate)
       }
     }
   }

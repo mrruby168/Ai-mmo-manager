@@ -108,3 +108,23 @@ export function mergeSearchTraces(traces: Array<WebSearchTrace | undefined>): We
   }
   return { used, sources }
 }
+
+/** Number of server-side searches Anthropic ran (one `server_tool_use` block each). */
+export function countAnthropicSearches(blocks: unknown): number {
+  let count = 0
+  walk(blocks, (record) => {
+    if (record.type === 'server_tool_use' && (record.name === undefined || record.name === 'web_search')) {
+      count += 1
+    }
+  })
+  return count
+}
+
+/** Number of search queries Gemini reports in its grounding metadata. */
+export function countGoogleSearches(candidate: unknown): number {
+  if (!isRecord(candidate) || !isRecord(candidate.groundingMetadata)) {
+    return 0
+  }
+  const queries = candidate.groundingMetadata.webSearchQueries
+  return Array.isArray(queries) ? queries.length : 0
+}

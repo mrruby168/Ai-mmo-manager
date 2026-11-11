@@ -55,6 +55,8 @@ export interface AiRequest {
   enableWebSearch: boolean
   signal: AbortSignal
   maxTokens: number
+  /** Ask the provider to cache the stable prefix (system, tools, history). Ignored when unsupported. */
+  promptCache?: boolean
 }
 
 export interface AiResponse {
@@ -64,6 +66,8 @@ export interface AiResponse {
   raw?: NativePayload
   /** Proof that the provider actually ran a web search, not just that it was enabled. */
   webSearch?: { used: boolean; sources: string[] }
+  /** Number of web searches the provider ran for this response, when it reports them. */
+  searchCount?: number
 }
 
 export interface ModelClient {
