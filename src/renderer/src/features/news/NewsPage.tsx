@@ -61,8 +61,9 @@ function deadlineBadge(daysRemaining: number): string {
 
 export function NewsPage(): React.JSX.Element {
   const { refreshData, dataVersion, openProject, isAiEnabled } = useApp()
-  const { isAiBusy } = useLock()
+  const { isAiBusy, isBusy } = useLock()
   const { pushToast } = useToast()
+  const newsBusy = isBusy('news')
 
   const [important, setImportant] = useState<NewsItem[]>([])
   const [todos, setTodos] = useState<NewsItem[]>([])
@@ -129,7 +130,7 @@ export function NewsPage(): React.JSX.Element {
   }, [isAiEnabled])
 
   async function handleCheck(): Promise<void> {
-    if (checking || promptLoading || isAiBusy) {
+    if (checking || promptLoading || newsBusy) {
       return
     }
 
@@ -209,6 +210,9 @@ export function NewsPage(): React.JSX.Element {
   }
 
   async function handleToggleTodo(item: NewsItem): Promise<void> {
+    if (isAiBusy) {
+      return
+    }
     const result = await window.api.news.toggleTodo(item.id, !item.isDone)
     if (!result.ok) {
       pushToast(result.error.message, 'error')
@@ -336,7 +340,7 @@ export function NewsPage(): React.JSX.Element {
           <Button
             variant="primary"
             loading={checking || promptLoading}
-            disabled={isAiBusy || checking || promptLoading || (isAiEnabled && newsModelWarning !== null)}
+            disabled={newsBusy || checking || promptLoading || (isAiEnabled && newsModelWarning !== null)}
             title={isAiEnabled && newsModelWarning ? newsModelWarning : undefined}
             onClick={() => void handleCheck()}
           >
@@ -360,7 +364,7 @@ export function NewsPage(): React.JSX.Element {
             label="Check News"
             providers={providers}
             value={settings?.ai.newsSelection ?? null}
-            disabled={checking || isAiBusy}
+            disabled={checking || newsBusy}
             hint={newsModelHint}
             onChange={(next) => void handleNewsModelChange(next)}
           />
@@ -519,6 +523,7 @@ export function NewsPage(): React.JSX.Element {
                     key={item.id}
                     item={item}
                     project={projectsById.get(item.projectId)}
+                    locked={isAiBusy}
                     onToggle={() => void handleToggleTodo(item)}
                     onOpenProject={openProject}
                     onEdit={canEdit ? () => openEdit(item) : null}
@@ -531,6 +536,7 @@ export function NewsPage(): React.JSX.Element {
                     item={item}
                     project={projectsById.get(item.projectId)}
                     done
+                    locked={isAiBusy}
                     onToggle={() => void handleToggleTodo(item)}
                     onOpenProject={openProject}
                     onEdit={canEdit ? () => openEdit(item) : null}
@@ -770,6 +776,7 @@ function TodoCard({
   item,
   project,
   done = false,
+  locked = false,
   onToggle,
   onOpenProject,
   onEdit,
@@ -778,6 +785,7 @@ function TodoCard({
   item: NewsItem
   project: Project | undefined
   done?: boolean
+  locked?: boolean
   onToggle: () => void
   onOpenProject: (id: string) => void
   onEdit: (() => void) | null
@@ -791,6 +799,7 @@ function TodoCard({
         type="checkbox"
         id={`todo-${item.id}`}
         checked={done}
+        disabled={locked}
         onChange={onToggle}
         aria-label={`Đánh dấu đã xử lý: ${name}`}
       />

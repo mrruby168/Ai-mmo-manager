@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../state/AppContext'
 import type { TabId } from '../state/AppContext'
-import { useLock } from '../state/LockContext'
 import appIcon from '../assets/new-icon.svg'
 
 interface TabDefinition {
@@ -66,7 +65,6 @@ const settingsTab: TabDefinition = {
 
 export function Sidebar(): React.JSX.Element {
   const { route, navigateTab, refreshData } = useApp()
-  const { isAiBusy } = useLock()
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
@@ -95,7 +93,6 @@ export function Sidebar(): React.JSX.Element {
         className={`sidebar__item${active ? ' sidebar__item--active' : ''}`}
         aria-current={active ? 'page' : undefined}
         title={tab.label}
-        disabled={isAiBusy}
         onClick={() => navigateTab(tab.id)}
       >
         <span className="sidebar__icon">{tab.icon}</span>

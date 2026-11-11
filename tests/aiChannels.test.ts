@@ -17,6 +17,7 @@ import {
 } from '../src/main/services/lockManager'
 import { cancelAiChannel, cancelAiTask, runAiTask } from '../src/main/ai/aiTaskRunner'
 import { aiCancelPayload } from '../src/main/ipc/payloadSchemas'
+import { deriveRunningTasks, isChannelBusy } from '../src/shared/lockView'
 
 beforeEach(() => {
   resetLockForTests()
@@ -175,5 +176,39 @@ describe('AI channels: cancel payload schema', () => {
     }
     expect(() => aiCancelPayload.parse({ channel: 'other' })).toThrow()
     expect(() => aiCancelPayload.parse('news')).toThrow()
+  })
+})
+
+describe('AI channels: lock view helpers', () => {
+  const legacyLock = {
+    owner: 'ai' as const,
+    taskId: 'news-1',
+    label: 'Check News',
+    startedAt: '2026-11-11T00:00:00.000Z',
+    userEditing: false
+  }
+
+  it('prefers the tasks array and falls back to the legacy single task', () => {
+    const tasks = [{ taskId: 'scan-1', channel: 'scan' as const, label: 'Scan Project', startedAt: 'x' }]
+    expect(deriveRunningTasks({ ...legacyLock, tasks })).toBe(tasks)
+    expect(deriveRunningTasks(legacyLock)).toEqual([
+      { taskId: 'news-1', channel: null, label: 'Check News', startedAt: '2026-11-11T00:00:00.000Z' }
+    ])
+    expect(
+      deriveRunningTasks({ owner: 'none', taskId: null, label: null, startedAt: null, userEditing: false })
+    ).toEqual([])
+  })
+
+  it('marks a channel busy for its own tasks and for channel-less tasks', () => {
+    const tasks = [
+      { taskId: 'news-1', channel: 'news' as const, label: 'Check News', startedAt: 'x' },
+      { taskId: 'chat-1', channel: 'chat' as const, label: 'Chat Box', startedAt: 'y' }
+    ]
+    expect(isChannelBusy(tasks, 'news')).toBe(true)
+    expect(isChannelBusy(tasks, 'scan')).toBe(false)
+
+    const legacyTasks = [{ taskId: 'legacy', channel: null, label: 'Tác vụ cũ', startedAt: 'z' }]
+    expect(isChannelBusy(legacyTasks, 'scan')).toBe(true)
+    expect(isChannelBusy([], 'scan')).toBe(false)
   })
 })
