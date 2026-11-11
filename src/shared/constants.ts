@@ -96,6 +96,17 @@ export function isPathInside(child: string, parent: string): boolean {
   return c === p || c.startsWith(p + '/')
 }
 
+/**
+ * Kiểm tra thư mục dữ liệu có nằm trong thư mục cài đặt hay không.
+ * Trả null nếu thiếu thông tin (không xác định được).
+ */
+export function computeDataInsideInstall(dataDir: string | null | undefined, installDir: string | null | undefined): boolean | null {
+  if (!dataDir || !dataDir.trim() || !installDir || !installDir.trim()) {
+    return null
+  }
+  return isPathInside(dataDir, installDir)
+}
+
 export const SAFE_FONT_FAMILIES = [
   'Segoe UI, system-ui, -apple-system, sans-serif',
   'Arial, Helvetica, sans-serif',

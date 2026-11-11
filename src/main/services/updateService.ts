@@ -1,5 +1,5 @@
 import type { UpdateState } from '@shared/types'
-import { UPDATE_CHECK_DELAY_MS, UPDATE_CHECK_TIMEOUT_MS } from '@shared/constants'
+import { computeDataInsideInstall, UPDATE_CHECK_DELAY_MS, UPDATE_CHECK_TIMEOUT_MS } from '@shared/constants'
 
 type Updater = {
   autoDownload: boolean
@@ -22,6 +22,8 @@ export interface UpdateServiceDeps {
   hasActiveAiTask: () => boolean
   getUserEditing: () => boolean
   closeDatabase: () => void
+  getDataDir: () => string | null
+  getInstallDir: () => string | null
   broadcast: (state: UpdateState) => void
   log: { info: (message: string) => void; error: (message: string) => void }
   setTimer: (callback: () => void, ms: number) => Timer
@@ -88,6 +90,8 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     hasActiveAiTask,
     getUserEditing,
     closeDatabase,
+    getDataDir,
+    getInstallDir,
     broadcast,
     log,
     setTimer,
@@ -110,14 +114,23 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
   let state: UpdateState = {
     phase: 'idle',
     currentVersion,
-    portable: isPortable
+    portable: isPortable,
+    dataInsideInstallDir: computeDataInsideInstallDir()
   }
 
   let timer: Timer | null = null
   let checking = false
 
+  function computeDataInsideInstallDir(): boolean | null {
+    try {
+      return computeDataInsideInstall(getDataDir(), getInstallDir())
+    } catch {
+      return null
+    }
+  }
+
   function setState(next: Partial<UpdateState>): void {
-    state = { ...state, ...next }
+    state = { ...state, ...next, dataInsideInstallDir: computeDataInsideInstallDir() }
     broadcast(state)
   }
 

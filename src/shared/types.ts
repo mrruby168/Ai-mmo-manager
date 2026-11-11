@@ -382,6 +382,7 @@ export interface UpdateState {
   message?: string
   releaseUrl?: string
   portable?: boolean
+  dataInsideInstallDir: boolean | null
 }
 
 export interface RendererApi {

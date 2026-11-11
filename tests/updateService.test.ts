@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import type { UpdateServiceDeps } from '../src/main/services/updateService'
 import { createUpdateService } from '../src/main/services/updateService'
+import { computeDataInsideInstall } from '@shared/constants'
 import { isPathInside } from '@shared/constants'
 
 interface UpdaterMock {
@@ -27,6 +28,8 @@ interface DepsMock {
   closeDatabase: () => void
   hasActiveAiTask: () => boolean
   getUserEditing: () => boolean
+  getDataDir: () => string | null
+  getInstallDir: () => string | null
 }
 
 function makeUpdater(): UpdaterMock {
@@ -64,7 +67,9 @@ function makeDeps(): DepsMock {
     logError: vi.fn() as unknown as (message: string) => void,
     closeDatabase: vi.fn() as unknown as () => void,
     hasActiveAiTask: vi.fn(() => false) as unknown as () => boolean,
-    getUserEditing: vi.fn(() => false) as unknown as () => boolean
+    getUserEditing: vi.fn(() => false) as unknown as () => boolean,
+    getDataDir: vi.fn(() => null) as unknown as () => string | null,
+    getInstallDir: vi.fn(() => null) as unknown as () => string | null
   }
 }
 
@@ -78,6 +83,8 @@ function buildService(overrides: Partial<UpdateServiceDeps> = {}) {
     currentVersion: '1.0.0',
     hasActiveAiTask: deps.hasActiveAiTask,
     getUserEditing: deps.getUserEditing,
+    getDataDir: deps.getDataDir,
+    getInstallDir: deps.getInstallDir,
     closeDatabase: deps.closeDatabase,
     broadcast: (state: any) => deps.broadcastStates.push(state),
     log: { info: deps.logInfo, error: deps.logError },
@@ -251,5 +258,74 @@ describe('updateService', () => {
     expect(isPathInside('C:\\App\\..\\Outside', 'C:\\App')).toBe(false)
     expect(isPathInside('D:\\data', 'C:\\App')).toBe(false)
     expect(isPathInside('C:\\App', 'C:\\App\\data')).toBe(false)
+  })
+
+  describe('computeDataInsideInstall', () => {
+    it('trả null khi dataDir null/undefined/rỗng', () => {
+      expect(computeDataInsideInstall(null, 'C:\\App')).toBe(null)
+      expect(computeDataInsideInstall(undefined, 'C:\\App')).toBe(null)
+      expect(computeDataInsideInstall('', 'C:\\App')).toBe(null)
+      expect(computeDataInsideInstall('   ', 'C:\\App')).toBe(null)
+    })
+
+    it('trả null khi installDir null/undefined/rỗng', () => {
+      expect(computeDataInsideInstall('D:\\Data', null)).toBe(null)
+      expect(computeDataInsideInstall('D:\\Data', undefined)).toBe(null)
+      expect(computeDataInsideInstall('D:\\Data', '')).toBe(null)
+    })
+
+    it('trả true khi dataDir nằm trong installDir', () => {
+      expect(computeDataInsideInstall('C:\\App\\data', 'C:\\App')).toBe(true)
+    })
+
+    it('trả false khi dataDir nằm ngoài installDir', () => {
+      expect(computeDataInsideInstall('D:\\Data', 'C:\\App')).toBe(false)
+      expect(computeDataInsideInstall('C:\\App2\\data', 'C:\\App')).toBe(false)
+    })
+  })
+
+  describe('updateService dataInsideInstallDir', () => {
+    it('phát state dataInsideInstallDir = true/false/null theo getDataDir/getInstallDir', async () => {
+      // true
+      const s1 = buildService({
+        getDataDir: () => 'C:\\App\\data' as string | null,
+        getInstallDir: () => 'C:\\App' as string | null
+      })
+      s1.service.scheduleStartupCheck()
+      vi.advanceTimersByTime(60_000)
+      await new Promise((resolve) => process.nextTick(resolve))
+      expect(s1.service.getState().dataInsideInstallDir).toBe(true)
+
+      // false
+      const s2 = buildService({
+        getDataDir: () => 'D:\\Data' as string | null,
+        getInstallDir: () => 'C:\\App' as string | null
+      })
+      s2.service.scheduleStartupCheck()
+      vi.advanceTimersByTime(60_000)
+      await new Promise((resolve) => process.nextTick(resolve))
+      expect(s2.service.getState().dataInsideInstallDir).toBe(false)
+
+      // null
+      const s3 = buildService({
+        getDataDir: () => null,
+        getInstallDir: () => 'C:\\App'
+      })
+      s3.service.scheduleStartupCheck()
+      vi.advanceTimersByTime(60_000)
+      await new Promise((resolve) => process.nextTick(resolve))
+      expect(s3.service.getState().dataInsideInstallDir).toBe(null)
+    })
+
+    it('khi getDataDir ném lỗi thì dataInsideInstallDir = null, không làm sập service', async () => {
+      const { service, deps } = buildService()
+      ;(deps.getDataDir as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        throw new Error('Lỗi lấy data dir')
+      })
+      service.scheduleStartupCheck()
+      vi.advanceTimersByTime(60_000)
+      await new Promise((resolve) => process.nextTick(resolve))
+      expect(service.getState().dataInsideInstallDir).toBe(null)
+    })
   })
 })

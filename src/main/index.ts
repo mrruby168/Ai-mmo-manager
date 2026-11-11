@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { join, normalize, sep } from 'node:path'
+import { join, normalize, sep, dirname } from 'node:path'
 import { app, BrowserWindow, dialog, protocol, session, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { closeDatabase } from './db/connection'
 import { getProject } from './db/projectsRepo'
 import { hasActiveAiTask } from './ai/aiTaskRunner'
 import { registerAllIpc } from './ipc'
-import { initializeDataDirectory, getCurrentLayout } from './services/dataPathService'
+import { initializeDataDirectory, getCurrentLayout, getDataFolderToOpen } from './services/dataPathService'
 import { getLockState } from './services/lockManager'
 import { createUpdateService } from './services/updateService'
 import { logError, logInfo } from './services/logger'
@@ -159,6 +159,8 @@ function bootstrap(): void {
     currentVersion: app.getVersion(),
     hasActiveAiTask: () => hasActiveAiTask(),
     getUserEditing: () => getLockState().userEditing,
+    getDataDir: () => getDataFolderToOpen(),
+    getInstallDir: () => process.env.PORTABLE_EXECUTABLE_DIR ?? dirname(app.getPath('exe')),
     closeDatabase,
     broadcast: (state) => {
       for (const window of BrowserWindow.getAllWindows()) {

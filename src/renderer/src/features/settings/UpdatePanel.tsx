@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { isPathInside } from '@shared/constants'
 import { Button } from '../../common/Button'
 import { useToast } from '../../state/ToastContext'
 
@@ -8,7 +7,7 @@ interface UpdatePanelProps {
 }
 
 export function UpdatePanel({ dataPath }: UpdatePanelProps): React.JSX.Element {
-  const [state, setState] = useState<{ phase: string; currentVersion: string; latestVersion?: string } | null>(
+  const [state, setState] = useState<{ phase: string; currentVersion: string; latestVersion?: string; dataInsideInstallDir?: boolean | null } | null>(
     null
   )
   const [checking, setChecking] = useState(false)
@@ -42,7 +41,7 @@ export function UpdatePanel({ dataPath }: UpdatePanelProps): React.JSX.Element {
     }
   }, [pushToast])
 
-  const dataPathInsideInstallDir = isPathInside(dataPath, '')
+  const dataPathInsideInstallDir = state?.dataInsideInstallDir ?? null
 
   return (
     <section className="card stack">
@@ -64,14 +63,18 @@ export function UpdatePanel({ dataPath }: UpdatePanelProps): React.JSX.Element {
       </div>
 
       <p className="muted">Thư mục dữ liệu: {dataPath}</p>
-      {dataPathInsideInstallDir ? (
+      {dataPathInsideInstallDir === true ? (
         <div className="banner banner--warning" role="alert">
           Thư mục dữ liệu đang nằm trong thư mục cài đặt, có thể bị mất khi cập nhật hoặc gỡ cài đặt. Hãy đổi ở mục
-          &ldquo;Đường dẫn dữ liệu&rdquo;.
+          &ldquo;Đường dẫn dữ liệu&rdquo; và sao lưu trước.
         </div>
-      ) : (
+      ) : dataPathInsideInstallDir === false ? (
         <p className="muted">
           Cập nhật ứng dụng chỉ thay đổi file chương trình, không đụng tới dữ liệu của bạn.
+        </p>
+      ) : (
+        <p className="muted">
+          Chưa xác định được vị trí thư mục dữ liệu. Hãy sao lưu thư mục dữ liệu trước khi cập nhật.
         </p>
       )}
     </section>
