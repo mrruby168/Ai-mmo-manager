@@ -1,6 +1,6 @@
 {
   "name": "mmo-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "mrruby168",
   "description": "MMO Manager - local-first desktop app for Event MMO and Airdrop projects",
   "main": "./out/main/index.js",
