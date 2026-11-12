@@ -267,6 +267,8 @@ export interface LockState {
 
 export interface AiProgress {
   taskId: string
+  /** FIX 3: kênh của tiến trình, để trang News/Scan chỉ nghe đúng kênh mình. */
+  channel?: AiChannel
   step: string
   done: number
   total: number

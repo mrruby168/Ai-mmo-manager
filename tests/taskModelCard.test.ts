@@ -56,13 +56,15 @@ describe('News/Scan dùng card thu gọn, Chat giữ nguyên', () => {
   const scan = readSource(SCAN_PAGE)
   const chat = readSource(CHAT_PANEL)
 
-  it('News dùng TaskModelCard và vẫn truyền cảnh báo model', () => {
-    expect(news).toContain('<TaskModelCard')
-    expect(news).toContain('title="Model cho Check News"')
-    expect(news).toContain('hint={newsModelHint}')
-    expect(news).toContain('warning={newsModelWarning}')
-    expect(news).toContain('<ModelPicker')
-    expect(news).not.toContain('<div className="card stack ai-task-picker">')
+  it('News bỏ card chọn model, chuyển cảnh báo thành banner + title và dùng Activity Log', () => {
+    expect(news).not.toContain('<TaskModelCard')
+    expect(news).not.toContain('<ModelPicker')
+    expect(news).not.toContain('title="Model cho Check News"')
+    expect(news).toContain('<AiActivityLog')
+    expect(news).toContain('channel="news"')
+    expect(news).toContain('Settings → Model Configuration')
+    expect(news).toContain('title={isAiEnabled && newsModelWarning')
+    expect(news).toContain('banner banner--warning')
   })
 
   it('Scan dùng TaskModelCard và vẫn truyền cảnh báo model', () => {

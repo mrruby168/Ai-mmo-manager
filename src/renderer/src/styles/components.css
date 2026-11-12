@@ -1336,11 +1336,6 @@ select.field__control {
   min-height: 0;
 }
 
-.news-panel-group {
-  min-width: 0;
-  min-height: 0;
-}
-
 .news-panel__head {
   flex: 0 0 auto;
   align-items: center;
@@ -1887,9 +1882,43 @@ select.field__control {
 }
 
 /* News */
+.news-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: calc(100vh - 2 * var(--screen-padding) - 3rem);
+}
+
+.news-page__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.news-page__dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success);
+}
+
+.news-page .news-panel {
+  max-height: 22rem;
+}
+
+.news-page .news-panel__scroll,
+.news-page .news-panel--important .news-panel__scroll {
+  max-height: 12rem;
+}
+
 .news-grid {
   display: grid;
-  grid-template-columns: 7fr 5fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
   align-items: start;
 }
@@ -2316,3 +2345,176 @@ select.field__control {
   margin: 0;
 }
 
+
+/* ---------- AI Activity Log (FIX 3) ---------- */
+.ai-log {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 160px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.ai-log__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ai-log__title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ai-log__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.3125rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ai-log__pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+}
+
+.ai-log__pill--live {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.ai-log__pill--live .ai-log__pill-dot {
+  animation: ai-log-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ai-log-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.ai-log__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--space-4) var(--space-5);
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overscroll-behavior: contain;
+}
+
+.ai-log__empty {
+  margin: auto;
+  color: var(--color-muted);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.ai-log__line {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0;
+  word-break: break-word;
+}
+
+.ai-log__symbol {
+  flex: 0 0 1rem;
+  text-align: center;
+}
+
+.ai-log__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ai-log__line--info .ai-log__symbol {
+  color: var(--color-success);
+}
+
+.ai-log__line--info .ai-log__text {
+  color: var(--color-text);
+}
+
+.ai-log__line--muted .ai-log__symbol {
+  color: var(--color-info);
+}
+
+.ai-log__line--muted .ai-log__text {
+  color: var(--color-muted);
+}
+
+.ai-log__line--success {
+  color: var(--color-success);
+}
+
+.ai-log__line--warning {
+  color: var(--color-warning);
+}
+
+.ai-log__line--error {
+  color: var(--color-error);
+}
+
+.ai-log__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.ai-log__bar {
+  flex: 1 1 auto;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  overflow: hidden;
+}
+
+.ai-log__bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  transition: width 0.25s ease;
+}
+
+.ai-log__count {
+  min-width: 80px;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-log__pill--live .ai-log__pill-dot {
+    animation: none;
+  }
+
+  .ai-log__bar-fill {
+    transition: none;
+  }
+}

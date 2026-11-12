@@ -86,14 +86,17 @@ export function setChainSlot(chain: ModelChain, index: number, selection: ModelS
 }
 
 /** App đã cấu hình Web Search chưa (News dùng được model thiếu Web Search gốc khi có). */
-export function appSearchConfigured(view: WebSearchView | null | undefined): boolean {
+export function appSearchConfigured(
+  view: { provider: WebSearchView['provider']; baseUrl: string | null; hasApiKey?: boolean } | null | undefined
+): boolean {
   if (!view || view.provider === 'none') {
     return false
   }
   if (view.provider === 'searxng') {
     return typeof view.baseUrl === 'string' && view.baseUrl.trim().length > 0
   }
-  return view.hasApiKey
+  // AppSettings chỉ có provider/baseUrl; WebSearchView có thêm hasApiKey.
+  return view.hasApiKey === undefined ? true : view.hasApiKey
 }
 
 export interface ChainWarning {
@@ -136,4 +139,48 @@ export function chainWarnings(
     }
   })
   return warnings
+}
+
+/**
+ * Chuỗi main thực sự dùng cho tác vụ: chuỗi đã lưu, hoặc Chat làm mặc định
+ * khi chuỗi trống (khớp `chainFor` trong providerService).
+ */
+export function effectiveChain(
+  task: ModelTask,
+  chain: ModelChain,
+  lastSelection: ModelSelection | null
+): ModelChain {
+  if (chain.length > 0) {
+    return chain
+  }
+  if (task === 'chat' || !lastSelection) {
+    return []
+  }
+  return [lastSelection]
+}
+
+/**
+ * Vị trí đầu tiên main sẽ thực sự chạy, null nếu cả chuỗi không dùng được.
+ * Dùng để khóa nút Check News/Scan và hiện banner ngắn.
+ */
+export function firstRunnable(
+  task: ModelTask,
+  chain: ModelChain,
+  choices: readonly ModelChoice[],
+  appSearchAvailable: boolean
+): ModelChoice | null {
+  for (const selection of chain) {
+    const choice = choices.find((entry) => entry.key === selectionKey(selection))
+    if (!choice || !choice.supportsTools) {
+      continue
+    }
+    if (task === 'scan' && !choice.supportsWebSearch) {
+      continue
+    }
+    if (task === 'news' && !choice.supportsWebSearch && !appSearchAvailable) {
+      continue
+    }
+    return choice
+  }
+  return null
 }

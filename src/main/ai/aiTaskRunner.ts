@@ -95,7 +95,7 @@ export async function runAiTask<T>(
 
   const reporter: AiTaskReporter = {
     report(step, done, total, message) {
-      const payload: AiProgress = { taskId, step, done, total, message }
+      const payload: AiProgress = { taskId, channel: channel ?? undefined, step, done, total, message }
       broadcastToRenderers(EVENTS.aiProgress, payload)
       if (channel) {
         // FIX 3: mỗi bước vừa cập nhật thanh tiến trình vừa ghi một dòng Activity Log.

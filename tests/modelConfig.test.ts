@@ -3,6 +3,8 @@ import {
   appSearchConfigured,
   chainSlot,
   chainWarnings,
+  effectiveChain,
+  firstRunnable,
   listModelChoices,
   selectionFromKey,
   selectionKey,
@@ -100,6 +102,12 @@ describe('appSearchConfigured', () => {
     expect(appSearchConfigured(view({ provider: 'searxng', baseUrl: 'https://searx.example.org' }))).toBe(true)
     expect(appSearchConfigured(view({ provider: 'searxng', baseUrl: '  ' }))).toBe(false)
   })
+
+  it('AppSettings chá»‰ cÃ³ provider/baseUrl thÃ¬ provider cÃ³ key Ä‘Æ°á»£c coi lÃ  Ä‘Ã£ cáº¥u hÃ¬nh', () => {
+    expect(appSearchConfigured({ provider: 'tavily', baseUrl: null })).toBe(true)
+    expect(appSearchConfigured({ provider: 'searxng', baseUrl: 'https://searx.example.org' })).toBe(true)
+    expect(appSearchConfigured({ provider: 'searxng', baseUrl: null })).toBe(false)
+  })
 })
 
 describe('chainWarnings', () => {
@@ -121,5 +129,36 @@ describe('chainWarnings', () => {
 
   it('khÃ´ng cáº£nh bÃ¡o model Ä‘Ã£ bá»‹ xÃ³a khá»i danh sÃ¡ch', () => {
     expect(chainWarnings('news', [{ providerId: 'gone', modelId: 'x' }], choices, false)).toEqual([])
+  })
+})
+
+describe('effectiveChain', () => {
+  it('gi? chu?i ð? lýu khi có model', () => {
+    expect(effectiveChain('news', [m1], m3)).toEqual([m1])
+  })
+
+  it('chu?i tr?ng th? News/Scan rõi v? model Chat, Chat th? không', () => {
+    expect(effectiveChain('news', [], m3)).toEqual([m3])
+    expect(effectiveChain('scan', [], m3)).toEqual([m3])
+    expect(effectiveChain('chat', [], m3)).toEqual([])
+    expect(effectiveChain('news', [], null)).toEqual([])
+  })
+})
+
+describe('firstRunnable', () => {
+  it('tr? model A1 khi dùng ðý?c, b? qua model l?i và l?y model k? ti?p', () => {
+    expect(firstRunnable('chat', [m1, m2], choices, false)).toMatchObject({ key: 'p1::m1' })
+    // A1 thi?u tool calling ? A2 (m3) dùng ðý?c cho Chat/News.
+    expect(firstRunnable('chat', [m2, m3], choices, false)).toMatchObject({ key: 'p2::m3' })
+  })
+
+  it('Scan b?t bu?c Web Search g?c, News ch?p nh?n Web Search c?a app', () => {
+    expect(firstRunnable('scan', [m3], choices, true)).toBeNull()
+    expect(firstRunnable('news', [m3], choices, false)).toBeNull()
+    expect(firstRunnable('news', [m3], choices, true)).toMatchObject({ key: 'p2::m3' })
+  })
+
+  it('tr? null khi chu?i r?ng', () => {
+    expect(firstRunnable('news', [], choices, true)).toBeNull()
   })
 })

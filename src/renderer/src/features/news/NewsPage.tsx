@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import type {
   AppSettings,
   DeadlineItem,
-  ModelSelection,
   NewsImportPreview,
   NewsItem,
   NewsManualInput,
@@ -18,14 +17,19 @@ import {
   selectTopImportantPerProject
 } from '@shared/newsView'
 import { canImportNews } from '@shared/newsAccess'
-import { resolveTaskModel } from '@shared/modelSelection'
+import {
+  appSearchConfigured,
+  chainWarnings,
+  effectiveChain,
+  firstRunnable,
+  listModelChoices
+} from '@shared/modelConfig'
 import { ProjectLogo } from '../../common/ProjectLogo'
 import { Button } from '../../common/Button'
+import { AiActivityLog } from '../../common/AiActivityLog'
 import { EmptyState, ErrorBlock, LoadingBlock } from '../../common/EmptyState'
 import { ExternalLink } from '../../common/ExternalLink'
 import { Modal, ConfirmDialog } from '../../common/Modal'
-import { ModelPicker } from '../../common/ModelPicker'
-import { TaskModelCard } from '../../common/TaskModelCard'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
@@ -221,15 +225,6 @@ export function NewsPage(): React.JSX.Element {
     refreshData()
   }
 
-  async function handleNewsModelChange(next: ModelSelection): Promise<void> {
-    const result = await window.api.settings.setTaskSelection('news', next)
-    if (!result.ok) {
-      pushToast(result.error.message, 'error')
-      return
-    }
-    setSettings(result.data)
-  }
-
   function openCreate(kind: NewsKind, milestone: MilestoneKind | '' = ''): void {
     setFormInitial(null)
     setFormKind(kind)
@@ -296,26 +291,21 @@ export function NewsPage(): React.JSX.Element {
   const projects = [...projectsById.values()]
 
   const providers = settings?.ai.providers ?? []
-  const newsModel = resolveTaskModel(
-    providers,
-    settings?.ai.newsSelection ?? null,
+  const modelChoices = listModelChoices(providers)
+  const appSearch = appSearchConfigured(settings?.webSearch ?? null)
+  const newsChain = effectiveChain(
+    'news',
+    settings?.ai.taskModels.news ?? [],
     settings?.ai.lastSelection ?? null
   )
-  const newsModelHint = newsModel.stale
-    ? 'Model đã chọn không còn khả dụng — đang dùng mặc định'
-    : newsModel.usedDefault
-      ? 'Đang dùng mặc định'
-      : null
-  const appSearchConfigured = (settings?.webSearch.provider ?? 'none') !== 'none'
+  const newsWarnings = chainWarnings('news', newsChain, modelChoices, appSearch)
+  const newsRunnable = firstRunnable('news', newsChain, modelChoices, appSearch)
   let newsModelWarning: string | null = null
-  if (isAiEnabled) {
-    if (!newsModel.effective) {
-      newsModelWarning = 'Chưa chọn Model cho Check News. Chọn Model ở khung bên dưới (hoặc ở Chat Box làm mặc định).'
-    } else if (!newsModel.effective.model.supportsTools) {
-      newsModelWarning = `Model "${newsModel.effective.model.label}" không hỗ trợ tool calling nên không thể Check News. Chọn Model khác.`
-    } else if (!newsModel.effective.model.supportsWebSearch && !appSearchConfigured) {
-      newsModelWarning = `Model "${newsModel.effective.model.label}" không có Web Search và app chưa cấu hình Web Search. Chọn Model có Web Search hoặc vào Settings → Web Search.`
-    }
+  if (isAiEnabled && !newsRunnable) {
+    newsModelWarning =
+      newsChain.length === 0
+        ? 'Chưa có Model cho Check News. Vào Settings → Model Configuration để chọn A1.'
+        : `${newsWarnings[0]?.message ?? 'Không có Model nào dùng được cho Check News.'} Vào Settings → Model Configuration để chọn model khác.`
   }
 
   if (loading && important.length === 0 && todos.length === 0) {
@@ -323,13 +313,10 @@ export function NewsPage(): React.JSX.Element {
   }
 
   return (
-    <>
+    <div className="news-page">
       <div className="page-header">
         <div className="page-header__title">
           <h1>News</h1>
-          <span className="page-header__subtitle">
-            {lastCheckedAt ? `Kiểm tra gần nhất: ${new Date(lastCheckedAt).toLocaleString('vi-VN')}` : 'Chưa kiểm tra lần nào'} · 7 ngày gần nhất
-          </span>
         </div>
         <div className="row row--wrap">
           {canEdit ? (
@@ -349,29 +336,25 @@ export function NewsPage(): React.JSX.Element {
         </div>
       </div>
 
-      {isAiEnabled ? (
-        <TaskModelCard
-          title="Model cho Check News"
-          summary={
-            newsModel.effective
-              ? `${newsModel.effective.model.label} · ${newsModel.effective.provider.name}`
-              : 'Chưa có Model'
-          }
-          hint={newsModelHint}
-          warning={newsModelWarning}
-        >
-          <ModelPicker
-            label="Check News"
-            providers={providers}
-            value={settings?.ai.newsSelection ?? null}
-            disabled={checking || newsBusy}
-            hint={newsModelHint}
-            onChange={(next) => void handleNewsModelChange(next)}
-          />
-        </TaskModelCard>
+      <div className="news-page__meta">
+        <span className="news-page__dot" aria-hidden="true" />
+        <span>
+          {lastCheckedAt ? `Kiểm tra gần nhất: ${new Date(lastCheckedAt).toLocaleString('vi-VN')}` : 'Chưa kiểm tra lần nào'} · 7 ngày gần nhất
+        </span>
+      </div>
+
+      {isAiEnabled && newsModelWarning ? (
+        <div className="banner banner--warning" role="alert">
+          {newsModelWarning}
+        </div>
       ) : null}
 
       {error ? <ErrorBlock message={error} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
+
+      <AiActivityLog
+        channel="news"
+        emptyText="Chưa có hoạt động. Bấm Check News để bắt đầu."
+      />
 
       <div className="news-grid">
         <section className="card stack news-panel news-panel--important">
@@ -414,12 +397,11 @@ export function NewsPage(): React.JSX.Element {
           )}
         </section>
 
-        <div className="stack news-panel-group">
-          <section className="card stack news-panel">
-            <div className="section-title news-panel__head">
-              <h2>
-                <span aria-hidden="true">⏰</span> Deadline sắp hết
-              </h2>
+        <section className="card stack news-panel">
+          <div className="section-title news-panel__head">
+            <h2>
+              <span aria-hidden="true">⏰</span> Deadline sắp hết
+            </h2>
               <div className="row row--wrap">
                 <span className="muted">{urgent.length + soon.length} mốc</span>
                 {canEdit ? (
@@ -546,7 +528,6 @@ export function NewsPage(): React.JSX.Element {
               </div>
             )}
           </section>
-        </div>
       </div>
 
       <Modal
@@ -654,7 +635,7 @@ export function NewsPage(): React.JSX.Element {
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
-    </>
+    </div>
   )
 }
 
