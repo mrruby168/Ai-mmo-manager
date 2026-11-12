@@ -2211,6 +2211,14 @@ select.field__control {
   background: rgba(91, 141, 239, 0.16);
 }
 
+.listbox__option--disabled,
+.listbox__option--disabled:hover {
+  background: transparent;
+  color: var(--color-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .listbox__check {
   flex: 0 0 14px;
   color: var(--color-primary);
@@ -2244,3 +2252,67 @@ select.field__control {
   font-weight: 700;
   line-height: 1;
 }
+
+/* ---------- Model Configuration (FIX 2) ---------- */
+.model-config__scroll {
+  overflow-x: auto;
+}
+
+.model-config {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 var(--space-2);
+  text-align: left;
+}
+
+.model-config th,
+.model-config td {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+}
+
+.model-config thead th {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.model-config__role-cell {
+  min-width: 9.5rem;
+  font-weight: 600;
+}
+
+.model-config__role {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-config__role .muted {
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.model-config__ttl {
+  min-width: 14rem;
+}
+
+.model-config__ttl-body {
+  gap: var(--space-2);
+}
+
+.model-config__note {
+  font-size: 0.75rem;
+}
+
+.model-config__issues {
+  padding-top: 0;
+  padding-bottom: var(--space-2);
+}
+
+.model-config__issues p {
+  margin: 0;
+}
+

@@ -9,6 +9,8 @@ export interface ListboxOption {
   label: string
   badge?: string | null
   icon?: ReactNode
+  /** Mục đã dùng ở ô khác (Model Configuration): vẫn hiện nhưng không chọn được. */
+  disabled?: boolean
 }
 
 export interface ListboxProps {
@@ -137,7 +139,7 @@ export function Listbox({
 
   function choose(index: number): void {
     const option = options[index]
-    if (!option) {
+    if (!option || option.disabled) {
       return
     }
     onChange(option.value)
@@ -268,8 +270,11 @@ export function Listbox({
                       id={`${listId}-${index}`}
                       role="option"
                       aria-selected={isSelected}
+                      aria-disabled={option.disabled || undefined}
                       data-index={index}
-                      className={`listbox__option${index === activeIndex ? ' listbox__option--active' : ''}`}
+                      className={`listbox__option${index === activeIndex ? ' listbox__option--active' : ''}${
+                        option.disabled ? ' listbox__option--disabled' : ''
+                      }`}
                       onMouseEnter={() => setActiveIndex(index)}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => choose(index)}
