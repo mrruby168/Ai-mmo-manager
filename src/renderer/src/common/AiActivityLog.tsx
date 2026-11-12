@@ -6,6 +6,8 @@ export interface AiActivityLogProps {
   channel: AiChannel
   /** Dòng hướng dẫn khi chưa có hoạt động nào. */
   emptyText: string
+  /** Scan hiển thị thanh "Tiến độ quét" riêng bên dưới nên tắt footer của log. */
+  showProgress?: boolean
   className?: string
 }
 
@@ -17,7 +19,12 @@ const IDLE_PROGRESS: AiLogProgress = { done: 0, total: 0, running: false }
  * - Tự cuộn xuống cuối trừ khi người dùng đã cuộn lên.
  * - Pill Live khi đang chạy; "Xong"/"Sẵn sàng" khi rảnh.
  */
-export function AiActivityLog({ channel, emptyText, className }: AiActivityLogProps): React.JSX.Element {
+export function AiActivityLog({
+  channel,
+  emptyText,
+  showProgress = true,
+  className
+}: AiActivityLogProps): React.JSX.Element {
   const [entries, setEntries] = useState<AiLogEntry[]>([])
   const [progress, setProgress] = useState<AiLogProgress>(IDLE_PROGRESS)
   const [loaded, setLoaded] = useState(false)
@@ -129,19 +136,21 @@ export function AiActivityLog({ channel, emptyText, className }: AiActivityLogPr
         )}
       </div>
 
-      <footer className="ai-log__foot">
-        <div
-          className="ai-log__bar"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percent}
-          aria-label="Tiến trình"
-        >
-          <div className="ai-log__bar-fill" style={{ width: `${percent}%` }} />
-        </div>
-        <span className="ai-log__count">{countLabel}</span>
-      </footer>
+      {showProgress ? (
+        <footer className="ai-log__foot">
+          <div
+            className="ai-log__bar"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            aria-label="Tiến trình"
+          >
+            <div className="ai-log__bar-fill" style={{ width: `${percent}%` }} />
+          </div>
+          <span className="ai-log__count">{countLabel}</span>
+        </footer>
+      ) : null}
     </section>
   )
 }

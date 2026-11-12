@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { todayDateOnly } from '@shared/date-utils'
-import type { AppSettings, ModelSelection, ScanItem } from '@shared/types'
-import { resolveTaskModel } from '@shared/modelSelection'
+import type { AiLogProgress, AppSettings, ScanItem } from '@shared/types'
+import { progressPercent } from '@shared/aiLog'
+import {
+  chainWarnings,
+  effectiveChain,
+  firstRunnable,
+  listModelChoices
+} from '@shared/modelConfig'
 import { Badge, CostBadge, RiskBadge, VerificationBadge } from '../../common/Badge'
 import { Button } from '../../common/Button'
 import { EmptyState, ErrorBlock } from '../../common/EmptyState'
-import { Field, Textarea } from '../../common/Field'
 import { ExternalLink } from '../../common/ExternalLink'
-import { ModelPicker } from '../../common/ModelPicker'
-import { TaskModelCard } from '../../common/TaskModelCard'
+import { AiActivityLog } from '../../common/AiActivityLog'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
@@ -16,17 +19,34 @@ import { useToast } from '../../state/ToastContext'
 const CATEGORY_LABELS: Record<string, string> = { event_mmo: 'Event MMO', airdrop: 'Airdrop' }
 const SCAN_FILE_MAX_BYTES = 1_000_000
 const SCAN_FILE_ACCEPT = '.txt,.md,.json,text/plain,text/markdown,application/json'
+const IDLE_PROGRESS: AiLogProgress = { done: 0, total: 0, running: false }
+
+/** FIX 3: Scan chỉ nhận file văn bản nhỏ, giống nút Đính kèm. */
+function isScanFileName(name: string): boolean {
+  return /\.(txt|md|json)$/i.test(name)
+}
+
+function formatScanAt(value: string | null): string {
+  if (!value) {
+    return 'Chưa rõ thời điểm quét'
+  }
+  const parsed = new Date(value)
+  return `Quét lúc ${Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('vi-VN')}`
+}
 
 export function ScanPage(): React.JSX.Element {
   const { refreshData, dataVersion, isAiEnabled } = useApp()
   const { isAiBusy, isBusy } = useLock()
   const { pushToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragDepth = useRef(0)
 
   const [text, setText] = useState('')
   const [fileName, setFileName] = useState<string | null>(null)
+  const [dragActive, setDragActive] = useState(false)
   const [scanning, setScanning] = useState(false)
-  const [progressText, setProgressText] = useState('')
+  const [view, setView] = useState<'input' | 'result'>('input')
+  const [progress, setProgress] = useState<AiLogProgress>(IDLE_PROGRESS)
   const [items, setItems] = useState<ScanItem[] | null>(null)
   const [scanAt, setScanAt] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -41,18 +61,35 @@ export function ScanPage(): React.JSX.Element {
       if (result.ok && result.data) {
         setItems(result.data.items)
         setScanAt(result.data.createdAt)
+        // FIX 3: có kết quả cũ thì mở thẳng khối kết quả; nút "Quét nội dung khác" đưa về vùng nhập.
+        setView('result')
       }
     })
   }, [])
 
   useEffect(() => {
-    return window.api.events.onAiProgress((progress) => {
-      // Nhiều tác vụ chạy song song: chỉ hiện tiến trình của kênh Scan.
-      if (!progress.taskId.startsWith('scan-')) {
-        return
+    // Tiến trình riêng của kênh Scan cho thanh "Tiến độ quét" dưới Activity Log.
+    let active = true
+    void window.api.ai.getLog('scan').then((result) => {
+      if (active && result.ok) {
+        setProgress(result.data.progress)
       }
-      setProgressText(progress.message)
     })
+    const offLog = window.api.events.onAiLog((event) => {
+      if (event.channel === 'scan') {
+        setProgress(event.progress)
+      }
+    })
+    const offProgress = window.api.events.onAiProgress((event) => {
+      if (event.channel === 'scan') {
+        setProgress({ done: event.done, total: event.total, running: true })
+      }
+    })
+    return () => {
+      active = false
+      offLog()
+      offProgress()
+    }
   }, [])
 
   useEffect(() => {
@@ -67,54 +104,32 @@ export function ScanPage(): React.JSX.Element {
     }
   }, [dataVersion])
 
-  const providers = settings?.ai.providers ?? []
-  const scanModel = resolveTaskModel(
-    providers,
-    settings?.ai.scanSelection ?? null,
+  const choices = listModelChoices(settings?.ai.providers ?? [])
+  const scanChain = effectiveChain(
+    'scan',
+    settings?.ai.taskModels.scan ?? [],
     settings?.ai.lastSelection ?? null
   )
-  const modelLabel = scanModel.effective
-    ? `${scanModel.effective.model.label} · ${scanModel.effective.provider.name}`
-    : null
-  const modelPickerHint = scanModel.stale
-    ? 'Model đã chọn không còn khả dụng — đang dùng mặc định'
-    : scanModel.usedDefault
-      ? 'Đang dùng mặc định'
-      : null
-  const scanModelWarning =
-    scanModel.effective &&
-    (!scanModel.effective.model.supportsTools || !scanModel.effective.model.supportsWebSearch)
-      ? `Model ${scanModel.effective.model.label} thiếu ${
-          !scanModel.effective.model.supportsTools ? 'tool calling' : 'Web Search'
-        } — Scan sẽ không chạy.`
-      : null
+  // Scan cần Web Search gốc của model, không dùng Web Search của app.
+  const scanWarnings = chainWarnings('scan', scanChain, choices, false)
+  const scanRunnable = firstRunnable('scan', scanChain, choices, false)
+  const modelLabel = scanRunnable ? scanRunnable.label : null
 
   const scanBusy = isBusy('scan')
 
   let scanDisabledReason: string | null = null
   if (!isAiEnabled) {
     scanDisabledReason = 'Vui lòng bật AI Mode trong Settings để sử dụng Scan.'
-  } else if (!scanModel.effective) {
-    scanDisabledReason = 'Chưa chọn Model. Chọn Model ở khung của tab Scan trước khi Scan.'
-  } else if (!scanModel.effective.model.supportsTools) {
-    scanDisabledReason = `Model "${scanModel.effective.model.label}" không hỗ trợ tool calling. Chọn Model khác ở khung của tab Scan.`
-  } else if (!scanModel.effective.model.supportsWebSearch) {
-    scanDisabledReason = `Model "${scanModel.effective.model.label}" không hỗ trợ Web Search. Chọn Model khác ở khung của tab Scan.`
+  } else if (!scanRunnable) {
+    scanDisabledReason =
+      scanChain.length === 0
+        ? 'Chưa có Model cho Scan Project. Vào Settings → Model Configuration để chọn A1.'
+        : `${scanWarnings[0]?.message ?? 'Không có Model nào dùng được cho Scan Project.'} Vào Settings → Model Configuration để chọn model khác.`
   }
 
-  async function handleScanModelChange(next: ModelSelection): Promise<void> {
-    const result = await window.api.settings.setTaskSelection('scan', next)
-    if (!result.ok) {
-      pushToast(result.error.message, 'error')
-      return
-    }
-    setSettings(result.data)
-  }
-
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) {
+  async function acceptFile(file: File): Promise<void> {
+    if (!isScanFileName(file.name)) {
+      pushToast('Chỉ nhận file .txt, .md hoặc .json', 'error')
       return
     }
     if (file.size > SCAN_FILE_MAX_BYTES) {
@@ -124,6 +139,50 @@ export function ScanPage(): React.JSX.Element {
     const content = await file.text()
     setText(content)
     setFileName(file.name)
+    setView('input')
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) {
+      await acceptFile(file)
+    }
+  }
+
+  function handleDragEnter(event: React.DragEvent): void {
+    event.preventDefault()
+    dragDepth.current += 1
+    setDragActive(true)
+  }
+
+  function handleDragOver(event: React.DragEvent): void {
+    event.preventDefault()
+  }
+
+  function handleDragLeave(event: React.DragEvent): void {
+    event.preventDefault()
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) {
+      setDragActive(false)
+    }
+  }
+
+  function handleDrop(event: React.DragEvent): void {
+    event.preventDefault()
+    dragDepth.current = 0
+    setDragActive(false)
+    const file = event.dataTransfer.files?.[0]
+    if (file) {
+      void acceptFile(file)
+      return
+    }
+    const droppedText = event.dataTransfer.getData('text/plain')
+    if (droppedText.trim().length > 0) {
+      setText(droppedText)
+      setFileName(null)
+      setView('input')
+    }
   }
 
   async function handleScan(): Promise<void> {
@@ -131,25 +190,24 @@ export function ScanPage(): React.JSX.Element {
       pushToast('Vui lòng bật AI Mode trong Settings để sử dụng Scan.', 'info')
       return
     }
-    if (scanBusy || scanning || text.trim().length === 0) {
+    if (scanBusy || scanning || text.trim().length === 0 || scanDisabledReason !== null) {
       return
     }
     setScanning(true)
     setLoadError(null)
     setSubmitMessage(null)
     setItems(null)
-    setProgressText('Đang đọc nội dung...')
     const result = await window.api.scan.start({ text, fileName: fileName ?? undefined })
     setScanning(false)
-    setProgressText('')
     if (!result.ok) {
       setLoadError(result.error.message)
       return
     }
     setItems(result.data.items)
-    setScanAt(todayDateOnly())
+    setScanAt(new Date().toISOString())
     setMessage(result.data.message)
     setSelected(new Set())
+    setView('result')
     refreshData()
   }
 
@@ -158,6 +216,16 @@ export function ScanPage(): React.JSX.Element {
     if (!result.ok) {
       pushToast(result.error.message, 'error')
     }
+  }
+
+  function handleScanNew(): void {
+    setView('input')
+    setText('')
+    setFileName(null)
+    setMessage(null)
+    setSubmitMessage(null)
+    setLoadError(null)
+    setSelected(new Set())
   }
 
   function toggleItem(name: string): void {
@@ -221,14 +289,27 @@ export function ScanPage(): React.JSX.Element {
   const airdropItems = groupItems(items, 'airdrop')
   const insufficientItems = groupItems(items, 'insufficient')
 
+  const percent = progressPercent(progress.done, progress.total)
+
   return (
-    <>
-      <div className="page-header">
-        <div className="page-header__title">
-          <h1>Scan Project</h1>
-          <span className="page-header__subtitle">
-            {modelLabel ? `Model đang dùng: ${modelLabel}` : 'Chưa chọn Model'} · AI đọc, tra cứu web và báo cáo trùng lặp
+    <div className="scan-page">
+      <div className="page-header scan-page__head">
+        <div className="scan-page__heading">
+          <span className="scan-page__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 8V6a2 2 0 0 1 2-2h2" />
+              <path d="M16 4h2a2 2 0 0 1 2 2v2" />
+              <path d="M20 16v2a2 2 0 0 1-2 2h-2" />
+              <path d="M8 20H6a2 2 0 0 1-2-2v-2" />
+              <path d="M7 12h10" />
+            </svg>
           </span>
+          <div className="page-header__title">
+            <h1>Scan Project</h1>
+            <span className="page-header__subtitle">
+              {modelLabel ? `Model: ${modelLabel}` : 'Chưa có Model'} · AI đọc, tra cứu web và báo cáo trùng lặp
+            </span>
+          </div>
         </div>
         <div className="row">
           {scanning ? (
@@ -236,172 +317,236 @@ export function ScanPage(): React.JSX.Element {
               Hủy
             </Button>
           ) : (
-            <Button variant="primary" loading={scanning} disabled={!canScan} onClick={() => void handleScan()}>
+            <Button
+              variant="primary"
+              loading={scanning}
+              disabled={!canScan}
+              title={scanDisabledReason ?? undefined}
+              onClick={() => void handleScan()}
+            >
               Scan
             </Button>
           )}
         </div>
       </div>
 
-      {isAiEnabled ? (
-        <TaskModelCard
-          title="Model cho Scan Project"
-          summary={modelLabel ? `Đang dùng: ${modelLabel}` : 'Chưa có Model'}
-          hint={modelPickerHint}
-          warning={scanModelWarning}
-        >
-          <ModelPicker
-            label="Scan Project"
-            providers={providers}
-            value={settings?.ai.scanSelection ?? null}
-            disabled={scanning || scanBusy}
-            hint={modelPickerHint}
-            onChange={(next) => void handleScanModelChange(next)}
-          />
-        </TaskModelCard>
+      {scanDisabledReason ? (
+        <div className="banner banner--warning" role="alert">
+          {scanDisabledReason}
+        </div>
       ) : null}
 
-      {scanDisabledReason ? <div className="banner banner--warning" role="alert">{scanDisabledReason}</div> : null}
+      {loadError ? (
+        <ErrorBlock
+          message={loadError}
+          action={!scanning ? <Button onClick={() => void handleScan()}>Thử lại</Button> : undefined}
+        />
+      ) : null}
 
-      <div className="card stack">
-        <Field label="Dán nội dung dự án (TXT/MD/JSON) hoặc đính kèm file">
-          <Textarea
-            className="scan-input"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder={'Ví dụ:\n1. Alpha Airdrop — https://example.com\n2. Beta MMO Event\n...'}
-            disabled={scanning}
-          />
-        </Field>
-        <div className="row row--wrap">
-          <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={scanning}>
-            📎 Đính kèm TXT/MD/JSON
-          </Button>
-          {fileName ? (
-            <span className="chip">
-              {fileName}
-              <button type="button" aria-label="Bỏ file" onClick={() => { setFileName(null); setText('') }}>
-                ✕
-              </button>
-            </span>
-          ) : null}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={SCAN_FILE_ACCEPT}
-            className="visually-hidden"
-            onChange={(event) => void handleFileChange(event)}
-          />
-          <span className="spacer" />
-          <span className="muted">Tối đa 1 MB · AI không tự thêm dự án cho đến khi bạn bấm Gửi</span>
-        </div>
-      </div>
+      <AiActivityLog
+        channel="scan"
+        showProgress={false}
+        emptyText="Chưa có hoạt động. Dán nội dung rồi bấm Scan để bắt đầu."
+      />
 
-      {scanning ? (
-        <div className="card stack" aria-live="polite">
-          <div className="row">
-            <span className="lock-banner__spinner" aria-hidden="true" />
-            <h2>Đang tra cứu web</h2>
+      {progress.total > 0 ? (
+        <div className="scan-progress">
+          <div className="scan-progress__head">
+            <span>Tiến độ quét</span>
+            <span className="scan-progress__value">{percent}%</span>
           </div>
-          <p className="muted">{progressText || 'AI đang đọc nội dung và tra cứu từng dự án...'}</p>
-          <div className="progress">
-            <div className="progress__bar progress__bar--indeterminate" />
+          <div
+            className="scan-progress__track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            aria-label="Tiến độ quét"
+          >
+            <div className="scan-progress__fill" style={{ width: `${percent}%` }} />
           </div>
         </div>
       ) : null}
 
-      {loadError ? <ErrorBlock message={loadError} action={!scanning ? <Button onClick={() => void handleScan()}>Thử lại</Button> : undefined} /> : null}
-
-      {message && !loadError ? (
-        <div className="banner banner--info" role="status">
-          {message} {scanAt ? `· ${scanAt}` : ''}
-        </div>
-      ) : null}
-
-      {items && items.length > 0 ? (
+      {view === 'input' ? (
         <>
-          {submitMessage ? <div className="banner banner--info" role="status">{submitMessage}</div> : null}
-          {eventItems.length > 0 ? (
-            <ScanGroup
-              title={CATEGORY_LABELS.event_mmo}
-              items={eventItems}
-              selected={selected}
-              onToggleItem={toggleItem}
-              onToggleAll={() => {
-                const group = eventItems.filter((item) => !item.duplicateOf)
-                const all = group.length > 0 && group.every((item) => selected.has(item.name))
-                setSelected((current) => {
-                  const next = new Set(current)
-                  for (const item of group) {
-                    if (all) {
-                      next.delete(item.name)
-                    } else {
-                      next.add(item.name)
-                    }
-                  }
-                  return next
-                })
-              }}
-            />
-          ) : null}
-          {airdropItems.length > 0 ? (
-            <ScanGroup
-              title={CATEGORY_LABELS.airdrop}
-              items={airdropItems}
-              selected={selected}
-              onToggleItem={toggleItem}
-              onToggleAll={() => {
-                const group = airdropItems.filter((item) => !item.duplicateOf)
-                const all = group.length > 0 && group.every((item) => selected.has(item.name))
-                setSelected((current) => {
-                  const next = new Set(current)
-                  for (const item of group) {
-                    if (all) {
-                      next.delete(item.name)
-                    } else {
-                      next.add(item.name)
-                    }
-                  }
-                  return next
-                })
-              }}
-            />
-          ) : null}
-          {insufficientItems.length > 0 ? (
-            <div className="scan-group">
-              <div className="scan-group__title">
-                <h2>Không đủ bằng chứng</h2>
-                <Badge tone="neutral">{insufficientItems.length} không chọn được</Badge>
+          <section
+            className={`scan-drop${dragActive ? ' scan-drop--active' : ''}${fileName ? ' scan-drop--file' : ''}`}
+            aria-label="Vùng dán nội dung"
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {text.trim().length === 0 && !fileName ? (
+              <div className="scan-drop__placeholder" aria-hidden="true">
+                <span className="scan-drop__placeholder-icon">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 16V4" />
+                    <path d="M7 9l5-5 5 5" />
+                    <path d="M5 20h14" />
+                  </svg>
+                </span>
+                <p className="scan-drop__hint">Dán nội dung (TXT/MD/JSON) hoặc kéo thả file vào đây</p>
               </div>
-              <div className="project-rows">
-                {insufficientItems.map((item) => (
-                  <div className="scan-row scan-row--disabled" key={item.name}>
-                    <span className="scan-row__name">{item.name}</span>
-                    <span className="muted">{item.taskSummary || 'AI không xác minh được dự án này'}</span>
-                  </div>
-                ))}
-              </div>
+            ) : null}
+            {fileName ? (
+              <span className="chip scan-drop__chip">
+                {fileName}
+                <button
+                  type="button"
+                  aria-label="Bỏ file"
+                  disabled={scanning}
+                  onClick={() => {
+                    setFileName(null)
+                    setText('')
+                  }}
+                >
+                  ✕
+                </button>
+              </span>
+            ) : null}
+            <textarea
+              className="scan-drop__input"
+              aria-label="Nội dung cần quét"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              disabled={scanning}
+            />
+          </section>
+
+          <div className="scan-page__foot">
+            <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={scanning}>
+              📎 Đính kèm TXT/MD/JSON
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={SCAN_FILE_ACCEPT}
+              className="visually-hidden"
+              onChange={(event) => void handleFileChange(event)}
+            />
+            <span className="spacer" />
+            <span className="muted">Tối đa 1 MB · AI không tự thêm dự án cho đến khi bạn xác nhận</span>
+          </div>
+        </>
+      ) : (
+        <section className="scan-results">
+          <div className="scan-results__head">
+            <div>
+              <h2>Kết quả quét</h2>
+              <span className="muted">{formatScanAt(scanAt)}</span>
+            </div>
+            <Button variant="secondary" onClick={handleScanNew} disabled={scanning}>
+              Quét nội dung khác
+            </Button>
+          </div>
+
+          {message ? (
+            <div className="banner banner--info" role="status">
+              {message}
             </div>
           ) : null}
 
-          <div className="scan-submit-bar">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={toggleAll}
-              aria-label="Chọn tất cả dự án có thể thêm"
+          {submitMessage ? (
+            <div className="banner banner--info" role="status">
+              {submitMessage}
+            </div>
+          ) : null}
+
+          {items && items.length > 0 ? (
+            <>
+              {eventItems.length > 0 ? (
+                <ScanGroup
+                  title={CATEGORY_LABELS.event_mmo}
+                  items={eventItems}
+                  selected={selected}
+                  onToggleItem={toggleItem}
+                  onToggleAll={() => {
+                    const group = eventItems.filter((item) => !item.duplicateOf)
+                    const all = group.length > 0 && group.every((item) => selected.has(item.name))
+                    setSelected((current) => {
+                      const next = new Set(current)
+                      for (const item of group) {
+                        if (all) {
+                          next.delete(item.name)
+                        } else {
+                          next.add(item.name)
+                        }
+                      }
+                      return next
+                    })
+                  }}
+                />
+              ) : null}
+              {airdropItems.length > 0 ? (
+                <ScanGroup
+                  title={CATEGORY_LABELS.airdrop}
+                  items={airdropItems}
+                  selected={selected}
+                  onToggleItem={toggleItem}
+                  onToggleAll={() => {
+                    const group = airdropItems.filter((item) => !item.duplicateOf)
+                    const all = group.length > 0 && group.every((item) => selected.has(item.name))
+                    setSelected((current) => {
+                      const next = new Set(current)
+                      for (const item of group) {
+                        if (all) {
+                          next.delete(item.name)
+                        } else {
+                          next.add(item.name)
+                        }
+                      }
+                      return next
+                    })
+                  }}
+                />
+              ) : null}
+              {insufficientItems.length > 0 ? (
+                <div className="scan-group">
+                  <div className="scan-group__title">
+                    <h2>Không đủ bằng chứng</h2>
+                    <Badge tone="neutral">{insufficientItems.length} không chọn được</Badge>
+                  </div>
+                  <div className="project-rows">
+                    {insufficientItems.map((item) => (
+                      <div className="scan-row scan-row--disabled" key={item.name}>
+                        <span className="scan-row__name">{item.name}</span>
+                        <span className="muted">{item.taskSummary || 'AI không xác minh được dự án này'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="scan-submit-bar">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  aria-label="Chọn tất cả dự án có thể thêm"
+                />
+                <span>Đã chọn {selected.size}</span>
+                <span className="spacer" />
+                <Button
+                  variant="primary"
+                  disabled={selected.size === 0 || submitting || isAiBusy}
+                  loading={submitting}
+                  onClick={() => void handleSubmit()}
+                >
+                  Gửi
+                </Button>
+              </div>
+            </>
+          ) : items && items.length === 0 ? (
+            <EmptyState
+              title="Không tìm thấy dự án"
+              message={message ?? 'AI không xác định được dự án nào từ nội dung đã dán.'}
             />
-            <span>Đã chọn {selected.size}</span>
-            <span className="spacer" />
-            <Button variant="primary" disabled={selected.size === 0 || submitting || isAiBusy} loading={submitting} onClick={() => void handleSubmit()}>
-              Gửi
-            </Button>
-          </div>
-        </>
-      ) : items && items.length === 0 ? (
-        <EmptyState title="Không tìm thấy dự án" message={message ?? 'AI không xác định được dự án nào từ nội dung đã dán.'} />
-      ) : null}
-    </>
+          ) : null}
+        </section>
+      )}
+    </div>
   )
 }
 
@@ -444,9 +589,7 @@ function ScanGroup({
 function ScanRow({ item, selected, onToggle }: { item: ScanItem; selected: boolean; onToggle: () => void }): React.JSX.Element {
   const locked = item.duplicateOf !== null
   return (
-    <div
-      className={`scan-row${locked ? ' scan-row--disabled' : ''}`}
-    >
+    <div className={`scan-row${locked ? ' scan-row--disabled' : ''}`}>
       <label className="row">
         <input type="checkbox" checked={selected} disabled={locked} onChange={onToggle} aria-label={`Chọn ${item.name}`} />
         <span className="scan-row__name">{item.name}</span>
