@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { AppSettings, ChatChoice, ModelSelection, PendingAction } from '@shared/types'
 import { chatRoleLabel, formatChatTime } from '@shared/chatView'
 import type { ChatRole } from '@shared/chatView'
+import {
+  CHAT_ATTACHMENT_ACCEPT,
+  formatAttachmentSize,
+  validateChatAttachment
+} from '@shared/chatAttachment'
 import { Button } from '../../common/Button'
 import { ModelPicker } from '../../common/ModelPicker'
 import { useApp } from '../../state/AppContext'
@@ -15,6 +20,14 @@ interface ChatMessage {
   at: string
   choices?: ChatChoice[]
   pendingAction?: PendingAction | null
+  /** FIX 4: chip tệp đã gửi kèm tin nhắn này. */
+  attachment?: { name: string; size: number }
+}
+
+interface ChatAttachment {
+  name: string
+  text: string
+  size: number
 }
 
 const QUICK_ACTIONS = ['Thêm dự án', 'Sửa dự án', 'Xóa dự án'] as const
@@ -62,6 +75,14 @@ function PencilIcon({ size = 16 }: ChatIconProps): React.JSX.Element {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" />
       <path d="M13.6 6.4l4 4" />
+    </svg>
+  )
+}
+
+function PaperclipIcon({ size = 16 }: ChatIconProps): React.JSX.Element {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
     </svg>
   )
 }
@@ -117,6 +138,8 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
   const { pushToast } = useToast()
   const nextId = useRef(1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragDepth = useRef(0)
 
   const AI_DISABLED_MESSAGE = 'Vui lòng bật AI Mode trong Settings để sử dụng Chat Box.'
 
@@ -126,6 +149,9 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
   const [modelId, setModelId] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
+  const [attachment, setAttachment] = useState<ChatAttachment | null>(null)
+  const [dropActive, setDropActive] = useState(false)
+  const [quickHint, setQuickHint] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmingActionId, setConfirmingActionId] = useState<string | null>(null)
@@ -198,7 +224,59 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
     void window.api.chat.newSession()
     setMessages([])
     setError(null)
+    setAttachment(null)
+    setQuickHint(null)
     pushToast('Đã bắt đầu cuộc trò chuyện mới', 'success')
+  }
+
+  async function acceptAttachment(file: File): Promise<void> {
+    if (chatBusy || sending) {
+      return
+    }
+    const text = await file.text()
+    const check = validateChatAttachment({ name: file.name, text, sizeBytes: file.size })
+    if (!check.ok) {
+      pushToast(check.message, 'error')
+      return
+    }
+    setAttachment({ name: check.attachment.name, text: check.attachment.text, size: check.sizeBytes })
+    setQuickHint(null)
+  }
+
+  async function handleAttachmentChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) {
+      await acceptAttachment(file)
+    }
+  }
+
+  function handleDragEnter(event: React.DragEvent): void {
+    event.preventDefault()
+    dragDepth.current += 1
+    setDropActive(true)
+  }
+
+  function handleDragOver(event: React.DragEvent): void {
+    event.preventDefault()
+  }
+
+  function handleDragLeave(event: React.DragEvent): void {
+    event.preventDefault()
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) {
+      setDropActive(false)
+    }
+  }
+
+  function handleDrop(event: React.DragEvent): void {
+    event.preventDefault()
+    dragDepth.current = 0
+    setDropActive(false)
+    const file = event.dataTransfer.files?.[0]
+    if (file) {
+      void acceptAttachment(file)
+    }
   }
 
   async function handleSend(): Promise<void> {
@@ -207,14 +285,26 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
       pushToast(AI_DISABLED_MESSAGE, 'info')
       return
     }
-    if (trimmed.length === 0 || !canChat) {
+    if (!canChat || (trimmed.length === 0 && !attachment)) {
       return
     }
-    appendMessage({ role: 'user', text: trimmed })
+    const sent = attachment
+    appendMessage({
+      role: 'user',
+      text: trimmed,
+      attachment: sent ? { name: sent.name, size: sent.size } : undefined
+    })
     setInput('')
+    setAttachment(null)
+    setQuickHint(null)
     setError(null)
     setSending(true)
-    const result = await window.api.chat.send({ text: trimmed, providerId, modelId })
+    const result = await window.api.chat.send({
+      text: trimmed,
+      providerId,
+      modelId,
+      attachment: sent ? { name: sent.name, text: sent.text } : undefined
+    })
     setSending(false)
     if (!result.ok) {
       setError(result.error.message)
@@ -285,14 +375,18 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
   function handleQuick(action: (typeof QUICK_ACTIONS)[number]): void {
     if (action === 'Thêm dự án') {
       setInput('Thêm dự án: ')
+      setQuickHint('Dán JSON vào ô hoặc bấm 📎 để tải tệp .json lên — app sẽ hiện thẻ xác nhận trước khi thêm.')
     } else if (action === 'Sửa dự án') {
       setInput('Tôi muốn sửa dự án: ')
+      setQuickHint(null)
     } else {
       setInput('Tôi muốn xóa dự án: ')
+      setQuickHint(null)
     }
   }
 
-  const sendDisabled = sending || input.trim().length === 0 || !canChat
+  const hasAttachment = attachment !== null
+  const sendDisabled = sending || (input.trim().length === 0 && !hasAttachment) || !canChat
   const sendBlockedReason = !isAiEnabled
     ? AI_DISABLED_MESSAGE
     : !currentProvider || !currentModel
@@ -301,8 +395,8 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
         ? 'AI đang thực thi…'
         : sending
           ? 'Đang gửi…'
-          : input.trim().length === 0
-            ? 'Nhập nội dung để gửi.'
+          : input.trim().length === 0 && !hasAttachment
+            ? 'Nhập nội dung hoặc đính kèm tệp để gửi.'
             : null
 
   return (
@@ -394,7 +488,18 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
                         {formatChatTime(message.at)}
                       </time>
                     </div>
-                    <div className={`chat-bubble chat-bubble--${message.role}`}>{message.text}</div>
+                    {message.attachment ? (
+                      <span className="chat-message-attachment">
+                        <PaperclipIcon size={12} />
+                        <span className="chat-message-attachment__name">{message.attachment.name}</span>
+                        <span className="chat-message-attachment__size">
+                          {formatAttachmentSize(message.attachment.size)}
+                        </span>
+                      </span>
+                    ) : null}
+                    {message.text.length > 0 ? (
+                      <div className={`chat-bubble chat-bubble--${message.role}`}>{message.text}</div>
+                    ) : null}
                     {message.choices && message.choices.length > 0 ? (
                       <div className="chat-choices">
                         {message.choices.map((choice) => (
@@ -428,29 +533,79 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
 
           {error ? <div className="chat-error" role="alert">{error}</div> : null}
 
-          <div className="chat-composer">
+          <div
+            className={`chat-composer${dropActive ? ' chat-composer--drop' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             {chatBusy ? (
               <div className="chat-busy" role="status">
                 <span className="chat-busy__spinner" aria-hidden="true" />
                 AI đang thực thi…
               </div>
             ) : null}
+            {quickHint ? <p className="chat-quick-hint">{quickHint}</p> : null}
             <div className="chat-composer__box">
-              <textarea
-                className="chat-composer__input"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                placeholder={currentModel ? 'Nhập tin nhắn…' : 'Chưa có Model, vào Settings để cấu hình'}
-                rows={1}
-                aria-label="Nội dung tin nhắn"
-                disabled={chatBusy || sending}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                    event.preventDefault()
-                    void handleSend()
+              <div className="chat-composer__field">
+                {attachment ? (
+                  <div className="chat-attachment">
+                    <PaperclipIcon size={13} />
+                    <span className="chat-attachment__name">{attachment.name}</span>
+                    <span className="chat-attachment__size">{formatAttachmentSize(attachment.size)}</span>
+                    <button
+                      type="button"
+                      className="chat-attachment__remove"
+                      aria-label={`Gỡ tệp ${attachment.name}`}
+                      title="Gỡ tệp"
+                      disabled={sending}
+                      onClick={() => setAttachment(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : null}
+                <textarea
+                  className="chat-composer__input"
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  placeholder={
+                    currentModel
+                      ? attachment
+                        ? 'Thêm lời nhắn cho tệp (không bắt buộc)…'
+                        : 'Nhập tin nhắn…'
+                      : 'Chưa có Model, vào Settings để cấu hình'
                   }
-                }}
+                  rows={1}
+                  aria-label="Nội dung tin nhắn"
+                  disabled={chatBusy || sending}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                      event.preventDefault()
+                      void handleSend()
+                    }
+                  }}
+                />
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={CHAT_ATTACHMENT_ACCEPT}
+                className="visually-hidden"
+                onChange={(event) => void handleAttachmentChange(event)}
               />
+              <Button
+                className="chat-attach"
+                variant="ghost"
+                iconOnly
+                aria-label="Đính kèm tệp"
+                title="Đính kèm .json, .txt, .md (tối đa 1 MB)"
+                disabled={!canChat}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <PaperclipIcon />
+              </Button>
               {sending ? (
                 <Button
                   className="chat-send"
@@ -478,7 +633,7 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
               )}
             </div>
             <div className="chat-composer__meta">
-              <span className="chat-composer__hint">Ctrl+Enter để gửi</span>
+              <span className="chat-composer__hint">Ctrl+Enter để gửi · 📎 đính kèm .json/.txt/.md ≤ 1 MB</span>
               {sendBlockedReason ? <span className="chat-composer__reason">{sendBlockedReason}</span> : null}
             </div>
           </div>

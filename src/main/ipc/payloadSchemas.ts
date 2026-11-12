@@ -19,12 +19,24 @@ import {
 
 /* ---------- chat ---------- */
 
+/** FIX 4: tệp đính kèm Chat chỉ là văn bản, tối đa 1 MB. */
+export const chatAttachmentPayload = z.object({
+  name: z.string().trim().min(1, 'Tên tệp không được rỗng').max(200),
+  text: z.string().max(1_000_000, 'Tệp lớn hơn 1 MB')
+})
+
 export const chatSendPayload = z.union([
-  z.object({
-    text: z.string().trim().min(1, 'Tin nhắn không được rỗng').max(60_000),
-    providerId: z.string().trim().min(1).max(100),
-    modelId: z.string().trim().min(1).max(200)
-  }),
+  z
+    .object({
+      text: z.string().trim().max(60_000),
+      providerId: z.string().trim().min(1).max(100),
+      modelId: z.string().trim().min(1).max(200),
+      attachment: chatAttachmentPayload.optional()
+    })
+    .refine((value) => value.text.length > 0 || Boolean(value.attachment), {
+      message: 'Tin nhắn không được rỗng',
+      path: ['text']
+    }),
   z.object({ choiceId: z.string().trim().min(1).max(64) })
 ])
 

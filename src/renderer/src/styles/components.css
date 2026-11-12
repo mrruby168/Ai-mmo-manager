@@ -1176,6 +1176,116 @@ select.field__control {
   border-radius: 7px;
 }
 
+.chat-composer--drop .chat-composer__box {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.chat-composer__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.chat-quick-hint {
+  margin: 0;
+  color: var(--chat-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.chat-attachment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--chat-border-strong);
+  border-radius: 5px;
+  background: var(--chat-surface);
+  color: var(--chat-text-secondary);
+  font-size: 0.75rem;
+}
+
+.chat-attachment__name {
+  min-width: 0;
+  max-width: 16rem;
+  overflow: hidden;
+  color: var(--chat-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-attachment__size {
+  flex: 0 0 auto;
+  color: var(--chat-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-attachment__remove {
+  flex: 0 0 auto;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--chat-text-muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-attachment__remove:hover:not(:disabled) {
+  color: var(--chat-text);
+}
+
+.chat-attachment__remove:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.chat-attach {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.5rem;
+  color: var(--chat-text-secondary);
+}
+
+.chat-attach:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.chat-message-attachment {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid var(--chat-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--chat-surface-secondary);
+  color: var(--chat-text-secondary);
+  font-size: 0.75rem;
+}
+
+.chat-message-attachment__name {
+  min-width: 0;
+  max-width: 18rem;
+  overflow: hidden;
+  color: var(--chat-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-message-attachment__size {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
 .chat-composer__box:focus-within {
   border-color: var(--color-primary);
 }

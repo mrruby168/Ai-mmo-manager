@@ -476,7 +476,13 @@ export interface RendererApi {
     cancel(): Promise<IpcResult<{ canceled: boolean }>>
   }
   chat: {
-    send(payload: { text: string; providerId: string; modelId: string }): Promise<IpcResult<ChatReply>>
+    send(payload: {
+      text: string
+      providerId: string
+      modelId: string
+      /** FIX 4: tệp văn bản đính kèm (≤ 1 MB), chỉ gửi một tệp mỗi tin nhắn. */
+      attachment?: { name: string; text: string }
+    }): Promise<IpcResult<ChatReply>>
     choose(choiceId: string): Promise<IpcResult<ChatReply>>
     newSession(): Promise<IpcResult<{ ok: boolean }>>
     confirm(actionId: string): Promise<IpcResult<{ message: string; ok: boolean }>>
