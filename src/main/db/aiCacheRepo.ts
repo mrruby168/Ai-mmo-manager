@@ -1,4 +1,6 @@
 import type { ScanItem } from '@shared/types'
+import type { NewsCheckOutcome } from '@shared/costControl'
+import { newsCacheTtlForOutcome } from '@shared/costControl'
 import { getDatabase, getDatabasePath, withTransaction } from './connection'
 
 /**
@@ -16,6 +18,8 @@ const SCAN_PREFIX = 'ai_cache:scan:'
 export interface NewsCheckEntry {
   fingerprint: string
   checkedAt: string
+  /** Không có ở mục cũ = `found` (cache đủ TTL). */
+  outcome?: NewsCheckOutcome
 }
 
 export interface ScanCacheEntry {
@@ -69,13 +73,21 @@ export function getNewsCheckEntries(): Map<string, NewsCheckEntry> {
   return result
 }
 
-export function markNewsChecked(entries: ReadonlyArray<{ projectId: string; fingerprint: string }>, checkedAt: string): void {
+export function markNewsChecked(
+  entries: ReadonlyArray<{ projectId: string; fingerprint: string }>,
+  checkedAt: string,
+  outcome?: NewsCheckOutcome
+): void {
   if (entries.length === 0 || !isDatabaseOpen()) {
     return
   }
   withTransaction(() => {
     for (const entry of entries) {
-      upsert(`${NEWS_PREFIX}${entry.projectId}`, JSON.stringify({ fingerprint: entry.fingerprint, checkedAt }))
+      const value: NewsCheckEntry = { fingerprint: entry.fingerprint, checkedAt }
+      if (outcome !== undefined) {
+        value.outcome = outcome
+      }
+      upsert(`${NEWS_PREFIX}${entry.projectId}`, JSON.stringify(value))
     }
   })
 }
@@ -122,7 +134,8 @@ export function purgeAiCache(nowMs: number, newsTtlMs: number, scanTtlMs: number
     const entry = parseJson<NewsCheckEntry>(row.value)
     const projectId = row.key.slice(NEWS_PREFIX.length)
     const checkedAt = entry ? Date.parse(entry.checkedAt) : Number.NaN
-    if (!entry || Number.isNaN(checkedAt) || nowMs - checkedAt > newsTtlMs || !projectIds.has(projectId)) {
+    const ttlMs = entry ? newsCacheTtlForOutcome(entry.outcome, newsTtlMs) : newsTtlMs
+    if (!entry || Number.isNaN(checkedAt) || nowMs - checkedAt > ttlMs || !projectIds.has(projectId)) {
       doomed.push(row.key)
     }
   }

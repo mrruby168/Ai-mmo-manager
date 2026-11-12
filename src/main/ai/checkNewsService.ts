@@ -29,7 +29,17 @@ import {
 import { loadSearchProvider } from '../services/webSearchService'
 import { describeSearchError } from '../services/searchProviders'
 import type { SearchProvider } from '../services/searchProviders'
-import { COST_LIMITS, buildGroupedSearchQueries, chunk, formatNewsCacheTtl, isCacheFresh, pickNewsBatchSize } from '@shared/costControl'
+import {
+  COST_LIMITS,
+  buildGroupedSearchQueries,
+  chunk,
+  decideNewsCacheOutcome,
+  formatNewsCacheTtl,
+  isCacheFresh,
+  newsCacheTtlForOutcome,
+  newsSearchBudgetForProjects,
+  pickNewsBatchSize
+} from '@shared/costControl'
 import { getNewsCheckEntries, markNewsChecked, purgeAiCache } from '../db/aiCacheRepo'
 import { projectLinkFingerprint } from './cacheKeys'
 import { createSearchBudget } from './searchBudget'
@@ -277,7 +287,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       !options.force &&
       entry !== undefined &&
       entry.fingerprint === fingerprints.get(project.id) &&
-      isCacheFresh(entry.checkedAt, nowMs, newsCacheTtlMs)
+      isCacheFresh(entry.checkedAt, nowMs, newsCacheTtlForOutcome(entry.outcome, newsCacheTtlMs))
     if (fresh) {
       cachedCount += 1
     } else {
@@ -313,7 +323,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
   })
   const milestones = buildKnownMilestones()
   const batches = chunk(scope, pickNewsBatchSize(selection.chain.providerType, selection.nativeSearch))
-  const budget = createSearchBudget(COST_LIMITS.newsMaxSearchesPerRun)
+  const budget = createSearchBudget(newsSearchBudgetForProjects(scope.length))
   const usageTotal = { inputTokens: 0, outputTokens: 0, calls: 0 }
   const onUsage = (usage: AgentUsage): void => {
     usageTotal.inputTokens += usage.inputTokens
@@ -382,6 +392,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
         break
       }
       const batch = batches[batchIndex]
+      const rejectedAtBatchStart = rejected
       // FIX 3: tiến trình News đếm theo dự án đã xử lý (kể cả dự án dùng cache).
       reporter.report(
         'Kiểm tra tin',
@@ -392,10 +403,11 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
 
       const evidence = createNewsEvidence()
       const now = new Date()
-      const prefetched =
-        !selection.nativeSearch && selection.search
-          ? await prefetchGroupedSearch(selection.search, batch, budget, evidence, signal)
-          : null
+      // D25: có Web Search riêng của app thì luôn chạy prefetch, kể cả model A1 có
+      // Web Search gốc; kết quả gộp chỉ là gợi ý, model vẫn phải mở bài gốc.
+      const prefetched = selection.search
+        ? await prefetchGroupedSearch(selection.search, batch, budget, evidence, signal)
+        : null
       const messages: AiMessage[] = [{ role: 'user', content: buildBatchMessage(batch, milestones, now, prefetched) }]
       const tools = pickTools(selection, evidence, budget)
 
@@ -498,11 +510,16 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
         searchUnverifiedBatches += 1
       }
 
-      // Only a batch that really ran and was saved is cached; failed batches are retried next time.
-      markNewsChecked(
-        batch.map((project) => ({ projectId: project.id, fingerprint: fingerprints.get(project.id) ?? '' })),
-        new Date().toISOString()
-      )
+      // Chỉ lô chạy thật và đã lưu mới được cache; lô không có tin mới chỉ khóa
+      // 2 giờ (newsCacheTtlForOutcome), lô nộp mà bị loại hết thì không cache.
+      const cacheOutcome = decideNewsCacheOutcome(outcome.added, rejected - rejectedAtBatchStart)
+      if (cacheOutcome !== null) {
+        markNewsChecked(
+          batch.map((project) => ({ projectId: project.id, fingerprint: fingerprints.get(project.id) ?? '' })),
+          new Date().toISOString(),
+          cacheOutcome
+        )
+      }
       checkedProjects += batch.length
       appendAiLog(
         'news',

@@ -1,9 +1,13 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   COST_LIMITS,
+  NEWS_EMPTY_CACHE_MAX_MS,
   buildGroupedSearchQueries,
   chunk,
+  decideNewsCacheOutcome,
   isCacheFresh,
+  newsCacheTtlForOutcome,
+  newsSearchBudgetForProjects,
   pickNewsBatchSize
 } from '../src/shared/costControl'
 import { extractRelevantText } from '../src/shared/pageExcerpt'
@@ -53,6 +57,40 @@ describe('grouped search queries', () => {
     for (const query of queries) {
       expect(query.length).toBeLessThanOrEqual(120)
     }
+  })
+})
+
+describe('news cache theo kết quả và ngân sách động (FIX 5)', () => {
+  const THREE_HOURS = 10_800_000
+
+  it('lô rỗng chỉ khóa cache tối đa 2 giờ, không khóa hết TTL 3/8 giờ', () => {
+    expect(newsCacheTtlForOutcome('empty', THREE_HOURS)).toBe(NEWS_EMPTY_CACHE_MAX_MS)
+    expect(newsCacheTtlForOutcome('empty', 60_000)).toBe(60_000)
+    expect(newsCacheTtlForOutcome('found', THREE_HOURS)).toBe(THREE_HOURS)
+    expect(newsCacheTtlForOutcome(undefined, THREE_HOURS)).toBe(THREE_HOURS)
+    expect(newsCacheTtlForOutcome(null, THREE_HOURS)).toBe(0)
+  })
+
+  it('quyết định found / empty / null theo số tin thêm và bị loại', () => {
+    expect(decideNewsCacheOutcome(2, 1)).toBe('found')
+    expect(decideNewsCacheOutcome(0, 0)).toBe('empty')
+    expect(decideNewsCacheOutcome(0, 3)).toBeNull()
+  })
+
+  it('ngân sách tìm kiếm 2 lượt mỗi dự án, kẹp trong khoảng 30..80', () => {
+    expect(newsSearchBudgetForProjects(0)).toBe(COST_LIMITS.newsMaxSearchesPerRun)
+    expect(newsSearchBudgetForProjects(10)).toBe(30)
+    expect(newsSearchBudgetForProjects(20)).toBe(40)
+    expect(newsSearchBudgetForProjects(41)).toBe(80)
+    expect(newsSearchBudgetForProjects(500)).toBe(80)
+  })
+
+  it('cache empty quá 2 giờ bị coi là cũ dù TTL cấu hình còn hạn', () => {
+    const now = Date.parse('2026-11-09T05:00:00.000Z')
+    const ttl = newsCacheTtlForOutcome('empty', THREE_HOURS)
+    expect(isCacheFresh('2026-11-09T03:30:00.000Z', now, ttl)).toBe(true)
+    expect(isCacheFresh('2026-11-09T02:30:00.000Z', now, ttl)).toBe(false)
+    expect(isCacheFresh('2026-11-09T02:30:00.000Z', now, THREE_HOURS)).toBe(true)
   })
 })
 
@@ -189,6 +227,17 @@ describe('aiCacheRepo', () => {
   it('overwrites an entry for the same project', () => {
     markNewsChecked([{ projectId: 'PRJ-001', fingerprint: 'def' }], '2026-11-09T02:00:00.000Z')
     expect(getNewsCheckEntries().get('PRJ-001')?.fingerprint).toBe('def')
+  })
+
+  it('stores the outcome of the last check, old entries stay without outcome (found)', () => {
+    markNewsChecked([{ projectId: 'PRJ-001', fingerprint: 'xyz' }], '2026-11-09T03:00:00.000Z')
+    expect(getNewsCheckEntries().get('PRJ-001')?.outcome).toBeUndefined()
+    markNewsChecked([{ projectId: 'PRJ-001', fingerprint: 'xyz' }], '2026-11-09T04:00:00.000Z', 'empty')
+    expect(getNewsCheckEntries().get('PRJ-001')).toEqual({
+      fingerprint: 'xyz',
+      checkedAt: '2026-11-09T04:00:00.000Z',
+      outcome: 'empty'
+    })
   })
 
   it('stores scan results by key and only returns the requested keys', () => {

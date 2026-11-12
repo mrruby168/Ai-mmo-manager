@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FailoverCandidate } from '../src/main/ai/failoverClient'
 
-const { buildTaskChain, createFailoverClient, runAgent, runAiTask, listProjects, saveScanLatest, purgeAiCache } =
+const { buildTaskChain, createFailoverClient, runAgent, runAiTask, listProjects, saveScanLatest, purgeAiCache, loadSearchProvider } =
   vi.hoisted(() => ({
     buildTaskChain: vi.fn(),
     createFailoverClient: vi.fn(),
@@ -9,7 +9,8 @@ const { buildTaskChain, createFailoverClient, runAgent, runAiTask, listProjects,
     runAiTask: vi.fn(),
     listProjects: vi.fn(),
     saveScanLatest: vi.fn(),
-    purgeAiCache: vi.fn()
+    purgeAiCache: vi.fn(),
+    loadSearchProvider: vi.fn()
   }))
 
 vi.mock('electron', () => ({ app: { getPath: () => process.cwd() } }))
@@ -26,7 +27,7 @@ vi.mock('../src/main/ai/agentRunner', () => ({
 }))
 vi.mock('../src/main/ai/aiTaskRunner', () => ({ runAiTask }))
 vi.mock('../src/main/ai/aiMode', () => ({ assertAiEnabled: vi.fn() }))
-vi.mock('../src/main/services/webSearchService', () => ({ loadSearchProvider: () => null }))
+vi.mock('../src/main/services/webSearchService', () => ({ loadSearchProvider }))
 vi.mock('../src/main/ipc/guard', () => ({ broadcastToRenderers: vi.fn() }))
 vi.mock('../src/main/db/projectsRepo', () => ({
   listProjects,
@@ -126,6 +127,7 @@ beforeEach(() => {
   )
   runAgent.mockResolvedValue({ outcome: 'completed', text: '', messages: [], webSearch: [] })
   listProjects.mockReturnValue([project])
+  loadSearchProvider.mockReturnValue(null)
 })
 
 describe('nối chuỗi model theo từng tác vụ (FIX 2)', () => {
@@ -134,6 +136,18 @@ describe('nối chuỗi model theo từng tác vụ (FIX 2)', () => {
 
     expect(buildTaskChain).toHaveBeenCalledWith('news', { requireTools: true, webSearch: 'native-or-app' }, false)
     expect(createFailoverClient).toHaveBeenCalledWith(newsChain.candidates, expect.any(Object))
+  })
+
+  it('D25: có Web Search của app thì prefetch chạy cả khi model có Web Search gốc', async () => {
+    const search = vi.fn(async (_query: string) => [
+      { title: 'Alpha news', url: 'https://alpha.example.com/news', snippet: 'airdrop snapshot' }
+    ])
+    loadSearchProvider.mockReturnValue({ search } as never)
+
+    await runCheckNews()
+
+    expect(search).toHaveBeenCalledTimes(1)
+    expect(search.mock.calls[0][0]).toContain('Alpha Drop')
   })
 
   it('Scan Project dựng chuỗi "scan" (bắt buộc Web Search gốc) và chạy qua failover', async () => {
