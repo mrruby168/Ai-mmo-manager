@@ -199,7 +199,8 @@ const NEWS_ITEM_PROPS = {
   publishedAt: S,
   todoDeadline: S,
   milestoneKind: { type: 'string', enum: [...MILESTONE_KINDS] },
-  milestoneDate: S
+  milestoneDate: S,
+  notes: S
 } as const
 
 /* ---------- read tools ---------- */
@@ -322,7 +323,8 @@ export const NEWS_RESULT_KIND = 'news'
 
 const submitNewsTool: AgentTool = {
   name: 'submit_news',
-  description: 'Nộp danh sách tin mới trong 7 ngày gần nhất. items rỗng nghĩa là không có tin mới.',
+  description:
+    'Nộp danh sách tin mới trong 7 ngày gần nhất. items rỗng chỉ sau khi đã tìm kỹ; ghi notes (≤200 ký tự) đã tìm gì.',
   parameters: {
     type: 'object',
     properties: {
@@ -333,7 +335,8 @@ const submitNewsTool: AgentTool = {
           properties: NEWS_ITEM_PROPS,
           required: ['projectId', 'kind', 'summary', 'verification', 'sourceUrl']
         }
-      }
+      },
+      notes: S
     },
     required: ['items']
   },

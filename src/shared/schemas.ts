@@ -130,11 +130,15 @@ export const newsResultSchema = z.object({
  * ngày từ status ID; sau khi suy vẫn phải qua `newsItemSchema` nghiêm ngặt.
  */
 export const newsSubmissionItemSchema = newsItemSchema.extend({
-  publishedAt: z.string().max(64).optional()
+  publishedAt: z.string().max(64).optional(),
+  /** Ghi chú ngắn của model cho tin này (không lưu vào DB). */
+  notes: z.string().max(200).optional()
 })
 
 export const newsSubmissionResultSchema = z.object({
-  items: z.array(newsSubmissionItemSchema).max(500)
+  items: z.array(newsSubmissionItemSchema).max(500),
+  /** 9d: model giải thích ngắn đã tìm gì, đặc biệt khi items rỗng. */
+  notes: z.string().max(200).optional()
 })
 
 /**

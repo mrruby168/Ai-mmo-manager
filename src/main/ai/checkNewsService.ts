@@ -17,7 +17,14 @@ import { NEWS_SYSTEM_PROMPT } from './prompts'
 import { isWithinNewsWindow, promptDateOnly } from '@shared/newsPrompt'
 import { broadcastToRenderers } from '../ipc/guard'
 import { EVENTS } from '@shared/ipc-channels'
-import { buildNewsCheckMessage, parseNewsSubmission, verifyNewsSources } from './newsCheck'
+import {
+  addRejectReasons,
+  buildNewsCheckMessage,
+  buildNewsRejectLogLine,
+  createNewsRejectReasons,
+  parseNewsSubmission,
+  verifyNewsSources
+} from './newsCheck'
 import { mergeSearchTraces } from './searchTrace'
 import { assertAiEnabled } from './aiMode'
 import {
@@ -60,6 +67,10 @@ import { normalizeXHandle } from '@shared/xLinks'
 // 5 everywhere else (fewer repeated system prompts).
 const NEWS_WINDOW_DAYS = 7
 const PREFETCH_SNIPPET_MAX = 280
+
+/** 9d: nhắc model tìm lại khi nộp rỗng dù lô đã có bằng chứng tìm kiếm. */
+const EMPTY_RETRY_PROMPT =
+  'Bạn vừa nộp items rỗng nhưng lô này đã có bằng chứng tìm kiếm. Hãy kiểm tra lại kết quả tìm kiếm và mở thêm bài gốc; nếu thật sự không có tin mới trong 7 ngày, gọi submit_news lại với items rỗng và ghi notes ngắn gọn (≤200 ký tự) đã tìm từ khóa nào. Không bịa tin.'
 
 export interface NewsCheckResult {
   added: number
@@ -388,6 +399,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
 
   let added = 0
   let rejected = 0
+  const rejectReasons = createNewsRejectReasons()
 
   return runAiTask('Check News', 'news', async (signal, reporter) => {
     const total = batches.length
@@ -522,21 +534,61 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       for (const trace of traces) {
         noteTraceSources(evidence, trace.sources)
       }
-      const traceUsed = mergeSearchTraces(traces).used
+      let traceUsed = mergeSearchTraces(traces).used
 
       const allowedIds = new Set(batch.map((project) => project.id))
       const windowNow = new Date()
       const projectHandles = new Map(batch.map((project) => [project.id, normalizeXHandle(project.socials.x)]))
-      const submission = parseNewsSubmission(parsed.data.items, allowedIds, (iso) =>
-        isWithinNewsWindow(iso, windowNow, NEWS_WINDOW_DAYS),
-        projectHandles
-      )
+      const parseBatch = (raw: unknown): ReturnType<typeof parseNewsSubmission> =>
+        parseNewsSubmission(
+          raw,
+          allowedIds,
+          (iso) => isWithinNewsWindow(iso, windowNow, NEWS_WINDOW_DAYS),
+          projectHandles
+        )
+      let submission = parseBatch(parsed.data.items)
       rejected += submission.rejected
+      addRejectReasons(rejectReasons, submission.reasons)
+
+      // 9d: nộp rỗng dù đã có bằng chứng thì thử lại đúng một lần, trừ 1 đơn vị
+      // ngân sách tìm kiếm cho lượt thử.
+      if (
+        submission.items.length === 0 &&
+        hasEvidence(evidence, traceUsed) &&
+        !signal.aborted &&
+        budget.tryConsume()
+      ) {
+        appendAiLog('news', 'step', `Lô ${batchIndex + 1}: AI nộp rỗng dù có bằng chứng, thử lại một lần`)
+        const retryMessages: AiMessage[] = [
+          ...messages,
+          { role: 'assistant', content: 'Đã nộp items rỗng cho lô này.' },
+          { role: 'user', content: EMPTY_RETRY_PROMPT }
+        ]
+        const retry = await runBatchAgent(tools, retryMessages)
+        if (retry && retry.outcome === 'submit') {
+          traces.push(...retry.webSearch)
+          for (const trace of retry.webSearch) {
+            noteTraceSources(evidence, trace.sources)
+          }
+          traceUsed = mergeSearchTraces(traces).used
+          const retryPayload = retry.payload as { kind?: string; data?: unknown }
+          if (retryPayload.kind === NEWS_RESULT_KIND) {
+            const retryParsed = newsSubmissionResultSchema.safeParse(retryPayload.data)
+            if (retryParsed.success) {
+              const next = parseBatch(retryParsed.data.items)
+              rejected += next.rejected
+              addRejectReasons(rejectReasons, next.reasons)
+              submission = next
+            }
+          }
+        }
+      }
 
       // F.2: không có bất kỳ bằng chứng tìm kiếm nào thì bỏ cả lô.
       if (!hasEvidence(evidence, traceUsed)) {
         noEvidenceBatches += 1
         rejected += submission.items.length
+        rejectReasons.noEvidence += submission.items.length
         firstFailure ??= `Lô ${batchIndex + 1}: không có bằng chứng web search nên bỏ ${submission.items.length} tin AI tự khai`
         appendAiLog(
           'news',
@@ -548,16 +600,22 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
 
       // F.3: sourceUrl do model tự nghĩ (không nằm trong tập URL đã thấy) bị bỏ.
       const seen = submission.items.filter((item) => isSeenSource(evidence, item.sourceUrl))
-      rejected += submission.items.length - seen.length
+      const unseen = submission.items.length - seen.length
+      rejected += unseen
+      rejectReasons.urlNotSeen += unseen
 
       const projectNames = new Map(batch.map((project) => [project.id, project.name]))
       const verified = await verifyNewsSources(seen, projectNames)
       rejected += verified.rejected
+      addRejectReasons(rejectReasons, verified.reasons)
 
       const outcome = saveNewsBatch(verified.items, windowNow.toISOString(), (iso) =>
         isWithinNewsWindow(iso, windowNow, NEWS_WINDOW_DAYS), allowedIds)
       added += outcome.added
       rejected += outcome.rejected
+      const duplicates = outcome.duplicates ?? 0
+      rejectReasons.duplicate += duplicates
+      rejectReasons.outsideWindow += Math.max(0, outcome.rejected - duplicates)
 
       if (!traceUsed && evidence.searchSuccesses === 0) {
         searchUnverifiedBatches += 1
@@ -611,10 +669,15 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
           totalBatches: total,
           searchUnverifiedBatches,
           noEvidenceBatches,
-          firstFailure
+          firstFailure,
+          reasons: rejectReasons
         })
 
     const message = extras.length > 0 ? `${base} · ${extras.join(' · ')}` : base
+    const rejectLine = buildNewsRejectLogLine(rejectReasons)
+    if (rejectLine) {
+      appendAiLog('news', 'warn', rejectLine)
+    }
     appendAiLog('news', signal.aborted ? 'warn' : 'success', message)
 
     return {

@@ -104,6 +104,8 @@ export interface NewsBatchInput {
 export interface NewsBatchResult {
   added: number
   rejected: number
+  /** Số tin bị bỏ vì trùng (project + source URL đã có). */
+  duplicates?: number
 }
 
 /** Stable dedupe key for one project + source URL. */
@@ -120,6 +122,7 @@ export function saveNewsBatch(
 ): NewsBatchResult {
   let added = 0
   let rejected = 0
+  let duplicates = 0
 
   for (const item of items) {
     // The id must be one of the projects this batch was built from, otherwise a
@@ -159,10 +162,18 @@ export function saveNewsBatch(
     const inserted = insertNews(record)
     if (inserted) {
       added += 1
+    } else {
+      // Trùng project + source URL: vẫn là tin bị bỏ, nhưng đếm riêng để báo cáo.
+      duplicates += 1
+      rejected += 1
     }
   }
 
-  return { added, rejected }
+  const result: NewsBatchResult = { added, rejected }
+  if (duplicates > 0) {
+    result.duplicates = duplicates
+  }
+  return result
 }
 
 /* ---------- FIX 1: manual CRUD in No AI Mode ---------- */

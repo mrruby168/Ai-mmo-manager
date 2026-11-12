@@ -175,6 +175,40 @@ describe('nối chuỗi model theo từng tác vụ (FIX 2)', () => {
     expect(search.mock.calls[2][0]).toContain('"Beta Net"')
   })
 
+  it('9d: nộp rỗng dù có bằng chứng thì thử lại một lần', async () => {
+    const search = vi.fn(async (_query: string) => [
+      { title: 'Alpha Drop news', url: 'https://alpha.example.com/news', snippet: 'airdrop' }
+    ])
+    loadSearchProvider.mockReturnValue({ search } as never)
+    runAgent.mockResolvedValue({
+      outcome: 'submit',
+      payload: { kind: 'news', data: { items: [], notes: 'đã tìm' } },
+      messages: [],
+      webSearch: []
+    })
+
+    await runCheckNews()
+
+    expect(runAgent).toHaveBeenCalledTimes(2)
+    const retryRequest = runAgent.mock.calls[1][0] as { messages: Array<{ content: string }> }
+    const last = retryRequest.messages[retryRequest.messages.length - 1]
+    expect(last.content).toContain('nộp items rỗng')
+  })
+
+  it('9d: không thử lại khi lô không có bằng chứng tìm kiếm', async () => {
+    loadSearchProvider.mockReturnValue(null)
+    runAgent.mockResolvedValue({
+      outcome: 'submit',
+      payload: { kind: 'news', data: { items: [], notes: '' } },
+      messages: [],
+      webSearch: []
+    })
+
+    await runCheckNews()
+
+    expect(runAgent).toHaveBeenCalledTimes(1)
+  })
+
   it('Scan Project dựng chuỗi "scan" (bắt buộc Web Search gốc) và chạy qua failover', async () => {
     await runScan({ text: 'Alpha Drop\nBeta Drop' })
 
