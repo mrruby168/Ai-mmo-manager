@@ -1,3 +1,20 @@
+## WI-18 — PROMPT FIX V3 (5 FIX) — CODE XONG, GUI CHƯA KIỂM CHỨNG (2026-11-13)
+- Branch `fix/v3-fixes`, 13 commit trên nền `a1130de`: `6809e87` FIX 1 logo, `770d8b3`/`26f4c55`/`a940d66` FIX 2 dữ liệu/nối/GUI, `faf9c48`/`0041f2a`/`5e08e6a` FIX 3 backend/News/Scan, `09965c7` FIX 4 đính kèm Chat, `fe86980` 9a cache theo kết quả, `805a033` 9b query theo dự án, `d1d5b7a` 9c bài X, `3d555ba` 9d lý do loại/thử lại. Chưa merge, chưa tag.
+- Changed:
+  - FIX 1: logo chỉ nhận ảnh đại diện X thật, thứ tự website → Discord → Telegram → X → chữ cái đầu; bỏ favicon nhỏ.
+  - FIX 2: chuỗi model A1–A3 theo tác vụ (`taskModels`), TTL cache News (`newsCacheTtlMs`, 1 phút/3 giờ/8 giờ), failover client; tab Settings → Model Configuration ngay sau AI Settings; News/Scan/Chat dùng chuỗi.
+  - FIX 3: Activity Log realtime theo kênh + IPC `ai:log`, bỏ card chọn model ở News/Scan, tiến trình n/N, pill Live; News 3 thẻ nội dung v1; Scan vùng dán/kéo thả.
+  - FIX 4: Chat đính kèm `.json/.txt/.md` ≤1 MB, chặn nhị phân, bọc `<untrusted_attachment>`, cắt 40.000 ký tự; JSON hợp lệ vẫn qua PendingAction, không tự thêm dự án.
+  - 9a: cache News theo kết quả (lô rỗng chỉ khóa 2 giờ), ngân sách động 2 lượt/dự án kẹp 30..80, prefetch khi app có Web Search (D25).
+  - 9b: query từng dự án ưu tiên handle X, gộp 3 tên cho dự án không handle, tìm riêng khi prefetch yếu.
+  - 9c: bài X luôn `unverified`, ngày suy từ status ID (cổng D23 đã PASS), loại handle lạ.
+  - 9d: đếm lý do loại (schema/cửa sổ/dự án/URL/404/handle/ngày/trùng/bằng chứng), dòng Activity Log ≤200 ký tự, `submit_news` có `notes` ≤200, prompt không khuyến khích nộp rỗng, thử lại một lần khi rỗng dù có bằng chứng.
+- Tests: 57 file / 587 test (baseline 45/452). Mới: `chatAttachment`, `chatAttachmentFlow`, `projectQueries`, `xLinks`, `newsDates`; cập nhật `chatView`, `ipcPayloads`, `costControl`, `taskModelRouting`, `newsCheck`, `newsBatch`.
+- Verify: `npm run typecheck` PASS; `npm test` PASS 57/587; `npm run build` PASS.
+- NOT verified: toàn bộ checklist GUI `readtofix/plan-v2.md` §11 và Check News với khóa tìm kiếm/model thật (`chưa kiểm chứng với API thật`). Không chạy Electron, không gọi API thật trong phiên này. Chưa chứng minh được "nộp rỗng" đã hết khi dùng model thật; mới có test lô rỗng có bằng chứng được thử lại một lần.
+- Gate D23: `node -e "console.log(new Date(Number((BigInt('266031293945503744')>>22n)+1288834974657n)).toISOString())"` in `2012-11-07T04:16:17.756Z` → bật `X_DATE_FROM_ID_ENABLED`.
+- Open: user chạy app kiểm GUI; xoay vòng khóa Google/Tavily/Brave nếu từng lộ; không đụng `APP-LOCAL`.
+
 ## WI-17 — PROMPT FIX V2 (7 FIX) — DONE (2026-11-07)
 - Commits trong repo riêng `Ai-mmo-manager/.git` (không đụng repo cha): `2f1b150` baseline, `05941fb` FIX 7, FIX 6, FIX 2, `10e7431` FIX 5a, FIX 5b, `ab8ee1d` FIX 5c, `58a765e` FIX 1 data, `0e218ac` FIX 1 display, `de31e24` FIX 3, `8228a6d` FIX 4.
 - Changed:

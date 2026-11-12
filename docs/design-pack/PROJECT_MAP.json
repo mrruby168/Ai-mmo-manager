@@ -3,6 +3,24 @@
   "map_type": "planned",
   "generated_at": "2026-11-05",
   "scale": "medium",
+  "v3_status": {
+    "branch": "fix/v3-fixes",
+    "updated_at": "2026-11-13",
+    "note": "PROMPT FIX V3 đã xong phần code và test; GUI/Check News thật chưa kiểm chứng trong phiên này.",
+    "new_modules": [
+      "src/shared/chatAttachment.ts",
+      "src/shared/projectQueries.ts",
+      "src/shared/xLinks.ts",
+      "src/main/ai/aiActivityLog.ts",
+      "src/shared/aiLog.ts"
+    ],
+    "verification": {
+      "typecheck": "pass",
+      "test": "57 files / 587 tests",
+      "build": "pass",
+      "gui_checklist": "chưa kiểm chứng"
+    }
+  },
   "entry_points": [
     "src/main/index.ts",
     "src/preload/index.ts",
