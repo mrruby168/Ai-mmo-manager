@@ -10,7 +10,7 @@ import {
   VERIFICATION_STATES
 } from '@shared/constants'
 import type { ProjectCategory, ProjectStatus } from '@shared/constants'
-import type { PendingAction, Project } from '@shared/types'
+import type { PendingAction, Project, AiLogLevel } from '@shared/types'
 import { newsResultSchema, projectImportItemSchema, scanResultSchema } from '@shared/schemas'
 import type { ProjectImportItem } from '@shared/schemas'
 import type { ProjectIndexEntry } from '../db/projectsRepo'
@@ -26,6 +26,10 @@ import { noteFetchSuccess, noteSearchSuccess } from './newsEvidence'
 import type { NewsEvidence } from './newsEvidence'
 import { COST_LIMITS } from '@shared/costControl'
 import type { SearchBudget } from './searchBudget'
+import { safeUrlForLog } from '@shared/aiLog'
+
+/** FIX 3: nơi nhận một dòng Activity Log của kênh đang chạy (News/Scan). */
+export type AiLogSink = (level: AiLogLevel, text: string) => void
 
 /* ---------- helpers ---------- */
 
@@ -354,7 +358,8 @@ export function createWebSearchTool(
   search: SearchProvider,
   evidence?: NewsEvidence,
   maxUses: number = WEB_SEARCH_MAX_USES,
-  budget?: SearchBudget
+  budget?: SearchBudget,
+  onLog?: AiLogSink
 ): AgentTool {
   let used = 0
   return {
@@ -374,9 +379,11 @@ export function createWebSearchTool(
         return toolInputError('Từ khóa tìm kiếm không được rỗng')
       }
       if (used >= maxUses) {
+        onLog?.('warn', `Đã dùng hết ${maxUses} lượt tìm kiếm của lô này`)
         return safeJson({ error: `Đã dùng web_search ${maxUses} lần trong lô này, hãy tổng hợp với dữ liệu đang có` })
       }
       if (budget && !budget.tryConsume()) {
+        onLog?.('warn', 'Đã hết hạn mức tìm kiếm của phiên này')
         return safeJson({ error: 'Đã hết hạn mức tìm kiếm của phiên này, hãy tổng hợp với dữ liệu đang có' })
       }
       used += 1
@@ -386,6 +393,7 @@ export function createWebSearchTool(
         if (evidence) {
           noteSearchSuccess(evidence, results.map((item) => item.url))
         }
+        onLog?.('step', `Quét web "${query}" · ${results.length} kết quả`)
         if (results.length === 0) {
           return wrapUntrustedWebContent(`web_search:${query}`, 'Không có kết quả cho từ khóa này.')
         }
@@ -397,6 +405,7 @@ export function createWebSearchTool(
           .join('\n\n')
         return wrapUntrustedWebContent(`web_search:${query}`, body)
       } catch (error) {
+        onLog?.('warn', `Tìm kiếm lỗi: ${describeSearchError(error)}`)
         return safeJson({ error: describeSearchError(error) })
       }
     }
@@ -408,16 +417,23 @@ export function createWebSearchTool(
  * lines and the number of fetches per batch is capped. `evidence` (Check News
  * only) records successful fetches as proof.
  */
-export function createFocusedWebFetchTool(options: { evidence?: NewsEvidence; maxUses?: number } = {}): AgentTool {
+export function createFocusedWebFetchTool(
+  options: { evidence?: NewsEvidence; maxUses?: number; onLog?: AiLogSink } = {}
+): AgentTool {
   const maxUses = options.maxUses ?? COST_LIMITS.newsMaxFetchesPerBatch
   let used = 0
   return {
     ...webFetchTool,
     handler: async (args, context) => {
       if (used >= maxUses) {
+        options.onLog?.('warn', `Đã dùng hết ${maxUses} lượt mở bài của lô này`)
         return safeJson({ error: `Đã dùng web_fetch ${maxUses} lần trong lô này, hãy tổng hợp với dữ liệu đang có` })
       }
       used += 1
+      const url = typeof args.url === 'string' ? args.url : ''
+      if (url) {
+        options.onLog?.('step', `Mở bài: ${safeUrlForLog(url)}`)
+      }
       const result = await webFetch(args, context.signal, { focus: { maxChars: COST_LIMITS.focusedFetchMaxChars } })
       if (
         options.evidence &&
@@ -732,11 +748,18 @@ export interface NewsToolOptions {
    * tool declarations on every step.
    */
   costControl?: { budget?: SearchBudget; maxSearches?: number; maxFetches?: number }
+  /** FIX 3: nhận log tìm kiếm/mở bài của lô. */
+  onLog?: AiLogSink
 }
 
-export function getScanTools(options: { costControl?: { maxFetches?: number } } = {}): AgentTool[] {
+export function getScanTools(
+  options: { costControl?: { maxFetches?: number }; onLog?: AiLogSink } = {}
+): AgentTool[] {
   const fetchTool = options.costControl
-    ? createFocusedWebFetchTool({ maxUses: options.costControl.maxFetches ?? COST_LIMITS.scanMaxFetchesPerBatch })
+    ? createFocusedWebFetchTool({
+        maxUses: options.costControl.maxFetches ?? COST_LIMITS.scanMaxFetchesPerBatch,
+        onLog: options.onLog
+      })
     : webFetchTool
   return [fetchTool, listExistingProjectsTool, submitScanResultTool]
 }
@@ -745,7 +768,11 @@ export function getNewsTools(options: NewsToolOptions = {}): AgentTool[] {
   const cost = options.costControl
   if (cost) {
     const tools: AgentTool[] = [
-      createFocusedWebFetchTool({ evidence: options.evidence, maxUses: cost.maxFetches ?? COST_LIMITS.newsMaxFetchesPerBatch })
+      createFocusedWebFetchTool({
+        evidence: options.evidence,
+        maxUses: cost.maxFetches ?? COST_LIMITS.newsMaxFetchesPerBatch,
+        onLog: options.onLog
+      })
     ]
     if (options.search) {
       tools.push(
@@ -753,7 +780,8 @@ export function getNewsTools(options: NewsToolOptions = {}): AgentTool[] {
           options.search,
           options.evidence,
           cost.maxSearches ?? COST_LIMITS.newsMaxSearchesPerBatch,
-          cost.budget
+          cost.budget,
+          options.onLog
         )
       )
     }
@@ -763,7 +791,7 @@ export function getNewsTools(options: NewsToolOptions = {}): AgentTool[] {
 
   const tools: AgentTool[] = [options.evidence ? createLegacyNewsWebFetchTool(options.evidence) : webFetchTool]
   if (options.search) {
-    tools.push(createWebSearchTool(options.search, options.evidence))
+    tools.push(createWebSearchTool(options.search, options.evidence, undefined, undefined, options.onLog))
   }
   tools.push(listProjectsTool, getProjectTool, submitNewsTool)
   return tools

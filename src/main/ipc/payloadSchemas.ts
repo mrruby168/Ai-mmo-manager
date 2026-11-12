@@ -35,6 +35,9 @@ export const aiCancelPayload = z
   .object({ channel: z.enum(['news', 'scan', 'chat']).optional() })
   .optional()
 
+/** FIX 3: kênh cần lấy Activity Log. */
+export const aiLogPayload = z.object({ channel: z.enum(['news', 'scan', 'chat']) })
+
 /* ---------- projects ---------- */
 
 export const projectsIdPayload = z.object({ id: z.string().min(1).max(64) })

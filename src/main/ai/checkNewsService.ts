@@ -38,6 +38,7 @@ import { wrapUntrustedWebContent } from './webTools'
 import { noteSearchSuccess } from './newsEvidence'
 import { logInfo } from '../services/logger'
 import { getSettings } from '../services/settingsStore'
+import { appendAiLog, beginAiLog, finishAiLog } from './aiActivityLog'
 
 // Batch size comes from `pickNewsBatchSize`: Anthropic's built-in web search
 // allows only 5 uses per request, so it keeps 3 projects per batch there and
@@ -200,6 +201,7 @@ async function prefetchGroupedSearch(
         evidence,
         results.map((item) => item.url)
       )
+      appendAiLog('news', 'step', `Quét web "${query}" · ${results.length} kết quả`)
       if (results.length === 0) {
         continue
       }
@@ -214,7 +216,9 @@ async function prefetchGroupedSearch(
       sections.push(wrapUntrustedWebContent(`web_search:${query}`, body))
     } catch (error) {
       // A failed prefetch is not fatal: the model still has the web_search tool.
-      logInfo(`Prefetch search thất bại: ${describeSearchError(error)}`)
+      const reason = describeSearchError(error)
+      logInfo(`Prefetch search thất bại: ${reason}`)
+      appendAiLog('news', 'warn', `Tìm kiếm gộp lỗi: ${reason}`)
     }
   }
   return sections.length > 0 ? sections.join('\n\n') : null
@@ -228,7 +232,8 @@ function pickTools(
   return getNewsTools({
     search: selection.search,
     evidence: batchEvidence,
-    costControl: { budget }
+    costControl: { budget },
+    onLog: (level, text) => appendAiLog('news', level, text)
   })
 }
 
@@ -245,6 +250,9 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
 
   const all = listProjects()
   if (all.length === 0) {
+    beginAiLog('news')
+    appendAiLog('news', 'warn', 'Chưa có dự án nào để kiểm tra tin')
+    finishAiLog('news')
     return { added: 0, rejected: 0, message: 'Chưa có dự án nào để kiểm tra tin' }
   }
 
@@ -278,10 +286,14 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
   }
 
   if (scope.length === 0) {
+    const message = `Cả ${cachedCount} dự án đã được kiểm tra trong ${formatNewsCacheTtl(newsCacheTtlMs)} qua và link không đổi nên không gọi AI/Search. Sửa link dự án hoặc đợi hết hạn cache để quét lại.`
+    beginAiLog('news')
+    appendAiLog('news', 'success', message)
+    finishAiLog('news')
     return {
       added: 0,
       rejected: 0,
-      message: `Cả ${cachedCount} dự án đã được kiểm tra trong ${formatNewsCacheTtl(newsCacheTtlMs)} qua và link không đổi nên không gọi AI/Search. Sửa link dự án hoặc đợi hết hạn cache để quét lại.`
+      message
     }
   }
 
@@ -292,9 +304,11 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
     onOnline: (candidate) => {
       activeNativeSearch = candidate.supportsWebSearch
       logInfo(`Check News dùng model ${candidate.label}`)
+      appendAiLog('news', 'online', `${candidate.label} đang online`)
     },
     onSwap: (from, to, error) => {
       logInfo(`Check News đổi model ${from.label} → ${to.label}: ${error.message}`)
+      appendAiLog('news', 'warn', `${from.label} lỗi (${error.message}) → chuyển sang ${to.label}`)
     }
   })
   const milestones = buildKnownMilestones()
@@ -322,6 +336,12 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
     let firstFailure: string | null = null
     let checkedProjects = 0
     let stoppedByBudget = false
+
+    appendAiLog(
+      'news',
+      'step',
+      `Kiểm tra ${scope.length} dự án${cachedCount > 0 ? ` (${cachedCount} dùng cache)` : ''}`
+    )
 
     // `tools` is created once per batch and shared by the reminder run, so the
     // per-batch caps on web_fetch / web_search are not reset by the retry.
@@ -358,10 +378,17 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       }
       if (budget.exhausted()) {
         stoppedByBudget = true
+        appendAiLog('news', 'warn', `Đạt giới hạn ${budget.max} lượt tìm kiếm, dừng trước lô ${batchIndex + 1}/${total}`)
         break
       }
       const batch = batches[batchIndex]
-      reporter.report('Kiểm tra tin', batchIndex / total, 1, `Lô ${batchIndex + 1}/${total} (${batch.length} dự án)`)
+      // FIX 3: tiến trình News đếm theo dự án đã xử lý (kể cả dự án dùng cache).
+      reporter.report(
+        'Kiểm tra tin',
+        cachedCount + checkedProjects,
+        ordered.length,
+        `Lô ${batchIndex + 1}/${total} (${batch.length} dự án)`
+      )
 
       const evidence = createNewsEvidence()
       const now = new Date()
@@ -376,6 +403,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       if (!result) {
         failedBatches += 1
         firstFailure ??= `Lô ${batchIndex + 1}: AI quá số bước cho phép`
+        appendAiLog('news', 'warn', `Lô ${batchIndex + 1}: AI quá số bước cho phép`)
         continue
       }
       // Search traces from the first attempt still count as evidence when the
@@ -392,6 +420,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
         if (!result) {
           failedBatches += 1
           firstFailure ??= `Lô ${batchIndex + 1}: AI quá số bước cho phép`
+          appendAiLog('news', 'warn', `Lô ${batchIndex + 1}: AI quá số bước cho phép`)
           continue
         }
         traces.push(...result.webSearch)
@@ -404,6 +433,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       if (result.outcome !== 'submit') {
         failedBatches += 1
         firstFailure ??= `Lô ${batchIndex + 1}: AI không gọi submit_news`
+        appendAiLog('news', 'warn', `Lô ${batchIndex + 1}: AI không gọi submit_news`)
         continue
       }
 
@@ -411,12 +441,18 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       if (payload.kind !== NEWS_RESULT_KIND) {
         failedBatches += 1
         firstFailure ??= `Lô ${batchIndex + 1}: kết quả nộp sai loại`
+        appendAiLog('news', 'warn', `Lô ${batchIndex + 1}: kết quả nộp sai loại`)
         continue
       }
       const parsed = newsResultSchema.safeParse(payload.data)
       if (!parsed.success) {
         failedBatches += 1
         firstFailure ??= `Lô ${batchIndex + 1}: JSON không đúng schema (${parsed.error.issues[0]?.message ?? 'không rõ'})`
+        appendAiLog(
+          'news',
+          'warn',
+          `Lô ${batchIndex + 1}: JSON không đúng schema (${parsed.error.issues[0]?.message ?? 'không rõ'})`
+        )
         continue
       }
 
@@ -437,6 +473,11 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
         noEvidenceBatches += 1
         rejected += submission.items.length
         firstFailure ??= `Lô ${batchIndex + 1}: không có bằng chứng web search nên bỏ ${submission.items.length} tin AI tự khai`
+        appendAiLog(
+          'news',
+          'warn',
+          `Lô ${batchIndex + 1}: không có bằng chứng web search, bỏ ${submission.items.length} tin`
+        )
         continue
       }
 
@@ -463,6 +504,11 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
         new Date().toISOString()
       )
       checkedProjects += batch.length
+      appendAiLog(
+        'news',
+        'success',
+        `Lô ${batchIndex + 1}: nhận ${outcome.added} tin mới, bỏ ${outcome.rejected} tin`
+      )
     }
 
     if (!signal.aborted) {
@@ -474,7 +520,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
         `input=${usageTotal.inputTokens} output=${usageTotal.outputTokens} token, tìm kiếm=${budget.used()}/${budget.max}`
     )
 
-    reporter.report('Tổng hợp', 1, 1, `Đã thêm ${added} tin`)
+    reporter.report('Tổng hợp', ordered.length, ordered.length, `Đã thêm ${added} tin`)
     broadcastToRenderers(EVENTS.dataChanged, { entity: 'news' })
 
     const extras: string[] = []
@@ -498,10 +544,13 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
           firstFailure
         })
 
+    const message = extras.length > 0 ? `${base} · ${extras.join(' · ')}` : base
+    appendAiLog('news', signal.aborted ? 'warn' : 'success', message)
+
     return {
       added,
       rejected,
-      message: extras.length > 0 ? `${base} · ${extras.join(' · ')}` : base
+      message
     }
   })
 }

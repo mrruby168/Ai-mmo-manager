@@ -11,6 +11,7 @@ import { registerUpdateIpc } from './updateIpc'
 import { registerNewsIpc } from './newsIpc'
 import { registerRevenueIpc } from './revenueIpc'
 import { registerChatIpc } from './chatIpc'
+import { registerAiIpc } from './aiIpc'
 
 export function registerAllIpc(updateService: UpdateService | null = null): void {
   registerProjectsIpc()
@@ -19,6 +20,7 @@ export function registerAllIpc(updateService: UpdateService | null = null): void
   registerNewsIpc()
   registerRevenueIpc()
   registerChatIpc()
+  registerAiIpc()
   registerLockIpc()
   startLockBroadcast()
 

@@ -13,6 +13,7 @@ import { buildTaskChain } from './providerService'
 import type { TaskChain } from './providerService'
 import { createFailoverClient } from './failoverClient'
 import { getScanTools, SCAN_RESULT_KIND } from './tools'
+import { appendAiLog } from './aiActivityLog'
 import { AgentStepLimitError, runAgent } from './agentRunner'
 import type { AgentResult, AgentUsage } from './agentRunner'
 import { runAiTask } from './aiTaskRunner'
@@ -260,7 +261,11 @@ function requireSelection(): TaskChain {
 /** Client có failover A1→A2→A3; mỗi lần đổi model ghi một dòng log để xem lại sau. */
 function createScanClient(chain: TaskChain) {
   return createFailoverClient(chain.candidates, {
-    onSwap: (from, to, error) => logInfo(`Scan Project đổi model ${from.label} → ${to.label}: ${error.message}`)
+    onOnline: (candidate) => appendAiLog('scan', 'online', `${candidate.label} đang online`),
+    onSwap: (from, to, error) => {
+      logInfo(`Scan Project đổi model ${from.label} → ${to.label}: ${error.message}`)
+      appendAiLog('scan', 'warn', `${from.label} lỗi (${error.message}) → chuyển sang ${to.label}`)
+    }
   })
 }
 
@@ -268,6 +273,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
   assertAiEnabled()
   return runAiTask('Scan Project', 'scan', async (signal, reporter) => {
     reporter.report('Đọc dữ liệu', 0, 4, 'Đang đọc nội dung...')
+    appendAiLog('scan', 'step', input.fileName ? `Đang đọc tệp ${input.fileName}` : 'Đang đọc nội dung đã dán')
     const { candidates, rejected } = await extractCandidates(input.text)
 
     if (candidates.length === 0) {
@@ -320,7 +326,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
           client,
           system: SCAN_SYSTEM_PROMPT,
           messages,
-          tools: getScanTools({ costControl: {} }),
+          tools: getScanTools({ costControl: {}, onLog: (level, text) => appendAiLog('scan', level, text) }),
           enableWebSearch: true,
           maxTokens: 4096,
           maxSteps: COST_LIMITS.agentMaxSteps,
@@ -462,6 +468,9 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
         `input=${usageTotal.inputTokens} output=${usageTotal.outputTokens} token, tìm kiếm=${budget.used()}/${budget.max}`
     )
     reporter.report('Tổng hợp', 4, 4, `Hoàn tất ${items.length} dự án`)
+    const usable = items.filter((item) => item.category !== 'insufficient').length
+    appendAiLog('scan', 'success', `Đã phân tích ${candidates.length} ứng viên · ${usable} dự án hợp lệ`)
+    appendAiLog('scan', 'step', 'Chờ bạn xác nhận trước khi thêm dự án')
     const notes: string[] = []
     if (duplicates.length > 0) {
       notes.push(`${duplicates.length} dự án trùng app (không tra cứu)`)

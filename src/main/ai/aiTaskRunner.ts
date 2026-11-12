@@ -3,6 +3,7 @@ import type { AiChannel, AiProgress } from '@shared/types'
 import { acquireAiLock, releaseAiLock, canStartAiTask, LockError } from '../services/lockManager'
 import { broadcastToRenderers } from '../ipc/guard'
 import { logInfo } from '../services/logger'
+import { appendAiLog, beginAiLog, finishAiLog, setAiLogProgress } from './aiActivityLog'
 
 interface ActiveTask {
   taskId: string
@@ -96,11 +97,20 @@ export async function runAiTask<T>(
     report(step, done, total, message) {
       const payload: AiProgress = { taskId, step, done, total, message }
       broadcastToRenderers(EVENTS.aiProgress, payload)
+      if (channel) {
+        // FIX 3: mỗi bước vừa cập nhật thanh tiến trình vừa ghi một dòng Activity Log.
+        setAiLogProgress(channel, done, total)
+        appendAiLog(channel, 'step', message)
+      }
     }
   }
 
   acquireAiLock(taskId, label, channel)
   activeTasks.set(taskId, { taskId, label, channel: channel ?? null, controller })
+  if (channel) {
+    // Tác vụ mới bắt đầu: xóa log cũ của kênh (không lưu qua lần chạy trước).
+    beginAiLog(channel)
+  }
   logInfo(`AI task start: ${label} [${channelLabel(channel)}], đang chạy song song: ${activeTasks.size}`)
   reporter.report('Bắt đầu', 0, 1, `${label}...`)
 
@@ -109,11 +119,19 @@ export async function runAiTask<T>(
   } catch (error) {
     if (controller.signal.aborted) {
       reporter.report('Đã hủy', 1, 1, 'Tác vụ đã bị hủy bởi người dùng')
+      if (channel) {
+        appendAiLog(channel, 'warn', 'Đã dừng giữa chừng')
+      }
+    } else if (channel) {
+      appendAiLog(channel, 'error', error instanceof Error ? error.message : 'Lỗi không xác định')
     }
     throw error
   } finally {
     activeTasks.delete(taskId)
     releaseAiLock(taskId)
+    if (channel) {
+      finishAiLog(channel)
+    }
     logInfo(`AI task end: ${label} [${channelLabel(channel)}], đang chạy song song: ${activeTasks.size}`)
   }
 }

@@ -273,6 +273,37 @@ export interface AiProgress {
   message: string
 }
 
+/** FIX 3: một dòng Activity Log của News/Scan/Chat (không lưu qua lần khởi động lại). */
+export type AiLogLevel = 'online' | 'step' | 'success' | 'warn' | 'error'
+
+export interface AiLogEntry {
+  id: string
+  channel: AiChannel
+  /** ISO timestamp. */
+  at: string
+  level: AiLogLevel
+  text: string
+}
+
+export interface AiLogProgress {
+  done: number
+  total: number
+  running: boolean
+}
+
+export interface AiLogSnapshot {
+  entries: AiLogEntry[]
+  progress: AiLogProgress
+}
+
+export interface AiLogEvent {
+  channel: AiChannel
+  /** Tác vụ mới bắt đầu: renderer xóa log cũ trước khi thêm `entry`. */
+  reset: boolean
+  entry: AiLogEntry | null
+  progress: AiLogProgress
+}
+
 export interface IpcError {
   code: string
   message: string
@@ -450,6 +481,10 @@ export interface RendererApi {
     cancelAction(actionId: string): Promise<IpcResult<{ canceled: boolean }>>
     cancelTask(channel?: AiChannel): Promise<IpcResult<{ canceled: boolean }>>
   }
+  ai: {
+    /** FIX 3: lấy lại Activity Log + tiến trình của một kênh khi mở/chuyển tab. */
+    getLog(channel: AiChannel): Promise<IpcResult<AiLogSnapshot>>
+  }
   settings: {
     get(): Promise<IpcResult<AppSettings>>
     setAppearance(appearance: AppearanceSettings): Promise<IpcResult<AppSettings>>
@@ -501,6 +536,7 @@ export interface RendererApi {
     onLockChanged(listener: (state: LockState) => void): () => void
     onDataChanged(listener: (payload: { entity: string }) => void): () => void
     onAiProgress(listener: (progress: AiProgress) => void): () => void
+    onAiLog(listener: (event: AiLogEvent) => void): () => void
     onUpdateState(listener: (state: UpdateState) => void): () => void
   }
 }
