@@ -6,8 +6,9 @@ import type { Project } from '@shared/types'
 import { listProjects } from '../db/projectsRepo'
 import { listNews, setLastNewsCheckedAt } from '../db/newsRepo'
 import { saveNewsBatch } from '../services/newsService'
-import { createModelClient } from './providers'
-import { getModelConnection, getTaskModelMeta } from './providerService'
+import { buildTaskChain } from './providerService'
+import type { TaskChain } from './providerService'
+import { createFailoverClient } from './failoverClient'
 import { getNewsTools, NEWS_RESULT_KIND } from './tools'
 import type { AgentResult, AgentTool, AgentUsage } from './agentRunner'
 import { AgentStepLimitError, runAgent } from './agentRunner'
@@ -28,7 +29,7 @@ import {
 import { loadSearchProvider } from '../services/webSearchService'
 import { describeSearchError } from '../services/searchProviders'
 import type { SearchProvider } from '../services/searchProviders'
-import { COST_LIMITS, buildGroupedSearchQueries, chunk, isCacheFresh, pickNewsBatchSize } from '@shared/costControl'
+import { COST_LIMITS, buildGroupedSearchQueries, chunk, formatNewsCacheTtl, isCacheFresh, pickNewsBatchSize } from '@shared/costControl'
 import { getNewsCheckEntries, markNewsChecked, purgeAiCache } from '../db/aiCacheRepo'
 import { projectLinkFingerprint } from './cacheKeys'
 import { createSearchBudget } from './searchBudget'
@@ -36,6 +37,7 @@ import type { SearchBudget } from './searchBudget'
 import { wrapUntrustedWebContent } from './webTools'
 import { noteSearchSuccess } from './newsEvidence'
 import { logInfo } from '../services/logger'
+import { getSettings } from '../services/settingsStore'
 
 // Batch size comes from `pickNewsBatchSize`: Anthropic's built-in web search
 // allows only 5 uses per request, so it keeps 3 projects per batch there and
@@ -51,8 +53,9 @@ export interface NewsCheckResult {
 }
 
 interface CheckSelection {
-  connection: ReturnType<typeof getModelConnection>
-  /** Model có tìm kiếm web gốc (dùng `enableWebSearch` của provider). */
+  /** Chuỗi A1–A3 đã lọc: có tool calling và (Web Search gốc hoặc app đã cấu hình Web Search). */
+  chain: TaskChain
+  /** Model A1 có tìm kiếm web gốc (dùng `enableWebSearch` của provider). */
   nativeSearch: boolean
   /** Web Search do app cung cấp (D2), null nếu chưa cấu hình. */
   search: SearchProvider | null
@@ -63,17 +66,6 @@ interface CheckSelection {
  * HOẶC app đã cấu hình Web Search). Thiếu cả hai thì báo rõ hai cách xử lý.
  */
 function requireSelection(): CheckSelection {
-  const meta = getTaskModelMeta('news')
-  if (!meta) {
-    throw new AiError('unsupported', 'Chưa chọn Model cho Check News. Chọn Model ở khung của tab News (hoặc Chat Box làm mặc định)')
-  }
-  if (!meta.supportsTools) {
-    throw new AiError(
-      'unsupported',
-      `Model "${meta.modelLabel}" không hỗ trợ tool calling nên không thể Check News. Hãy chọn Model khác ở khung Model của tab News`
-    )
-  }
-
   let search: SearchProvider | null = null
   try {
     search = loadSearchProvider()
@@ -84,18 +76,30 @@ function requireSelection(): CheckSelection {
     )
   }
 
-  if (!meta.supportsWebSearch && !search) {
+  // `native-or-app`: model thiếu Web Search gốc vẫn dùng được nhờ Web Search của app.
+  const chain = buildTaskChain('news', { requireTools: true, webSearch: 'native-or-app' }, search !== null)
+  const first = chain.candidates[0]
+  if (!first) {
+    const blocked = chain.skipped[0]
+    if (blocked?.reason === 'tools') {
+      throw new AiError(
+        'unsupported',
+        `Model "${blocked.label}" không hỗ trợ tool calling nên không thể Check News. Vào Settings → Model Configuration để chọn model khác cho News.`
+      )
+    }
+    if (blocked?.reason === 'web_search') {
+      throw new AiError(
+        'unsupported',
+        `Model "${blocked.label}" không có Web Search và app chưa cấu hình Web Search. Có hai cách xử lý: (1) vào Settings → Model Configuration chọn model có Web Search cho News, hoặc (2) vào Settings → Web Search để thêm API key Tavily/Brave hay URL SearXNG.`
+      )
+    }
     throw new AiError(
       'unsupported',
-      `Model "${meta.modelLabel}" không có Web Search và app chưa cấu hình Web Search. Có hai cách xử lý: (1) chọn Model có Web Search ở khung Model của tab News, hoặc (2) vào Settings → Web Search để thêm API key Tavily/Brave hay URL SearXNG.`
+      'Chưa chọn Model cho Check News. Vào Settings → Model Configuration để chọn model A1 cho News.'
     )
   }
 
-  return {
-    connection: getModelConnection(meta.providerId, meta.modelId),
-    nativeSearch: meta.supportsWebSearch,
-    search
-  }
+  return { chain, nativeSearch: first.supportsWebSearch, search }
 }
 
 interface KnownMilestone {
@@ -236,6 +240,8 @@ export interface CheckNewsOptions {
 export async function runCheckNews(options: CheckNewsOptions = {}): Promise<NewsCheckResult> {
   assertAiEnabled()
   const selection = requireSelection()
+  // FIX 2: TTL cache do người dùng chọn ở Settings → Model Configuration (1 phút / 3 giờ / 8 giờ).
+  const newsCacheTtlMs = getSettings().ai.newsCacheTtlMs
 
   const all = listProjects()
   if (all.length === 0) {
@@ -252,7 +258,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
   // Smart cache: a project searched within the TTL whose links did not change is
   // skipped entirely (no LLM call, no search). Its news is already in news_items.
   const nowMs = Date.now()
-  purgeAiCache(nowMs, COST_LIMITS.newsCacheTtlMs, COST_LIMITS.scanCacheTtlMs)
+  purgeAiCache(nowMs, newsCacheTtlMs, COST_LIMITS.scanCacheTtlMs)
   const cacheEntries = getNewsCheckEntries()
   const fingerprints = new Map(ordered.map((project) => [project.id, projectLinkFingerprint(project)]))
   const scope: Project[] = []
@@ -263,7 +269,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       !options.force &&
       entry !== undefined &&
       entry.fingerprint === fingerprints.get(project.id) &&
-      isCacheFresh(entry.checkedAt, nowMs, COST_LIMITS.newsCacheTtlMs)
+      isCacheFresh(entry.checkedAt, nowMs, newsCacheTtlMs)
     if (fresh) {
       cachedCount += 1
     } else {
@@ -275,13 +281,24 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
     return {
       added: 0,
       rejected: 0,
-      message: `Cả ${cachedCount} dự án đã được kiểm tra trong ${COST_LIMITS.newsCacheTtlMs / 3_600_000} giờ qua và link không đổi nên không gọi AI/Search. Sửa link dự án hoặc đợi hết hạn cache để quét lại.`
+      message: `Cả ${cachedCount} dự án đã được kiểm tra trong ${formatNewsCacheTtl(newsCacheTtlMs)} qua và link không đổi nên không gọi AI/Search. Sửa link dự án hoặc đợi hết hạn cache để quét lại.`
     }
   }
 
-  const client = createModelClient(selection.connection)
+  // FIX 2: chuỗi A1–A3. Model đang chạy có thể đổi giữa chừng nên phần đếm
+  // lượt tìm kiếm gốc dùng cờ cập nhật theo model đang online; batch size giữ theo A1.
+  let activeNativeSearch = selection.nativeSearch
+  const client = createFailoverClient(selection.chain.candidates, {
+    onOnline: (candidate) => {
+      activeNativeSearch = candidate.supportsWebSearch
+      logInfo(`Check News dùng model ${candidate.label}`)
+    },
+    onSwap: (from, to, error) => {
+      logInfo(`Check News đổi model ${from.label} → ${to.label}: ${error.message}`)
+    }
+  })
   const milestones = buildKnownMilestones()
-  const batches = chunk(scope, pickNewsBatchSize(selection.connection.providerType, selection.nativeSearch))
+  const batches = chunk(scope, pickNewsBatchSize(selection.chain.providerType, selection.nativeSearch))
   const budget = createSearchBudget(COST_LIMITS.newsMaxSearchesPerRun)
   const usageTotal = { inputTokens: 0, outputTokens: 0, calls: 0 }
   const onUsage = (usage: AgentUsage): void => {
@@ -289,7 +306,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
     usageTotal.outputTokens += usage.outputTokens
     usageTotal.calls += 1
     // App-side searches are charged when they run; provider-side ones only show up here.
-    if (selection.nativeSearch) {
+    if (activeNativeSearch) {
       budget.record(usage.searches)
     }
   }
@@ -462,7 +479,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
 
     const extras: string[] = []
     if (cachedCount > 0) {
-      extras.push(`${cachedCount} dự án dùng cache (đã kiểm tra < ${COST_LIMITS.newsCacheTtlMs / 3_600_000} giờ, link không đổi)`)
+      extras.push(`${cachedCount} dự án dùng cache (đã kiểm tra < ${formatNewsCacheTtl(newsCacheTtlMs)}, link không đổi)`)
     }
     if (stoppedByBudget) {
       extras.push(

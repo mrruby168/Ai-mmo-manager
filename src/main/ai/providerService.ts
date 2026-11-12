@@ -11,6 +11,7 @@ import type {
   AiSettings,
   AiTask,
   ModelSelection,
+  ModelTask,
   ProviderConfig,
   ProviderModel,
   ProviderTestResult,
@@ -28,7 +29,8 @@ import { getSettings, saveAiSettings } from '../services/settingsStore'
 import { createModelClient } from './providers'
 import { AiError } from './types'
 import { assertAiEnabled } from './aiMode'
-import type { AiToolSpec, ProviderConnection } from './types'
+import type { AiToolSpec, ModelClient, ProviderConnection } from './types'
+import type { FailoverCandidate } from './failoverClient'
 
 const MAX_PROVIDERS = 20
 const TEST_TIMEOUT_MS = 45_000
@@ -318,6 +320,7 @@ function resolveSelectionMeta(selection: ModelSelection | null): SelectedModelMe
 
 export function getModelConnection(providerId: string, modelId: string): ProviderConnection {
   const provider = findProvider(providerId)
+
   const model = provider.models.find((entry) => entry.id === modelId)
   if (!model) {
     throw new ProviderError('NOT_FOUND', 'Không tìm thấy Model đã chọn trong Provider')
@@ -337,6 +340,139 @@ export function getModelConnection(providerId: string, modelId: string): Provide
     headers: secret.headers,
     modelId: model.id,
     supportsWebSearch: model.supportsWebSearch
+  }
+}
+
+/** Yêu cầu tối thiểu của từng vị trí trong chuỗi model của một tác vụ. */
+export interface TaskChainRequirements {
+  /** News/Scan/Chat đều gọi tool nên model phải hỗ trợ tool calling. */
+  requireTools?: boolean
+  /**
+   * `native`: bắt buộc model có Web Search gốc.
+   * `native-or-app`: model có Web Search gốc, hoặc app đã cấu hình Web Search.
+   */
+  webSearch?: 'native' | 'native-or-app' | 'none'
+}
+
+export interface ChainSkip {
+  /** Nhãn hiển thị "Provider · Model", không chứa API key. */
+  label: string
+  reason: 'tools' | 'web_search'
+}
+
+/** Một vị trí trong chuỗi A1–A3, đã sẵn sàng cho `createFailoverClient`. */
+export interface TaskChain {
+  candidates: Array<FailoverCandidate & { providerId: string; modelId: string }>
+  /** Loại provider của A1 (dùng để chọn batch size của Check News). */
+  providerType: ProviderConnection['providerType']
+  /** A1 có Web Search gốc. */
+  nativeSearch: boolean
+  /** Vị trí bị loại vì thiếu yêu cầu, để báo lỗi nói rõ model nào. */
+  skipped: ChainSkip[]
+}
+
+/** Chuỗi đã lưu của một tác vụ; file cũ chưa có `taskModels` thì suy từ trường cũ. */
+function chainFor(ai: AiSettings, task: ModelTask): ModelSelection[] {
+  const stored = ai.taskModels?.[task]
+  if (stored && stored.length > 0) {
+    return stored
+  }
+  const own = task === 'news' ? ai.newsSelection : task === 'scan' ? ai.scanSelection : ai.lastSelection
+  // News/Scan dùng Chat làm mặc định, giống `getTaskModelMeta`.
+  const fallback = own ?? (task === 'chat' ? null : ai.lastSelection)
+  return fallback ? [fallback] : []
+}
+
+function lazyClient(providerId: string, modelId: string): () => ModelClient {
+  return () => {
+    try {
+      return createModelClient(getModelConnection(providerId, modelId))
+    } catch (error) {
+      // ProviderError (thiếu key/base URL) không phải AiError nên không đổi được model;
+      // bọc lại thành `auth` để chuỗi thử A2/A3 thay vì chết ở A1.
+      throw new AiError('auth', error instanceof Error ? error.message : 'Không tạo được kết nối model')
+    }
+  }
+}
+
+/**
+ * FIX 2: dựng chuỗi A1–A3 của một tác vụ từ `settings.ai.taskModels`, lọc theo yêu cầu
+ * (tool calling, Web Search), bỏ model trùng và model đã bị xóa khỏi AI Settings.
+ */
+export function buildTaskChain(
+  task: ModelTask,
+  requirements: TaskChainRequirements = {},
+  appSearchAvailable = false
+): TaskChain {
+  return buildChainFrom(chainFor(getSettings().ai, task), task, requirements, appSearchAvailable)
+}
+
+/**
+ * Chat Box: model người dùng chọn là A1, A2/A3 lấy từ chuỗi Chat trong Model Configuration.
+ * Chat luôn cần tool calling để thêm/sửa dự án bằng PendingAction.
+ */
+export function buildChatChain(selection: ModelSelection): TaskChain {
+  const stored = getSettings().ai.taskModels?.chat ?? []
+  return buildChainFrom([selection, ...stored], 'chat', { requireTools: true })
+}
+
+function buildChainFrom(
+  selections: ModelSelection[],
+  task: ModelTask,
+  requirements: TaskChainRequirements,
+  appSearchAvailable = false
+): TaskChain {
+  const ai = getSettings().ai
+  const candidates: TaskChain['candidates'] = []
+  const skipped: ChainSkip[] = []
+  const seen = new Set<string>()
+
+  for (const selection of selections) {
+    const key = `${selection.providerId}::${selection.modelId}`
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    const provider = ai.providers.find((entry) => entry.id === selection.providerId)
+    const model = provider?.models.find((entry) => entry.id === selection.modelId)
+    if (!provider || !model) {
+      // Model đã bị xóa khỏi AI Settings: `normalizeAi` dọn chuỗi, đây là lớp bảo vệ thêm.
+      continue
+    }
+    const label = `${provider.name} · ${model.label}`
+    if (requirements.requireTools && !model.supportsTools) {
+      skipped.push({ label, reason: 'tools' })
+      logInfo(`Bỏ qua ${label} cho ${task}: không hỗ trợ tool calling`)
+      continue
+    }
+    const missingWebSearch =
+      requirements.webSearch === 'native'
+        ? !model.supportsWebSearch
+        : requirements.webSearch === 'native-or-app' && !model.supportsWebSearch && !appSearchAvailable
+    if (missingWebSearch) {
+      skipped.push({ label, reason: 'web_search' })
+      logInfo(`Bỏ qua ${label} cho ${task}: không có Web Search`)
+      continue
+    }
+    candidates.push({
+      providerId: provider.id,
+      modelId: model.id,
+      label,
+      providerType: provider.type,
+      supportsTools: model.supportsTools,
+      supportsWebSearch: model.supportsWebSearch,
+      createClient: lazyClient(provider.id, model.id)
+    })
+    if (candidates.length === 3) {
+      break
+    }
+  }
+
+  return {
+    candidates,
+    providerType: candidates[0]?.providerType ?? 'openai',
+    nativeSearch: candidates[0]?.supportsWebSearch ?? false,
+    skipped
   }
 }
 

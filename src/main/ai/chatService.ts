@@ -3,8 +3,9 @@ import { AiError } from './types'
 import type { ChatChoice, ChatReply } from '@shared/types'
 import type { ProjectImportItem } from '@shared/schemas'
 import { getSettings, saveLastSelection } from '../services/settingsStore'
-import { getModelConnection } from './providerService'
-import { createModelClient } from './providers'
+import { buildChatChain } from './providerService'
+import type { TaskChain } from './providerService'
+import { createFailoverClient } from './failoverClient'
 import { runAiTask } from './aiTaskRunner'
 import { runAgent } from './agentRunner'
 import { buildAddPendingAction, getChatTools } from './tools'
@@ -13,7 +14,7 @@ import { consumePendingAction, peekPendingAction, cancelPendingAction } from './
 import { addProjects, updateProjectWithChanges, deleteProjectById, setProjectLogo } from '../services/projectService'
 import { fetchLogoForProject } from '../services/logoService'
 import { getProject as repoGetProject } from '../db/projectsRepo'
-import { logError } from '../services/logger'
+import { logError, logInfo } from '../services/logger'
 import { broadcastToRenderers } from '../ipc/guard'
 import { EVENTS } from '@shared/ipc-channels'
 import { enrichWithLinks, parseChatProjectJson } from './chatAdd'
@@ -93,21 +94,29 @@ function tryDeterministicAdd(text: string): { reply: ChatReply | null } {
   }
 }
 
-function requireModelWithTools(providerId: string, modelId: string) {
-  const connection = getModelConnection(providerId, modelId)
+/**
+ * FIX 2: model người dùng chọn ở Chat Box là A1; A2/A3 lấy từ chuỗi Chat trong
+ * Model Configuration. Vẫn kiểm tra A1 trước để báo lỗi rõ như trước.
+ */
+function requireChatChain(providerId: string, modelId: string): TaskChain {
   const provider = getSettings().ai.providers.find((entry) => entry.id === providerId)
   const model = provider?.models.find((entry) => entry.id === modelId)
-  if (model && !model.supportsTools) {
+  if (!provider || !model) {
+    throw new AiError('model_not_found', 'Không tìm thấy Model đã chọn trong Provider')
+  }
+  if (!model.supportsTools) {
     throw new AiError('unsupported', 'Model đã chọn không hỗ trợ tool calling, không dùng được Chat')
   }
-  return connection
+  return buildChatChain({ providerId, modelId })
 }
 
 async function executeChatTurn(current: ChatSession, userContent: string): Promise<ChatReply> {
-  const connection = requireModelWithTools(current.providerId, current.modelId)
+  const chain = requireChatChain(current.providerId, current.modelId)
   saveLastSelection({ providerId: current.providerId, modelId: current.modelId })
 
-  const client = createModelClient(connection)
+  const client = createFailoverClient(chain.candidates, {
+    onSwap: (from, to, error) => logInfo(`Chat Box đổi model ${from.label} → ${to.label}: ${error.message}`)
+  })
   const tools = getChatTools()
 
   return runAiTask('Chat Box', 'chat', async (outerSignal, reporter) => {

@@ -24,6 +24,9 @@ import { insertProject } from '../src/main/db/projectsRepo'
 import type { AiMessage, AiRequest, ModelClient } from '../src/main/ai/types'
 import type { ScanItem } from '../src/shared/types'
 
+/** TTL 12 giờ cố định cho các test cache thuần (app dùng TTL trong settings). */
+const NEWS_TTL_MS = 12 * 60 * 60 * 1000
+
 describe('grouped search queries', () => {
   it('merges projects with OR and quotes multi-word names', () => {
     expect(buildGroupedSearchQueries(['Alpha Net', 'Beta', 'Gamma'], 'airdrop news')).toEqual([
@@ -68,7 +71,7 @@ describe('batching helpers', () => {
 
 describe('cache freshness', () => {
   const now = Date.parse('2026-11-09T12:00:00.000Z')
-  const ttl = COST_LIMITS.newsCacheTtlMs
+  const ttl = NEWS_TTL_MS
 
   it('is fresh inside the TTL and stale outside it', () => {
     expect(isCacheFresh('2026-11-09T05:00:00.000Z', now, ttl)).toBe(true)
@@ -223,7 +226,7 @@ describe('aiCacheRepo', () => {
     markNewsChecked([{ projectId: 'PRJ-009', fingerprint: 'keep' }], '2026-11-09T11:00:00.000Z')
 
     const now = Date.parse('2026-11-09T12:00:00.000Z')
-    const removed = purgeAiCache(now, COST_LIMITS.newsCacheTtlMs, COST_LIMITS.scanCacheTtlMs)
+    const removed = purgeAiCache(now, NEWS_TTL_MS, COST_LIMITS.scanCacheTtlMs)
     // PRJ-001 has no project row, k1/k2 are 11h old (< 24h) so only PRJ-001 goes.
     expect(removed).toBe(1)
     expect(getNewsCheckEntries().has('PRJ-001')).toBe(false)
@@ -231,7 +234,7 @@ describe('aiCacheRepo', () => {
     expect(getScanCacheEntries(['k1', 'k2']).size).toBe(2)
 
     const later = Date.parse('2026-11-11T00:00:00.000Z')
-    expect(purgeAiCache(later, COST_LIMITS.newsCacheTtlMs, COST_LIMITS.scanCacheTtlMs)).toBe(3)
+    expect(purgeAiCache(later, NEWS_TTL_MS, COST_LIMITS.scanCacheTtlMs)).toBe(3)
   })
 })
 
@@ -372,7 +375,7 @@ describe('aiCacheRepo without an open database', () => {
     expect(getScanCacheEntries(['k1']).size).toBe(0)
     expect(() => markNewsChecked([{ projectId: 'PRJ-001', fingerprint: 'x' }], '2026-11-09T00:00:00.000Z')).not.toThrow()
     expect(() => putScanCacheEntries([{ key: 'k', item: {} as ScanItem }], '2026-11-09T00:00:00.000Z')).not.toThrow()
-    expect(purgeAiCache(Date.now(), COST_LIMITS.newsCacheTtlMs, COST_LIMITS.scanCacheTtlMs)).toBe(0)
+    expect(purgeAiCache(Date.now(), NEWS_TTL_MS, COST_LIMITS.scanCacheTtlMs)).toBe(0)
   })
 
   it('still throws real database errors once a database is open', () => {

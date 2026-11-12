@@ -4,8 +4,6 @@
  */
 
 export const COST_LIMITS = {
-  /** A project checked inside this window with unchanged links is not searched again. */
-  newsCacheTtlMs: 12 * 60 * 60 * 1000,
   /** A scan result for the same name + website is reused inside this window. */
   scanCacheTtlMs: 24 * 60 * 60 * 1000,
 
@@ -58,6 +56,12 @@ export function isCacheFresh(checkedAtIso: string | null | undefined, nowMs: num
   }
   const age = nowMs - checkedAt
   return age >= 0 && age <= ttlMs
+}
+
+/** "1 phút" / "3 giờ" / "8 giờ" cho thông báo cache Check News. */
+export function formatNewsCacheTtl(ttlMs: number): string {
+  const minutes = Math.max(1, Math.round(ttlMs / 60_000))
+  return minutes < 60 ? `${minutes} phút` : `${Math.round(minutes / 60)} giờ`
 }
 
 function cleanTerm(name: string): string {

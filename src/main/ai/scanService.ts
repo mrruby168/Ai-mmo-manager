@@ -9,8 +9,9 @@ import { findProjectByDomainKey, findProjectByNameKey } from '../db/projectsRepo
 import { addProjects, getProject, setProjectLogo } from '../services/projectService'
 import { fetchLogoForProject } from '../services/logoService'
 import { logError } from '../services/logger'
-import { createModelClient } from './providers'
-import { getModelConnection, getTaskModelMeta } from './providerService'
+import { buildTaskChain } from './providerService'
+import type { TaskChain } from './providerService'
+import { createFailoverClient } from './failoverClient'
 import { getScanTools, SCAN_RESULT_KIND } from './tools'
 import { AgentStepLimitError, runAgent } from './agentRunner'
 import type { AgentResult, AgentUsage } from './agentRunner'
@@ -175,8 +176,7 @@ async function extractCandidates(text: string): Promise<{ candidates: Candidate[
     return { candidates: kept, rejected: rejected + deduped }
   }
 
-  const connection = requireSelection()
-  const client = createModelClient(connection)
+  const client = createScanClient(requireSelection())
   const response = await client.complete({
     system:
       'Bạn là trợ lý trích xuất. Trong nội dung dưới đây, liệt kê tên các dự án Event MMO/Airdrop mà người dùng đề cập. ' +
@@ -232,18 +232,36 @@ function candidatePayload(candidate: Candidate): Record<string, unknown> {
   return payload
 }
 
-function requireSelection() {
-  const meta = getTaskModelMeta('scan')
-  if (!meta) {
-    throw new AiError('unsupported', 'Chưa chọn Model cho Scan. Chọn Model ở khung của tab Scan (hoặc Chat Box làm mặc định)')
+/**
+ * FIX 2: chuỗi A1–A3 cho Scan. Scan cần tool calling và Web Search gốc của model.
+ * Không còn model hợp lệ thì báo về Settings → Model Configuration.
+ */
+function requireSelection(): TaskChain {
+  const chain = buildTaskChain('scan', { requireTools: true, webSearch: 'native' })
+  if (chain.candidates.length === 0) {
+    const blocked = chain.skipped[0]
+    if (blocked?.reason === 'tools') {
+      throw new AiError(
+        'unsupported',
+        'Model đã chọn không hỗ trợ tool calling, không thể Scan. Vào Settings → Model Configuration để chọn model khác cho Scan.'
+      )
+    }
+    if (blocked?.reason === 'web_search') {
+      throw new AiError(
+        'unsupported',
+        `Model "${blocked.label}" không hỗ trợ Web Search, không thể Scan. Vào Settings → Model Configuration để chọn model khác cho Scan.`
+      )
+    }
+    throw new AiError('unsupported', 'Chưa chọn Model cho Scan. Vào Settings → Model Configuration để chọn model A1 cho Scan.')
   }
-  if (!meta.supportsTools) {
-    throw new AiError('unsupported', 'Model đã chọn không hỗ trợ tool calling, không thể Scan. Hãy chọn Model khác ở khung Model của tab Scan')
-  }
-  if (!meta.supportsWebSearch) {
-    throw new AiError('unsupported', `Model "${meta.modelLabel}" không hỗ trợ Web Search, không thể Scan. Hãy chọn Model khác ở khung Model của tab Scan`)
-  }
-  return getModelConnection(meta.providerId, meta.modelId)
+  return chain
+}
+
+/** Client có failover A1→A2→A3; mỗi lần đổi model ghi một dòng log để xem lại sau. */
+function createScanClient(chain: TaskChain) {
+  return createFailoverClient(chain.candidates, {
+    onSwap: (from, to, error) => logInfo(`Scan Project đổi model ${from.label} → ${to.label}: ${error.message}`)
+  })
 }
 
 export async function runScan(input: ScanInput): Promise<ScanResult> {
@@ -260,8 +278,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
     markDuplicates(candidates)
     reporter.report('Kiểm tra trùng', 1, 4, `Đã phát hiện ${candidates.length} ứng viên, ${candidates.filter((c) => c.duplicateOf).length} trùng với app`)
 
-    const connection = requireSelection()
-    const client = createModelClient(connection)
+    const client = createScanClient(requireSelection())
 
     // Cost control 1: candidates already in the app are not researched again.
     const items: ScanItem[] = []
