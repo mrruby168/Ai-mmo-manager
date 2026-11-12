@@ -137,7 +137,10 @@ function persistProviders(nextProviders: ProviderConfig[], currentAi: AiSettings
     lastSelection: normaliseSelection(providers, currentAi.lastSelection),
     // News/Scan keep a stale selection so the UI can report the fallback.
     newsSelection: currentAi.newsSelection ?? null,
-    scanSelection: currentAi.scanSelection ?? null
+    scanSelection: currentAi.scanSelection ?? null,
+    // FIX 2: chuỗi model được chuẩn hóa lại theo danh sách provider mới (model đã xóa bị loại).
+    taskModels: currentAi.taskModels,
+    newsCacheTtlMs: currentAi.newsCacheTtlMs
   })
   return listProviders()
 }

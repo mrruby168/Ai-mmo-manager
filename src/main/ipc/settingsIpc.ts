@@ -14,7 +14,14 @@ import {
   testProvider
 } from '../ai/providerService'
 import { changeDataPath, getDataFolderToOpen } from '../services/dataPathService'
-import { getSettings, saveAiMode, saveAppearance, saveLastSelection, saveTaskSelection } from '../services/settingsStore'
+import {
+  getSettings,
+  saveAiMode,
+  saveAppearance,
+  saveLastSelection,
+  saveModelConfig,
+  saveTaskSelection
+} from '../services/settingsStore'
 import { getWebSearchView, saveWebSearch, testWebSearch } from '../services/webSearchService'
 import { broadcastToRenderers, registerHandler } from './guard'
 import {
@@ -22,6 +29,7 @@ import {
   appearancePayload,
   dataPathPayload,
   lastSelectionPayload,
+  modelConfigPayload,
   providerDeletePayload,
   providerParseJsonPayload,
   providerSavePayload,
@@ -79,6 +87,25 @@ export function registerSettingsIpc(): void {
         }
       }
       const next = saveTaskSelection(input.task, input.selection)
+      broadcastToRenderers(EVENTS.dataChanged, { entity: 'settings' })
+      return next
+    }
+  })
+
+  registerHandler({
+    channel: IPC.settingsSetModelConfig,
+    mutating: true,
+    parse: (raw) => modelConfigPayload.parse(raw),
+    handler: (input) => {
+      const settings = getSettings()
+      for (const item of input.chain) {
+        const provider = settings.ai.providers.find((entry) => entry.id === item.providerId)
+        const model = provider?.models.find((entry) => entry.id === item.modelId)
+        if (!provider || !model) {
+          throw new Error('Model đã chọn không tồn tại hoặc đã bị xóa')
+        }
+      }
+      const next = saveModelConfig(input.task, input.chain, input.newsCacheTtlMs)
       broadcastToRenderers(EVENTS.dataChanged, { entity: 'settings' })
       return next
     }

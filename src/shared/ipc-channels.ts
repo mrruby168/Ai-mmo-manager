@@ -43,6 +43,7 @@ export const IPC = {
   settingsSetAppearance: 'settings:setAppearance',
   settingsSetLastSelection: 'settings:setLastSelection',
   settingsSetTaskSelection: 'settings:setTaskSelection',
+  settingsSetModelConfig: 'settings:setModelConfig',
   settingsSetAiMode: 'settings:setAiMode',
   settingsSetDataPath: 'settings:setDataPath',
   settingsOpenDataFolder: 'settings:openDataFolder',

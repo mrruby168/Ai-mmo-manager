@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { PROJECT_CATEGORIES, WEB_SEARCH_PROVIDERS } from '@shared/constants'
+import { NEWS_CACHE_TTL_OPTIONS_MS } from '@shared/types'
 import {
   aiModeSchema,
   appearanceSchema,
@@ -150,6 +151,29 @@ export const taskSelectionPayload = z.object({
       modelId: z.string().trim().min(1).max(200)
     })
     .nullable()
+})
+
+/** FIX 2: chuỗi A1–A3 của một tác vụ + TTL cache News (chỉ áp dụng cho News). */
+export const modelConfigPayload = z.object({
+  task: z.enum(['news', 'scan', 'chat']),
+  chain: z
+    .array(
+      z.object({
+        providerId: z.string().trim().min(1).max(100),
+        modelId: z.string().trim().min(1).max(200)
+      })
+    )
+    .max(3)
+    .refine(
+      (chain) => new Set(chain.map((item) => `${item.providerId}::${item.modelId}`)).size === chain.length,
+      { message: 'Không chọn trùng model trong cùng một chuỗi' }
+    ),
+  newsCacheTtlMs: z
+    .number()
+    .refine((value) => (NEWS_CACHE_TTL_OPTIONS_MS as readonly number[]).includes(value), {
+      message: 'TTL cache News phải là 1 phút, 3 giờ hoặc 8 giờ'
+    })
+    .optional()
 })
 
 export const providerSavePayload = z.union([providerSaveSchema, providerSaveJsonSchema])

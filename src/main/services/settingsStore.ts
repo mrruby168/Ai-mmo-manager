@@ -9,7 +9,19 @@ import {
   WEB_SEARCH_PROVIDERS
 } from '@shared/constants'
 import type { AiMode, WebSearchProvider } from '@shared/constants'
-import type { AiSettings, AiTask, AppSettings, AppearanceSettings, ModelSelection, WebSearchSettings } from '@shared/types'
+import { DEFAULT_NEWS_CACHE_TTL_MS, NEWS_CACHE_TTL_OPTIONS_MS } from '@shared/types'
+import type {
+  AiSettings,
+  AiTask,
+  AppSettings,
+  AppearanceSettings,
+  ModelChain,
+  ModelSelection,
+  ModelTask,
+  ProviderConfig,
+  TaskModels,
+  WebSearchSettings
+} from '@shared/types'
 
 let cache: AppSettings | null = null
 
@@ -30,7 +42,14 @@ export function defaultAppearance(): AppearanceSettings {
 }
 
 export function defaultAiSettings(): AiSettings {
-  return { providers: [], lastSelection: null, newsSelection: null, scanSelection: null }
+  return {
+    providers: [],
+    lastSelection: null,
+    newsSelection: null,
+    scanSelection: null,
+    taskModels: { news: [], scan: [], chat: [] },
+    newsCacheTtlMs: DEFAULT_NEWS_CACHE_TTL_MS
+  }
 }
 
 function buildDefaults(): AppSettings {
@@ -88,16 +107,100 @@ function normalizeAppearance(value: Partial<AppearanceSettings> | undefined): Ap
   }
 }
 
+function isModelSelection(value: unknown): value is ModelSelection {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  const record = value as Partial<ModelSelection>
+  return typeof record.providerId === 'string' && typeof record.modelId === 'string'
+}
+
+function modelExists(providers: ProviderConfig[], selection: ModelSelection): boolean {
+  const provider = providers.find((entry) => entry.id === selection.providerId)
+  return !!provider?.models.some((entry) => entry.id === selection.modelId)
+}
+
+function sameModel(a: ModelSelection, b: ModelSelection): boolean {
+  return a.providerId === b.providerId && a.modelId === b.modelId
+}
+
+/**
+ * Chuỗi A1–A3: bỏ mục trùng, bỏ mục trỏ tới model đã bị xóa khỏi AI Settings, tối đa 3.
+ * Chưa có danh sách provider (máy mới) thì giữ nguyên để không xóa cấu hình khi chưa cấu hình lại.
+ */
+function normalizeChain(
+  providers: ProviderConfig[],
+  chain: ModelChain | undefined,
+  fallback: ModelSelection | null
+): ModelChain {
+  const cleaned: ModelChain = []
+  for (const item of Array.isArray(chain) ? chain : []) {
+    if (!isModelSelection(item) || cleaned.some((entry) => sameModel(entry, item))) {
+      continue
+    }
+    if (providers.length > 0 && !modelExists(providers, item)) {
+      continue
+    }
+    cleaned.push({ providerId: item.providerId, modelId: item.modelId })
+    if (cleaned.length === 3) {
+      break
+    }
+  }
+  if (cleaned.length === 0 && fallback && (providers.length === 0 || modelExists(providers, fallback))) {
+    cleaned.push({ ...fallback })
+  }
+  return cleaned
+}
+
+function normalizeNewsCacheTtl(value: unknown): number {
+  return typeof value === 'number' && (NEWS_CACHE_TTL_OPTIONS_MS as readonly number[]).includes(value)
+    ? value
+    : DEFAULT_NEWS_CACHE_TTL_MS
+}
+
+/**
+ * `settings.json` cũ chỉ có newsSelection/scanSelection/lastSelection: đọc y như trước,
+ * suy A1 của chuỗi từ các trường đó. File mới có `taskModels` thì chuẩn hóa chuỗi và
+ * đồng bộ ngược các trường cũ = A1 (bất biến để mã cũ tiếp tục chạy).
+ */
 function normalizeAi(value: Partial<AiSettings> | undefined): AiSettings {
   const fallback = defaultAiSettings()
   if (!value || !Array.isArray(value.providers)) {
     return fallback
   }
+  const providers = value.providers
+  const lastSelection = value.lastSelection ?? null
+  const newsSelection = value.newsSelection ?? null
+  const scanSelection = value.scanSelection ?? null
+  const newsCacheTtlMs = normalizeNewsCacheTtl(value.newsCacheTtlMs)
+
+  if (!value.taskModels) {
+    return {
+      providers,
+      lastSelection,
+      newsSelection,
+      scanSelection,
+      taskModels: {
+        news: newsSelection ? [newsSelection] : [],
+        scan: scanSelection ? [scanSelection] : [],
+        chat: lastSelection ? [lastSelection] : []
+      },
+      newsCacheTtlMs
+    }
+  }
+
+  const taskModels: TaskModels = {
+    news: normalizeChain(providers, value.taskModels.news, newsSelection),
+    scan: normalizeChain(providers, value.taskModels.scan, scanSelection),
+    chat: normalizeChain(providers, value.taskModels.chat, lastSelection)
+  }
   return {
-    providers: value.providers,
-    lastSelection: value.lastSelection ?? null,
-    newsSelection: value.newsSelection ?? null,
-    scanSelection: value.scanSelection ?? null
+    providers,
+    lastSelection: taskModels.chat[0] ?? null,
+    newsSelection: taskModels.news[0] ?? null,
+    scanSelection: taskModels.scan[0] ?? null,
+    taskModels,
+    newsCacheTtlMs
   }
 }
 
@@ -157,9 +260,15 @@ export function saveAiSettings(ai: AiSettings): AppSettings {
   return updateSettings({ ai: normalizeAi(ai) })
 }
 
+function withChainHead(chain: ModelChain, selection: ModelSelection | null): ModelChain {
+  const rest = selection ? chain.filter((entry) => !sameModel(entry, selection)) : chain
+  return selection ? [selection, ...rest].slice(0, 3) : rest
+}
+
 export function saveLastSelection(selection: AiSettings['lastSelection']): AppSettings {
   const current = getSettings().ai
-  return updateSettings({ ai: normalizeAi({ ...current, lastSelection: selection }) })
+  const taskModels: TaskModels = { ...current.taskModels, chat: withChainHead(current.taskModels.chat, selection) }
+  return updateSettings({ ai: normalizeAi({ ...current, lastSelection: selection, taskModels }) })
 }
 
 /**
@@ -169,7 +278,16 @@ export function saveLastSelection(selection: AiSettings['lastSelection']): AppSe
 export function saveTaskSelection(task: AiTask, selection: ModelSelection | null): AppSettings {
   const current = getSettings().ai
   const patch = task === 'news' ? { newsSelection: selection } : { scanSelection: selection }
-  return updateSettings({ ai: normalizeAi({ ...current, ...patch }) })
+  const taskModels: TaskModels = { ...current.taskModels, [task]: withChainHead(current.taskModels[task], selection) }
+  return updateSettings({ ai: normalizeAi({ ...current, ...patch, taskModels }) })
+}
+
+/** FIX 2: lưu cả chuỗi A1–A3 của một tác vụ, kèm TTL cache News khi có. */
+export function saveModelConfig(task: ModelTask, chain: ModelChain, newsCacheTtlMs?: number): AppSettings {
+  const current = getSettings().ai
+  const taskModels: TaskModels = { ...current.taskModels, [task]: chain }
+  const next = newsCacheTtlMs === undefined ? { ...current, taskModels } : { ...current, taskModels, newsCacheTtlMs }
+  return updateSettings({ ai: normalizeAi(next) })
 }
 
 export function saveAiMode(aiMode: AiMode): AppSettings {

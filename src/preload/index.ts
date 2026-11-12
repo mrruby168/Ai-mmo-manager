@@ -66,6 +66,7 @@ const api: RendererApi = {
     get: () => invoke(IPC.settingsGet),
     setLastSelection: (selection) => invoke(IPC.settingsSetLastSelection, selection),
     setTaskSelection: (task, selection) => invoke(IPC.settingsSetTaskSelection, { task, selection }),
+    setModelConfig: (input) => invoke(IPC.settingsSetModelConfig, input),
     setAppearance: (appearance) => invoke(IPC.settingsSetAppearance, { appearance }),
     setAiMode: (aiMode) => invoke(IPC.settingsSetAiMode, { aiMode }),
     setDataPath: (payload) => invoke(IPC.settingsSetDataPath, payload),

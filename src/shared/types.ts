@@ -182,12 +182,32 @@ export interface ModelSelection {
 /** FIX 2: each AI tab keeps its own model, independent from Chat. */
 export type AiTask = 'news' | 'scan'
 
+/** Ba tác vụ có chuỗi model riêng (A1 → A2 → A3). */
+export type ModelTask = AiTask | 'chat'
+
+/** Chuỗi 0–3 model, không trùng, thứ tự = A1, A2, A3. */
+export type ModelChain = ModelSelection[]
+
+export interface TaskModels {
+  news: ModelChain
+  scan: ModelChain
+  chat: ModelChain
+}
+
+/** FIX 2: TTL cache của Check News do người dùng chọn (1 phút để test, 3 giờ / 8 giờ production). */
+export const NEWS_CACHE_TTL_OPTIONS_MS = [60_000, 3 * 3_600_000, 8 * 3_600_000] as const
+export const DEFAULT_NEWS_CACHE_TTL_MS = 3 * 3_600_000
+
 export interface AiSettings {
   providers: ProviderConfig[]
-  /** Chat Box selection, also the fallback for News/Scan. */
+  /** Chat Box selection, also A1 of the Chat chain. */
   lastSelection: ModelSelection | null
   newsSelection: ModelSelection | null
   scanSelection: ModelSelection | null
+  /** FIX 2: chuỗi model dự phòng theo tác vụ. */
+  taskModels: TaskModels
+  /** FIX 2: TTL cache Check News, một trong NEWS_CACHE_TTL_OPTIONS_MS. */
+  newsCacheTtlMs: number
 }
 
 export interface AppearanceSettings {
@@ -435,6 +455,11 @@ export interface RendererApi {
     setAppearance(appearance: AppearanceSettings): Promise<IpcResult<AppSettings>>
     setLastSelection(selection: ModelSelection): Promise<IpcResult<AppSettings>>
     setTaskSelection(task: AiTask, selection: ModelSelection | null): Promise<IpcResult<AppSettings>>
+    setModelConfig(input: {
+      task: ModelTask
+      chain: ModelChain
+      newsCacheTtlMs?: number
+    }): Promise<IpcResult<AppSettings>>
     setAiMode(aiMode: AiMode): Promise<IpcResult<AppSettings>>
     setDataPath(payload: { path: string; copyExisting: boolean }): Promise<IpcResult<AppSettings>>
     chooseDataPath(): Promise<IpcResult<{ canceled: boolean; path: string | null }>>
