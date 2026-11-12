@@ -140,7 +140,7 @@ describe('nối chuỗi model theo từng tác vụ (FIX 2)', () => {
 
   it('D25: có Web Search của app thì prefetch chạy cả khi model có Web Search gốc', async () => {
     const search = vi.fn(async (_query: string) => [
-      { title: 'Alpha news', url: 'https://alpha.example.com/news', snippet: 'airdrop snapshot' }
+      { title: 'Alpha Drop news', url: 'https://alpha.example.com/news', snippet: 'airdrop snapshot' }
     ])
     loadSearchProvider.mockReturnValue({ search } as never)
 
@@ -148,6 +148,31 @@ describe('nối chuỗi model theo từng tác vụ (FIX 2)', () => {
 
     expect(search).toHaveBeenCalledTimes(1)
     expect(search.mock.calls[0][0]).toContain('Alpha Drop')
+  })
+
+  it('9b: prefetch yếu (không khớp tên) thì tìm riêng từng dự án một lần nữa', async () => {
+    const beta = {
+      ...project,
+      id: 'PRJ-002',
+      name: 'Beta Net',
+      nameKey: 'beta net',
+      website: 'https://beta.example.com',
+      domainKey: 'beta.example.com'
+    }
+    listProjects.mockReturnValue([project, beta])
+    const search = vi.fn(async (_query: string) => [
+      { title: 'Tin không liên quan', url: 'https://example.com/other', snippet: 'khác' }
+    ])
+    loadSearchProvider.mockReturnValue({ search } as never)
+
+    await runCheckNews()
+
+    expect(search).toHaveBeenCalledTimes(3)
+    expect(search.mock.calls[0][0]).toContain('Alpha Drop')
+    expect(search.mock.calls[0][0]).toContain('Beta Net')
+    expect(search.mock.calls[0][0]).toContain(' OR ')
+    expect(search.mock.calls[1][0]).toContain('"Alpha Drop"')
+    expect(search.mock.calls[2][0]).toContain('"Beta Net"')
   })
 
   it('Scan Project dựng chuỗi "scan" (bắt buộc Web Search gốc) và chạy qua failover', async () => {

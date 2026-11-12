@@ -31,7 +31,6 @@ import { describeSearchError } from '../services/searchProviders'
 import type { SearchProvider } from '../services/searchProviders'
 import {
   COST_LIMITS,
-  buildGroupedSearchQueries,
   chunk,
   decideNewsCacheOutcome,
   formatNewsCacheTtl,
@@ -40,6 +39,11 @@ import {
   newsSearchBudgetForProjects,
   pickNewsBatchSize
 } from '@shared/costControl'
+import {
+  buildGroupedProjectNameQueries,
+  buildProjectQueries,
+  queryTextHitsProject
+} from '@shared/projectQueries'
 import { getNewsCheckEntries, markNewsChecked, purgeAiCache } from '../db/aiCacheRepo'
 import { projectLinkFingerprint } from './cacheKeys'
 import { createSearchBudget } from './searchBudget'
@@ -54,7 +58,6 @@ import { appendAiLog, beginAiLog, finishAiLog } from './aiActivityLog'
 // allows only 5 uses per request, so it keeps 3 projects per batch there and
 // 5 everywhere else (fewer repeated system prompts).
 const NEWS_WINDOW_DAYS = 7
-const GROUPED_SEARCH_SUFFIX = 'airdrop news'
 const PREFETCH_SNIPPET_MAX = 280
 
 export interface NewsCheckResult {
@@ -185,37 +188,52 @@ function buildBatchMessage(
 }
 
 /**
- * One grouped query per up to 3 projects instead of one search per project.
- * Only used for the app-side search provider; native provider search is run by
- * the model itself. Every query is charged to the run-wide budget.
+ * 9b: mỗi dự án được tìm theo handle X trước, rồi tên dự án. Dự án không có
+ * handle X được gộp 3 tên một truy vấn; dự án chưa có gợi ý nào được tìm riêng
+ * một lần nữa. Mọi truy vấn đều trừ ngân sách chung của lần chạy.
  */
-async function prefetchGroupedSearch(
+async function prefetchProjectSearch(
   search: SearchProvider,
   batch: Project[],
   budget: SearchBudget,
   evidence: ReturnType<typeof createNewsEvidence>,
   signal: AbortSignal
 ): Promise<string | null> {
-  const queries = buildGroupedSearchQueries(
-    batch.map((project) => project.name),
-    GROUPED_SEARCH_SUFFIX
-  )
+  const byId = new Map(batch.map((project) => [project.id, project]))
+  const hits = new Set<string>()
+  const ran = new Set<string>()
   const sections: string[] = []
-  for (const query of queries) {
-    if (signal.aborted || !budget.tryConsume()) {
-      break
+  let queries = 0
+  let results = 0
+
+  const runQuery = async (query: string, maxResults: number, projectIds: readonly string[]): Promise<void> => {
+    if (signal.aborted || ran.has(query) || !budget.tryConsume()) {
+      return
     }
+    ran.add(query)
     try {
-      const results = await search.search(query, { signal, maxResults: 6 })
+      const list = await search.search(query, { signal, maxResults })
+      queries += 1
+      results += list.length
       noteSearchSuccess(
         evidence,
-        results.map((item) => item.url)
+        list.map((item) => item.url)
       )
-      appendAiLog('news', 'step', `Quét web "${query}" · ${results.length} kết quả`)
-      if (results.length === 0) {
-        continue
+      appendAiLog('news', 'step', `Quét web "${query}" · ${list.length} kết quả`)
+      if (list.length === 0) {
+        return
       }
-      const body = results
+      const targets = projectIds
+        .map((id) => byId.get(id))
+        .filter((project): project is Project => project !== undefined)
+      for (const item of list) {
+        for (const project of targets) {
+          if (queryTextHitsProject(item, project)) {
+            hits.add(project.id)
+          }
+        }
+      }
+      const body = list
         .map(
           (item, index) =>
             `${index + 1}. ${item.title}\n${item.url}\n${item.snippet.slice(0, PREFETCH_SNIPPET_MAX)}${
@@ -228,8 +246,40 @@ async function prefetchGroupedSearch(
       // A failed prefetch is not fatal: the model still has the web_search tool.
       const reason = describeSearchError(error)
       logInfo(`Prefetch search thất bại: ${reason}`)
-      appendAiLog('news', 'warn', `Tìm kiếm gộp lỗi: ${reason}`)
+      appendAiLog('news', 'warn', `Tìm kiếm "${query}" lỗi: ${reason}`)
     }
+  }
+
+  // 1) Bài trên X của từng dự án có handle.
+  for (const project of batch) {
+    const xQuery = buildProjectQueries(project).find((query) => query.kind === 'x')
+    if (xQuery) {
+      await runQuery(xQuery.query, xQuery.maxResults, [project.id])
+    }
+  }
+
+  // 2) Tên các dự án không có handle X, gộp tối đa 3 tên/truy vấn.
+  for (const group of buildGroupedProjectNameQueries(batch)) {
+    await runQuery(group.query, group.maxResults, group.projectIds)
+  }
+
+  // 3) Dự án chưa có gợi ý nào (X yếu, gộp không khớp tên) tìm riêng theo tên.
+  for (const project of batch) {
+    if (signal.aborted || hits.has(project.id)) {
+      continue
+    }
+    const nameQuery = buildProjectQueries(project).find((query) => query.kind === 'name')
+    if (nameQuery) {
+      await runQuery(nameQuery.query, nameQuery.maxResults, [project.id])
+    }
+  }
+
+  if (queries > 0) {
+    appendAiLog(
+      'news',
+      'step',
+      `Prefetch: ${queries} truy vấn, ${results} kết quả, ${hits.size}/${batch.length} dự án có gợi ý`
+    )
   }
   return sections.length > 0 ? sections.join('\n\n') : null
 }
@@ -406,7 +456,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       // D25: có Web Search riêng của app thì luôn chạy prefetch, kể cả model A1 có
       // Web Search gốc; kết quả gộp chỉ là gợi ý, model vẫn phải mở bài gốc.
       const prefetched = selection.search
-        ? await prefetchGroupedSearch(selection.search, batch, budget, evidence, signal)
+        ? await prefetchProjectSearch(selection.search, batch, budget, evidence, signal)
         : null
       const messages: AiMessage[] = [{ role: 'user', content: buildBatchMessage(batch, milestones, now, prefetched) }]
       const tools = pickTools(selection, evidence, budget)
