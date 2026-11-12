@@ -210,7 +210,9 @@ async function fetchLogosBestEffort(projectIds: string[]): Promise<void> {
       const logo = await fetchLogoForProject({
         projectId: project.id,
         website: project.website,
-        socialsX: project.socials.x ?? null
+        socialsX: project.socials.x ?? null,
+        socialsDiscord: project.socials.discord ?? null,
+        socialsTelegram: project.socials.telegram ?? null
       })
       if (logo) {
         setProjectLogo(project.id, logo)

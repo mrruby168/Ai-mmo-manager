@@ -206,7 +206,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }): React.J
                 disabled={!canMutate}
                 onClick={() => void handleLogo('auto')}
               >
-                Lấy logo tự động
+                Làm mới logo
               </Button>
             </div>
           </div>
