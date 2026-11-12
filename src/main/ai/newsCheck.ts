@@ -1,6 +1,7 @@
 import { isSameLocalDay } from '@shared/date-utils'
 import { mentionsMilestone } from '@shared/newsView'
-import { isHttpUrl, newsItemSchema } from '@shared/schemas'
+import { isHttpUrl, newsItemSchema, newsSubmissionItemSchema } from '@shared/schemas'
+import { parseXStatusUrl, xDateFromStatusId } from '@shared/xLinks'
 import type { MilestoneKind, NewsKind, VerificationState } from '@shared/constants'
 import { SafeFetchError, safeFetch } from '../services/safeFetch'
 
@@ -30,7 +31,9 @@ export interface NewsSubmission {
 export function parseNewsSubmission(
   items: unknown,
   allowedProjectIds: ReadonlySet<string>,
-  isToday: (iso: string) => boolean = isSameLocalDay
+  isToday: (iso: string) => boolean = isSameLocalDay,
+  /** Handle X của từng dự án (không kèm `@`), dùng để loại bài của tài khoản lạ. */
+  projectXHandles?: ReadonlyMap<string, string | null>
 ): NewsSubmission {
   if (!Array.isArray(items)) {
     return { items: [], rejected: 1 }
@@ -40,27 +43,61 @@ export function parseNewsSubmission(
   let rejected = 0
 
   for (const raw of items) {
-    const parsed = newsItemSchema.safeParse(raw)
+    const parsed = newsSubmissionItemSchema.safeParse(raw)
     if (!parsed.success) {
       rejected += 1
       continue
     }
     const value = parsed.data
-    if (!allowedProjectIds.has(value.projectId) || !isHttpUrl(value.sourceUrl) || !isToday(value.publishedAt)) {
+    if (!allowedProjectIds.has(value.projectId) || !isHttpUrl(value.sourceUrl)) {
       rejected += 1
       continue
     }
+
+    const xStatus = parseXStatusUrl(value.sourceUrl)
+    if (xStatus) {
+      const projectHandle = projectXHandles?.get(value.projectId) ?? null
+      if (projectHandle && projectHandle.toLowerCase() !== xStatus.handle.toLowerCase()) {
+        rejected += 1
+        continue
+      }
+    }
+
+    // 9c: bài X thường không đọc được ngày qua web_fetch; suy từ status ID.
+    const derived = xStatus ? xDateFromStatusId(xStatus.statusId) : null
+    let publishedAt = (value.publishedAt ?? '').trim()
+    if (derived) {
+      const shownAt = Date.parse(publishedAt)
+      const actualAt = Date.parse(derived)
+      // Model lệch hơn 1 ngày thì tin ngày suy từ ID.
+      if (Number.isNaN(shownAt) || Math.abs(shownAt - actualAt) > 86_400_000) {
+        publishedAt = derived
+      }
+    }
+    if (publishedAt.length === 0) {
+      rejected += 1
+      continue
+    }
+
+    // Ngày đã điền/suy xong mới kiểm tra bằng schema nghiêm ngặt.
+    const strict = newsItemSchema.safeParse({ ...value, publishedAt })
+    if (!strict.success || !isToday(strict.data.publishedAt)) {
+      rejected += 1
+      continue
+    }
+    const item = strict.data
     accepted.push({
-      projectId: value.projectId,
-      kind: value.kind,
-      summary: value.summary,
-      verification: value.verification,
-      sourceUrl: value.sourceUrl,
-      sourceName: value.sourceName ?? null,
-      publishedAt: value.publishedAt,
-      todoDeadline: value.todoDeadline ?? null,
-      milestoneKind: value.milestoneKind ?? null,
-      milestoneDate: value.milestoneDate ?? null
+      projectId: item.projectId,
+      kind: item.kind,
+      summary: item.summary,
+      // Bài X luôn unverified: web_fetch không đọc được nội dung để xác minh.
+      verification: xStatus ? 'unverified' : item.verification,
+      sourceUrl: item.sourceUrl,
+      sourceName: item.sourceName ?? null,
+      publishedAt: item.publishedAt,
+      todoDeadline: item.todoDeadline ?? null,
+      milestoneKind: item.milestoneKind ?? null,
+      milestoneDate: item.milestoneDate ?? null
     })
   }
 
@@ -111,6 +148,13 @@ export async function verifyNewsSources(
   let unverified = 0
 
   for (const item of items) {
+    // 9c: bài X luôn unverified và không tốn một lượt fetch (X chặn bot).
+    if (parseXStatusUrl(item.sourceUrl)) {
+      unverified += 1
+      kept.push({ ...item, verification: 'unverified' })
+      continue
+    }
+
     let fetched: SourceFetchResult
     try {
       fetched = await fetcher(item.sourceUrl)

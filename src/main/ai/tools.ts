@@ -11,7 +11,7 @@ import {
 } from '@shared/constants'
 import type { ProjectCategory, ProjectStatus } from '@shared/constants'
 import type { PendingAction, Project, AiLogLevel } from '@shared/types'
-import { newsResultSchema, projectImportItemSchema, scanResultSchema } from '@shared/schemas'
+import { newsSubmissionResultSchema, projectImportItemSchema, scanResultSchema } from '@shared/schemas'
 import type { ProjectImportItem } from '@shared/schemas'
 import type { ProjectIndexEntry } from '../db/projectsRepo'
 import { listProjectIndex, listProjects as repoListProjects, getProject as repoGetProject } from '../db/projectsRepo'
@@ -331,14 +331,14 @@ const submitNewsTool: AgentTool = {
         items: {
           type: 'object',
           properties: NEWS_ITEM_PROPS,
-          required: ['projectId', 'kind', 'summary', 'verification', 'sourceUrl', 'publishedAt']
+          required: ['projectId', 'kind', 'summary', 'verification', 'sourceUrl']
         }
       }
     },
     required: ['items']
   },
   handler: (args) => {
-    const parsed = newsResultSchema.safeParse(args)
+    const parsed = newsSubmissionResultSchema.safeParse(args)
     if (!parsed.success) {
       return toolInputError(`Tin không hợp lệ: ${parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ')}`)
     }

@@ -5,6 +5,7 @@
  */
 
 import { buildGroupedSearchQueries } from './costControl'
+import { normalizeXHandle } from './xLinks'
 import type { Project } from './types'
 
 export const PROJECT_QUERY_SUFFIX = 'airdrop news'
@@ -31,38 +32,12 @@ export interface ProjectQueryGroup {
 
 export type ProjectQueryTarget = Pick<Project, 'id' | 'name' | 'socials'>
 
-const HANDLE_PATTERN = /^[A-Za-z0-9_]{1,15}$/
-
 /**
  * Nhận `https://x.com/Alpha`, `https://twitter.com/Alpha/status/...`,
  * `@Alpha` hoặc `Alpha`. Trả handle không kèm `@`, null nếu không hợp lệ.
  */
 export function extractXHandle(raw: string | null | undefined): string | null {
-  if (!raw) {
-    return null
-  }
-  const value = raw.trim()
-  if (value.length === 0) {
-    return null
-  }
-  if (value.startsWith('@')) {
-    const handle = value.slice(1)
-    return HANDLE_PATTERN.test(handle) ? handle : null
-  }
-  if (HANDLE_PATTERN.test(value)) {
-    return value
-  }
-  try {
-    const url = new URL(value)
-    const host = url.hostname.toLowerCase().replace(/^www\./, '')
-    if (host !== 'x.com' && host !== 'twitter.com' && host !== 'mobile.twitter.com') {
-      return null
-    }
-    const handle = url.pathname.split('/').filter(Boolean)[0] ?? ''
-    return HANDLE_PATTERN.test(handle) ? handle : null
-  } catch {
-    return null
-  }
+  return normalizeXHandle(raw)
 }
 
 function cleanName(name: string): string {

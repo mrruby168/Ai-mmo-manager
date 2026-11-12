@@ -1,6 +1,6 @@
 import type { AiMessage } from './types'
 import { AiError } from './types'
-import { newsResultSchema } from '@shared/schemas'
+import { newsSubmissionResultSchema } from '@shared/schemas'
 import type { MilestoneKind, VerificationState } from '@shared/constants'
 import type { Project } from '@shared/types'
 import { listProjects } from '../db/projectsRepo'
@@ -53,6 +53,7 @@ import { noteSearchSuccess } from './newsEvidence'
 import { logInfo } from '../services/logger'
 import { getSettings } from '../services/settingsStore'
 import { appendAiLog, beginAiLog, finishAiLog } from './aiActivityLog'
+import { normalizeXHandle } from '@shared/xLinks'
 
 // Batch size comes from `pickNewsBatchSize`: Anthropic's built-in web search
 // allows only 5 uses per request, so it keeps 3 projects per batch there and
@@ -506,7 +507,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
         appendAiLog('news', 'warn', `Lô ${batchIndex + 1}: kết quả nộp sai loại`)
         continue
       }
-      const parsed = newsResultSchema.safeParse(payload.data)
+      const parsed = newsSubmissionResultSchema.safeParse(payload.data)
       if (!parsed.success) {
         failedBatches += 1
         firstFailure ??= `Lô ${batchIndex + 1}: JSON không đúng schema (${parsed.error.issues[0]?.message ?? 'không rõ'})`
@@ -525,8 +526,10 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
 
       const allowedIds = new Set(batch.map((project) => project.id))
       const windowNow = new Date()
+      const projectHandles = new Map(batch.map((project) => [project.id, normalizeXHandle(project.socials.x)]))
       const submission = parseNewsSubmission(parsed.data.items, allowedIds, (iso) =>
-        isWithinNewsWindow(iso, windowNow, NEWS_WINDOW_DAYS)
+        isWithinNewsWindow(iso, windowNow, NEWS_WINDOW_DAYS),
+        projectHandles
       )
       rejected += submission.rejected
 

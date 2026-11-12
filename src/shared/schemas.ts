@@ -126,6 +126,18 @@ export const newsResultSchema = z.object({
 })
 
 /**
+ * 9c: schema nhận từ model. Bài X được phép thiếu `publishedAt` vì app suy
+ * ngày từ status ID; sau khi suy vẫn phải qua `newsItemSchema` nghiêm ngặt.
+ */
+export const newsSubmissionItemSchema = newsItemSchema.extend({
+  publishedAt: z.string().max(64).optional()
+})
+
+export const newsSubmissionResultSchema = z.object({
+  items: z.array(newsSubmissionItemSchema).max(500)
+})
+
+/**
  * FIX 1: hand-entered news in No AI Mode. `sourceUrl` is optional here because
  * the user may only know the announcement. One `date` field covers all three
  * panels: todo deadline, milestone date or published date.
