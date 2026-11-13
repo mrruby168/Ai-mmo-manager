@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 const ROOT = resolve(__dirname, '..')
 const SRC = join(ROOT, 'src', 'renderer', 'src')
 const COMPONENTS = join(SRC, 'styles', 'components.css')
+const BASE_CSS = join(SRC, 'styles', 'base.css')
+const TOKENS = join(SRC, 'styles', 'tokens.css')
 const PROJECT_ROW = join(SRC, 'features', 'projects', 'ProjectRow.tsx')
 const PROJECT_DETAIL = join(SRC, 'features', 'projects', 'ProjectDetailPage.tsx')
 const REVENUE_PAGE = join(SRC, 'features', 'revenue', 'RevenuePage.tsx')
@@ -164,5 +166,32 @@ describe('U7: Chat, Sidebar và Dialog', () => {
     expect(baseCss).toMatch(/\.modal__header\s*\{[^}]*flex:\s*0 0 auto/)
     expect(baseCss).toMatch(/\.modal__footer\s*\{[^}]*flex:\s*0 0 auto/)
     expect(baseCss).toMatch(/\.modal__body\s*\{[^}]*min-height:\s*0/)
+  })
+})
+
+describe('U8: khoá overflow và giữ bảng màu nút', () => {
+  const base = readSource(BASE_CSS)
+  const tokens = readSource(TOKENS)
+
+  it('card và khối lớn không tràn khung', () => {
+    expect(baseCss).toMatch(/\.card,\s*\.summary-card,[\s\S]*?\.chat-panel\s*\{[^}]*min-width:\s*0/)
+    expect(baseCss).toMatch(/\.card,[\s\S]*?\.chat-panel\s*\{[^}]*min-height:\s*0/)
+  })
+
+  it('tên/URL/nhãn dài tự xuống dòng', () => {
+    expect(baseCss).toMatch(/\.definition-list dd[\s\S]*?overflow-wrap:\s*anywhere/)
+    expect(baseCss).toMatch(/\.scan-table__note\s*\{[^}]*overflow-wrap:\s*anywhere/)
+    expect(baseCss).toMatch(/\.pending-action__block\s*\{[^}]*overflow-wrap:\s*anywhere/)
+  })
+
+  it('giữ text-clamp-2 và primary #5b8def', () => {
+    expect(base).toMatch(/\.text-clamp-2\s*\{/)
+    expect(tokens).toContain('--color-primary: #5b8def')
+  })
+
+  it('chỉ Primary nổi bật, danger là nút đỏ', () => {
+    expect(baseCss).toMatch(/\.btn--primary\s*\{[^}]*background:\s*var\(--color-primary\)/)
+    expect(baseCss).toMatch(/\.btn--secondary\s*\{[^}]*background:\s*transparent/)
+    expect(baseCss).toMatch(/\.btn--danger\s*\{[^}]*background:\s*var\(--color-danger-solid\)/)
   })
 })

@@ -2986,3 +2986,35 @@ select.field__control {
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+
+/* ---------- U8: khoá overflow với dữ liệu dài ---------- */
+/* Card/khối không được rộng hơn khung; thân tự cuộn thay vì đẩy layout. */
+.card,
+.summary-card,
+.news-panel,
+.scan-results,
+.scan-table,
+.project-row,
+.revenue-row,
+.settings-provider,
+.pending-action,
+.chat-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+.project-row__name,
+.project-row__task,
+.revenue-row__name,
+.definition-list dd,
+.pending-action__title,
+.pending-action__details,
+.chat-message-attachment__name,
+.settings-provider__name {
+  overflow-wrap: anywhere;
+}
+
+.scan-table__name strong,
+.scan-table__note {
+  overflow-wrap: anywhere;
+}
