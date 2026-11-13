@@ -185,8 +185,8 @@ export function ProjectDetailPage({ projectId }: { projectId: string }): React.J
         </div>
       </div>
 
-      <div className="stack">
-        <section className="card">
+      <div className="project-detail">
+        <section className="card project-detail__info">
           <div className="section-title">
             <h2>Thông tin dự án</h2>
             <div className="row">
@@ -223,26 +223,6 @@ export function ProjectDetailPage({ projectId }: { projectId: string }): React.J
                     </div>
                   ))}
             </dd>
-          </dl>
-        </section>
-
-        <section className="card">
-          <h2>Thông tin nhiệm vụ</h2>
-          <div className="stack" style={{ marginTop: 'var(--space-4)' }}>
-            <div>
-              <div className="muted">Nội dung nhiệm vụ</div>
-              <p style={{ whiteSpace: 'pre-wrap' }}>{project.taskSummary || 'Chưa có'}</p>
-            </div>
-            <div>
-              <div className="muted">Cách tham gia</div>
-              <p style={{ whiteSpace: 'pre-wrap' }}>{project.howToJoin || 'Chưa có'}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="card">
-          <h2>Deadline</h2>
-          <dl className="definition-list" style={{ marginTop: 'var(--space-4)' }}>
             <dt>Bắt đầu</dt>
             <dd>{project.startDate ?? 'Chưa rõ'}</dd>
             <dt>Kết thúc</dt>
@@ -250,31 +230,44 @@ export function ProjectDetailPage({ projectId }: { projectId: string }): React.J
             <dt>Còn lại</dt>
             <dd className={`deadline--${deadline.tone}`}>{deadline.text}</dd>
           </dl>
-        </section>
-
-        <section className="card">
-          <h2>Trạng thái</h2>
-          <div className="segmented" role="group" aria-label="Trạng thái dự án" style={{ marginTop: 'var(--space-4)' }}>
-            {STATUS_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`segmented__item${project.status === option.value ? ' segmented__item--active' : ''}`}
-                aria-pressed={project.status === option.value}
-                disabled={!canMutate}
-                onClick={() => void handleStatus(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="project-detail__status">
+            <h2>Trạng thái</h2>
+            <div className="segmented" role="group" aria-label="Trạng thái dự án">
+              {STATUS_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`segmented__item${project.status === option.value ? ' segmented__item--active' : ''}`}
+                  aria-pressed={project.status === option.value}
+                  disabled={!canMutate}
+                  onClick={() => void handleStatus(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="card">
+        <section className="card project-detail__tasks">
+          <h2>Thông tin nhiệm vụ</h2>
+          <div className="stack" style={{ marginTop: 'var(--space-4)' }}>
+            <div>
+              <div className="muted">Nội dung nhiệm vụ</div>
+              <p className="project-detail__text">{project.taskSummary || 'Chưa có'}</p>
+            </div>
+            <div>
+              <div className="muted">Cách tham gia</div>
+              <p className="project-detail__text">{project.howToJoin || 'Chưa có'}</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="card project-detail__notes">
           <h2>Ghi chú</h2>
           <div className="stack" style={{ marginTop: 'var(--space-4)' }}>
             <textarea
-              className="field__control"
+              className="field__control project-detail__notes-input"
               value={notesDraft}
               disabled={!canMutate}
               onChange={(event) => {

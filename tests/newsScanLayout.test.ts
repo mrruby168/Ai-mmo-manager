@@ -64,3 +64,53 @@ describe('FIX 3: News/Scan bỏ card chọn Model, Chat giữ nguyên', () => {
     expect(chat).not.toContain('TaskModelCard')
   })
 })
+
+describe('U1: Activity Log của News nằm cuối trang và mở rộng được', () => {
+  const news = readSource(NEWS_PAGE)
+
+  it('log đứng sau news-grid', () => {
+    expect(news.indexOf('<AiActivityLog')).toBeGreaterThan(news.indexOf('className="news-grid"'))
+  })
+
+  it('có nút mở rộng và class mở rộng', () => {
+    expect(news).toContain('Mở rộng nhật ký')
+    expect(news).toContain('Thu gọn nhật ký')
+    expect(news).toContain('ai-log--expanded')
+  })
+
+  it('bấm Check News thì cuộn tới log', () => {
+    expect(news).toContain('scrollIntoView({ block: \'nearest\'')
+    expect(news).toContain("prefers-reduced-motion: reduce")
+  })
+})
+
+describe('U2: Scan đưa log xuống cuối và bảng kết quả cuộn được', () => {
+  const scan = readSource(SCAN_PAGE)
+  const css = readSource(COMPONENTS)
+
+  it('log đứng sau khối nhập/kết quả', () => {
+    expect(scan.indexOf('<AiActivityLog')).toBeGreaterThan(scan.indexOf("view === 'input'"))
+    expect(scan.indexOf('<AiActivityLog')).toBeGreaterThan(scan.indexOf('scan-results'))
+  })
+
+  it('thanh tiến độ quét nằm ngay trên log', () => {
+    expect(scan.lastIndexOf('Tiến độ quét')).toBeGreaterThan(scan.indexOf("view === 'input'"))
+    expect(scan.indexOf('<AiActivityLog')).toBeGreaterThan(scan.lastIndexOf('Tiến độ quét'))
+  })
+
+  it('có nút mở rộng nhật ký và tự cuộn tới log', () => {
+    expect(scan).toContain('ai-log--expanded')
+    expect(scan).toContain('scrollIntoView({ block: \'nearest\'')
+  })
+
+  it('có chip đếm theo loại nhưng vẫn một bảng duy nhất', () => {
+    expect(scan).toContain('Không đủ bằng chứng {scanCounts.insufficient}')
+    expect(scan.match(/role="table"/g)?.length).toBe(1)
+  })
+
+  it('bảng kết quả cuộn được và header dính trên cùng', () => {
+    expect(css).toMatch(/\.scan-table\s*\{[^}]*max-height:\s*calc\(100vh - 20rem\)/)
+    expect(css).toMatch(/\.scan-table\s*\{[^}]*overflow-y:\s*auto/)
+    expect(css).toMatch(/\.scan-table__head\s*\{[^}]*position:\s*sticky/)
+  })
+})

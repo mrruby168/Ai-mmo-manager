@@ -112,12 +112,12 @@ export function RevenuePage(): React.JSX.Element {
           </div>
           <div className="summary-card">
             <span className="summary-card__label">Thưởng đang chờ</span>
-            <span className="summary-card__value">{formatUsd(summary.pendingUsd)}</span>
+            <span className="summary-card__value summary-card__value--warning">{formatUsd(summary.pendingUsd)}</span>
             <span className="summary-card__hint">Ước tính của các khoản chưa nhận</span>
           </div>
           <div className="summary-card">
             <span className="summary-card__label">Tổng chi phí</span>
-            <span className="summary-card__value">{formatUsd(summary.totalCostUsd)}</span>
+            <span className="summary-card__value summary-card__value--cost">{formatUsd(summary.totalCostUsd)}</span>
             <span className="summary-card__hint">Phí tham gia + phí giao dịch</span>
           </div>
           <div className="summary-card">
@@ -145,7 +145,7 @@ export function RevenuePage(): React.JSX.Element {
 
       <div className="toolbar">
         <TextInput
-          className="field__control search-input__control"
+          className="field__control revenue-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Tìm theo dự án, symbol, ghi chú, Tx Hash…"
@@ -209,21 +209,23 @@ export function RevenuePage(): React.JSX.Element {
                     {!entry.projectId ? <div className="revenue-row__meta">Không gắn dự án</div> : null}
                   </span>
                 </span>
-                <span className="revenue-row__detail">
-                  <span className="revenue-row__meta">Thưởng</span>
-                  <strong>{formatAmount(entry.estimatedAmount ?? entry.receivedAmount ?? 0, entry.rewardSymbol)}</strong>
-                  {entry.rewardKind !== 'points' && entry.estimatedUsd !== null ? (
-                    <span className="revenue-row__meta"> ≈ {formatUsd(entry.estimatedUsd)}</span>
-                  ) : null}
+                <span className="revenue-row__details">
+                  <span className="revenue-row__detail">
+                    <span className="revenue-row__meta">Thưởng</span>
+                    <strong>{formatAmount(entry.estimatedAmount ?? entry.receivedAmount ?? 0, entry.rewardSymbol)}</strong>
+                    {entry.rewardKind !== 'points' && entry.estimatedUsd !== null ? (
+                      <span className="revenue-row__meta"> ≈ {formatUsd(entry.estimatedUsd)}</span>
+                    ) : null}
+                  </span>
+                  <span className="revenue-row__detail">
+                    <span className="revenue-row__meta">Thực nhận</span>
+                    <strong>{entry.claimStatus === 'claimed' ? formatAmount(entry.receivedAmount ?? 0, entry.rewardSymbol) : '—'}</strong>
+                    {entry.claimStatus === 'claimed' && entry.rewardKind !== 'points' && entry.receivedUsd !== null ? (
+                      <span className="revenue-row__meta"> ≈ {formatUsd(entry.receivedUsd)}</span>
+                    ) : null}
+                  </span>
                 </span>
-                <span className="revenue-row__detail">
-                  <span className="revenue-row__meta">Thực nhận</span>
-                  <strong>{entry.claimStatus === 'claimed' ? formatAmount(entry.receivedAmount ?? 0, entry.rewardSymbol) : '—'}</strong>
-                  {entry.claimStatus === 'claimed' && entry.rewardKind !== 'points' && entry.receivedUsd !== null ? (
-                    <span className="revenue-row__meta"> ≈ {formatUsd(entry.receivedUsd)}</span>
-                  ) : null}
-                </span>
-                <span>
+                <span className="revenue-row__status">
                   <span className={`claim-badge claim-badge--${entry.claimStatus}`}>{CLAIM_LABELS[entry.claimStatus]}</span>
                 </span>
               </button>

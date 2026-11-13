@@ -47,9 +47,10 @@
 }
 
 .sidebar__item--active {
-  background: var(--color-surface-raised);
-  color: var(--color-text);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   border-left: 3px solid var(--color-primary);
+  font-weight: 600;
 }
 
 .sidebar__item:disabled {
@@ -447,10 +448,11 @@ select.field__control {
 
 .project-row {
   display: grid;
-  grid-template-columns: 2.2fr 2fr 1.2fr 1fr 0.8fr;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 2fr) minmax(0, 1.2fr) auto auto;
+  grid-template-areas: 'id task dl st cost';
   align-items: center;
   gap: var(--space-4);
-  min-height: 4rem;
+  min-height: 4.75rem;
   padding: var(--space-3) var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -459,6 +461,19 @@ select.field__control {
   text-align: left;
   color: inherit;
   transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.project-row__status {
+  grid-area: st;
+  justify-self: start;
+}
+
+.project-row__cost {
+  grid-area: cost;
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .project-row:hover {
@@ -471,6 +486,7 @@ select.field__control {
 }
 
 .project-row__identity {
+  grid-area: id;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -483,12 +499,14 @@ select.field__control {
 }
 
 .project-row__task {
+  grid-area: task;
   color: var(--color-muted);
   font-size: 0.875rem;
   min-width: 0;
 }
 
 .project-row__deadline {
+  grid-area: dl;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -513,12 +531,18 @@ select.field__control {
 }
 
 @media (max-width: 1100px) {
+  /* Hẹp: chuyển 2 hàng, không ẩn dữ liệu nào. */
   .project-row {
-    grid-template-columns: 2fr 1.4fr 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+    grid-template-areas:
+      'id dl st'
+      'task task cost';
+    align-items: center;
+    row-gap: var(--space-2);
   }
-  .project-row__task,
+
   .project-row__cost {
-    display: none;
+    justify-self: end;
   }
 }
 
@@ -577,6 +601,7 @@ select.field__control {
 
 .modal__header {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -587,6 +612,7 @@ select.field__control {
 .modal__body {
   padding: var(--space-5);
   overflow-y: auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -594,6 +620,7 @@ select.field__control {
 
 .modal__footer {
   display: flex;
+  flex: 0 0 auto;
   justify-content: flex-end;
   gap: var(--space-2);
   padding: var(--space-4) var(--space-5);
@@ -692,6 +719,7 @@ select.field__control {
 .summary-card__value {
   font-size: 1.5rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .summary-card__value--positive {
@@ -699,6 +727,14 @@ select.field__control {
 }
 
 .summary-card__value--negative {
+  color: var(--color-error);
+}
+
+.summary-card__value--warning {
+  color: var(--color-warning);
+}
+
+.summary-card__value--cost {
   color: var(--color-error);
 }
 
@@ -1451,14 +1487,14 @@ select.field__control {
   flex-direction: column;
   gap: var(--space-2);
   min-height: 0;
-  max-height: clamp(220px, 38vh, 460px);
+  max-height: clamp(260px, 44vh, 520px);
   overflow-y: auto;
   padding: 2px 4px 2px 0;
   overscroll-behavior: contain;
 }
 
 .news-panel--important .news-panel__scroll {
-  max-height: clamp(280px, 58vh, 640px);
+  max-height: clamp(320px, 60vh, 640px);
 }
 
 .news-panel__scroll::-webkit-scrollbar {
@@ -1630,6 +1666,52 @@ select.field__control {
 /* Settings */
 .settings-tabs {
   margin-bottom: var(--space-4);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+
+/* 6 tab luôn nằm một hàng, cuộn ngang khi hẹp. */
+.settings-tabs .segmented {
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: none;
+}
+
+.settings-tabs .segmented__item {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.ai-mode-bar {
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+}
+
+.ai-mode-bar p {
+  font-size: 0.8125rem;
+}
+
+@media (min-width: 1100px) {
+  /* Nội dung Settings chia 2 cột; Model Configuration chiếm hết chiều rộng. */
+  .settings-panel > .stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .settings-panel > .stack > .settings-toolbar,
+  .settings-panel > .stack > .banner {
+    grid-column: 1 / -1;
+  }
+
+  .settings-panel--models > .stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-panel--models .card {
+    grid-column: 1 / -1;
+  }
 }
 
 .settings-toolbar {
@@ -1819,10 +1901,40 @@ select.field__control {
   align-items: center;
 }
 
-/* Log của Scan cao cố định để vùng dán chiếm phần còn lại như mockup. */
+/* Log của News/Scan nằm cuối trang và chỉ cao ~150px; nút "Mở rộng" cho xem dài. */
+.news-page .ai-log,
 .scan-page .ai-log {
   flex: 0 0 auto;
-  max-height: 20rem;
+  height: 150px;
+  min-height: 130px;
+  max-height: 160px;
+}
+
+.news-page .ai-log--expanded,
+.scan-page .ai-log--expanded {
+  height: auto;
+  min-height: 160px;
+  max-height: 60vh;
+}
+
+.ai-log-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.ai-log-actions__button {
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  padding: 0;
+}
+
+.ai-log-actions__button:hover {
+  text-decoration: underline;
 }
 
 .scan-page__heading {
@@ -1888,7 +2000,7 @@ select.field__control {
 .scan-drop {
   position: relative;
   flex: 1 1 auto;
-  min-height: 14rem;
+  min-height: 22rem;
   display: flex;
   flex-direction: column;
   border: 1.5px dashed var(--color-border);
@@ -2089,18 +2201,9 @@ select.field__control {
   background: var(--color-success);
 }
 
-.news-page .news-panel {
-  max-height: 22rem;
-}
-
-.news-page .news-panel__scroll,
-.news-page .news-panel--important .news-panel__scroll {
-  max-height: 12rem;
-}
-
 .news-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1.3fr minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
@@ -2165,6 +2268,7 @@ select.field__control {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   background: var(--chat-input-bg);
   border-radius: var(--radius-sm);
   padding: var(--space-2);
@@ -2172,15 +2276,30 @@ select.field__control {
   overflow: auto;
 }
 
+/* Nút OK/Cancel luôn nằm trong tầm mắt khi PendingAction dài. */
 .pending-action__buttons {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin: 0 -12px -12px;
+  padding: var(--space-2) 12px;
+  background: var(--chat-pending-bg);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 8px 8px;
 }
 
 /* Revenue */
+.revenue-search {
+  flex: 1 1 16rem;
+  width: auto;
+  min-width: 12rem;
+}
+
 .revenue-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2202,7 +2321,8 @@ select.field__control {
 
 .revenue-row {
   display: grid;
-  grid-template-columns: 2.4fr 1fr 1fr auto;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-areas: 'id details details st';
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
@@ -2214,6 +2334,17 @@ select.field__control {
   color: inherit;
 }
 
+/* Bọc 2 cột thưởng/thực nhận để hạ xuống 2 hàng khi hẹp mà không ẩn dữ liệu. */
+.revenue-row__details {
+  grid-area: details;
+  display: contents;
+}
+
+.revenue-row__status {
+  grid-area: st;
+  justify-self: end;
+}
+
 .revenue-row:hover {
   background: var(--color-surface-raised);
   border-color: var(--color-border-strong);
@@ -2221,10 +2352,17 @@ select.field__control {
 
 @media (max-width: 1100px) {
   .revenue-row {
-    grid-template-columns: 2fr 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'id st'
+      'details details';
+    row-gap: var(--space-2);
   }
-  .revenue-row__detail {
-    display: none;
+
+  .revenue-row__details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
   }
 }
 
@@ -2238,6 +2376,7 @@ select.field__control {
 .revenue-row__name {
   font-weight: 600;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .revenue-row__meta {
@@ -2270,13 +2409,29 @@ select.field__control {
   border-color: var(--color-success);
 }
 
-.revenue-detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.revenue-detail {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
 }
 
-@media (max-width: 960px) {
+.revenue-detail__profit {
+  border-color: var(--color-border-strong);
+}
+
+.revenue-detail__tx {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.revenue-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
   .revenue-detail-grid {
     grid-template-columns: 1fr;
   }
@@ -2303,6 +2458,45 @@ select.field__control {
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* Project detail: 2 cột khi rộng, nội dung dài tự cuộn */
+.project-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.project-detail__status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.project-detail__text {
+  max-height: 18rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.project-detail__notes-input {
+  min-height: 10rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 1100px) {
+  .project-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .project-detail__notes {
+    grid-column: 1 / -1;
+  }
 }
 
 .points-hint {
@@ -2736,13 +2930,21 @@ select.field__control {
   margin: 0;
 }
 
+.scan-results__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .scan-table {
   display: flex;
   flex-direction: column;
+  max-height: calc(100vh - 20rem);
+  overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .scan-table__head,
@@ -2755,6 +2957,10 @@ select.field__control {
 }
 
 .scan-table__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
   font-size: 0.8125rem;
   color: var(--color-muted);
   border-bottom: 1px solid var(--color-border);
@@ -2785,4 +2991,36 @@ select.field__control {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+}
+
+/* ---------- U8: khoá overflow với dữ liệu dài ---------- */
+/* Card/khối không được rộng hơn khung; thân tự cuộn thay vì đẩy layout. */
+.card,
+.summary-card,
+.news-panel,
+.scan-results,
+.scan-table,
+.project-row,
+.revenue-row,
+.settings-provider,
+.pending-action,
+.chat-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+.project-row__name,
+.project-row__task,
+.revenue-row__name,
+.definition-list dd,
+.pending-action__title,
+.pending-action__details,
+.chat-message-attachment__name,
+.settings-provider__name {
+  overflow-wrap: anywhere;
+}
+
+.scan-table__name strong,
+.scan-table__note {
+  overflow-wrap: anywhere;
 }

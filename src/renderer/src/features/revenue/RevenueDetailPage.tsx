@@ -130,45 +130,9 @@ export function RevenueDetailPage({ revenueId }: { revenueId: number }): React.J
         </div>
       </div>
 
-      <div className="revenue-detail-grid">
-        <section className="card stack">
-          <h2>Thưởng</h2>
-          <dl className="definition-list">
-            <dt>Ước tính</dt>
-            <dd>
-              {entry.estimatedAmount !== null ? `${formatAmount(entry.estimatedAmount, entry.rewardSymbol)}` : 'Chưa rõ'}
-              {!isPoints && entry.estimatedUsd !== null ? <span className="muted"> (≈ {formatUsd(entry.estimatedUsd)})</span> : null}
-            </dd>
-            <dt>Thực nhận</dt>
-            <dd>
-              {entry.claimStatus === 'claimed' && entry.receivedAmount !== null
-                ? formatAmount(entry.receivedAmount, entry.rewardSymbol)
-                : 'Chưa nhận'}
-              {!isPoints && entry.receivedUsd !== null ? <span className="muted"> (≈ {formatUsd(entry.receivedUsd)})</span> : null}
-            </dd>
-            <dt>Ngày nhận</dt>
-            <dd>{entry.receivedAt ?? 'Chưa rõ'}</dd>
-            <dt>Trạng thái</dt>
-            <dd><span className={`claim-badge claim-badge--${entry.claimStatus}`}>{CLAIM_LABELS[entry.claimStatus]}</span></dd>
-          </dl>
-        </section>
-
-        <section className="card stack">
-          <h2>Chi phí</h2>
-          <dl className="definition-list">
-            <dt>Chi phí tham gia</dt>
-            <dd>{formatUsd(entry.participationCostUsd)}</dd>
-            <dt>Phí giao dịch</dt>
-            <dd>{formatUsd(entry.txFeeUsd)}</dd>
-            <dt>Tổng chi phí</dt>
-            <dd><strong>{formatUsd(totalCost)}</strong></dd>
-            <dt>Loại thưởng</dt>
-            <dd>{KIND_LABELS[entry.rewardKind]}</dd>
-          </dl>
-        </section>
-
-        <section className="card stack">
-          <h2>Lãi / lỗ</h2>
+      <div className="revenue-detail">
+        <section className="card stack revenue-detail__profit">
+          <h2>Lãi thực tế</h2>
           {profit === null ? (
             <p className="muted">
               {isPoints
@@ -177,7 +141,6 @@ export function RevenueDetailPage({ revenueId }: { revenueId: number }): React.J
             </p>
           ) : (
             <>
-              <p className="summary-card__label">Lãi thực tế</p>
               <p className={`summary-card__value ${profit < 0 ? 'summary-card__value--negative' : 'summary-card__value--positive'}`}>
                 {formatUsd(profit)}
               </p>
@@ -186,30 +149,70 @@ export function RevenueDetailPage({ revenueId }: { revenueId: number }): React.J
           )}
         </section>
 
-        <section className="card stack">
-          <h2>Bằng chứng</h2>
-          <dl className="definition-list">
-            <dt>Tx Hash</dt>
-            <dd className="mono">{entry.txHash ?? '—'}</dd>
-            <dt>Ghi chú bằng chứng</dt>
-            <dd>{entry.evidenceNote ?? '—'}</dd>
-            <dt>File bằng chứng</dt>
-            <dd>
-              {entry.evidenceFile ? (
-                <span className="chip">{entry.evidenceFile}</span>
-              ) : (
-                <span className="muted">Chưa đính kèm</span>
-              )}
-            </dd>
-            <dt>Ghi chú</dt>
-            <dd>{entry.note || '—'}</dd>
-          </dl>
-          <div>
-            <Button loading={attaching} disabled={isAiBusy || attaching} onClick={() => void handleAttachEvidence()}>
-              Đính kèm file bằng chứng
-            </Button>
+        <div className="revenue-detail-grid">
+          <section className="card stack">
+            <h2>Thưởng</h2>
+            <dl className="definition-list">
+              <dt>Ước tính</dt>
+              <dd>
+                {entry.estimatedAmount !== null ? `${formatAmount(entry.estimatedAmount, entry.rewardSymbol)}` : 'Chưa rõ'}
+                {!isPoints && entry.estimatedUsd !== null ? <span className="muted"> (≈ {formatUsd(entry.estimatedUsd)})</span> : null}
+              </dd>
+              <dt>Thực nhận</dt>
+              <dd>
+                {entry.claimStatus === 'claimed' && entry.receivedAmount !== null
+                  ? formatAmount(entry.receivedAmount, entry.rewardSymbol)
+                  : 'Chưa nhận'}
+                {!isPoints && entry.receivedUsd !== null ? <span className="muted"> (≈ {formatUsd(entry.receivedUsd)})</span> : null}
+              </dd>
+              <dt>Ngày nhận</dt>
+              <dd>{entry.receivedAt ?? 'Chưa rõ'}</dd>
+              <dt>Trạng thái</dt>
+              <dd><span className={`claim-badge claim-badge--${entry.claimStatus}`}>{CLAIM_LABELS[entry.claimStatus]}</span></dd>
+            </dl>
+          </section>
+
+          <div className="stack">
+            <section className="card stack">
+              <h2>Chi phí</h2>
+              <dl className="definition-list">
+                <dt>Chi phí tham gia</dt>
+                <dd>{formatUsd(entry.participationCostUsd)}</dd>
+                <dt>Phí giao dịch</dt>
+                <dd>{formatUsd(entry.txFeeUsd)}</dd>
+                <dt>Tổng chi phí</dt>
+                <dd><strong>{formatUsd(totalCost)}</strong></dd>
+                <dt>Loại thưởng</dt>
+                <dd>{KIND_LABELS[entry.rewardKind]}</dd>
+              </dl>
+            </section>
+
+            <section className="card stack">
+              <h2>Bằng chứng</h2>
+              <dl className="definition-list">
+                <dt>Tx Hash</dt>
+                <dd className="mono revenue-detail__tx">{entry.txHash ?? '—'}</dd>
+                <dt>Ghi chú bằng chứng</dt>
+                <dd>{entry.evidenceNote ?? '—'}</dd>
+                <dt>File bằng chứng</dt>
+                <dd>
+                  {entry.evidenceFile ? (
+                    <span className="chip">{entry.evidenceFile}</span>
+                  ) : (
+                    <span className="muted">Chưa đính kèm</span>
+                  )}
+                </dd>
+                <dt>Ghi chú</dt>
+                <dd>{entry.note || '—'}</dd>
+              </dl>
+              <div>
+                <Button loading={attaching} disabled={isAiBusy || attaching} onClick={() => void handleAttachEvidence()}>
+                  Đính kèm file bằng chứng
+                </Button>
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
       </div>
 
       <RevenueFormDialog

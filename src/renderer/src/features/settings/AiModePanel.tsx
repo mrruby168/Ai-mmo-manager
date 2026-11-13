@@ -24,7 +24,7 @@ export function AiModePanel({ aiMode, onChanged }: { aiMode: AiMode; onChanged: 
   }
 
   return (
-    <section className="card stack">
+    <section className="card stack ai-mode-bar">
       <div className="section-title">
         <h2>Chế độ hoạt động</h2>
         <span className="muted">{aiMode === 'ai' ? 'AI Mode' : 'No AI Mode'}</span>
