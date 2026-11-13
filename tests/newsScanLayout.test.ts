@@ -64,3 +64,22 @@ describe('FIX 3: News/Scan bỏ card chọn Model, Chat giữ nguyên', () => {
     expect(chat).not.toContain('TaskModelCard')
   })
 })
+
+describe('U1: Activity Log của News nằm cuối trang và mở rộng được', () => {
+  const news = readSource(NEWS_PAGE)
+
+  it('log đứng sau news-grid', () => {
+    expect(news.indexOf('<AiActivityLog')).toBeGreaterThan(news.indexOf('className="news-grid"'))
+  })
+
+  it('có nút mở rộng và class mở rộng', () => {
+    expect(news).toContain('Mở rộng nhật ký')
+    expect(news).toContain('Thu gọn nhật ký')
+    expect(news).toContain('ai-log--expanded')
+  })
+
+  it('bấm Check News thì cuộn tới log', () => {
+    expect(news).toContain('scrollIntoView({ block: \'nearest\'')
+    expect(news).toContain("prefers-reduced-motion: reduce")
+  })
+})

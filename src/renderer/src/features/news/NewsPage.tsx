@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   AppSettings,
   DeadlineItem,
@@ -92,6 +92,8 @@ export function NewsPage(): React.JSX.Element {
   const [formBusy, setFormBusy] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<NewsItem | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [logExpanded, setLogExpanded] = useState(false)
+  const logRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     const [listResult, projectsResult, settingsResult] = await Promise.all([
@@ -133,6 +135,12 @@ export function NewsPage(): React.JSX.Element {
     }
   }, [isAiEnabled])
 
+  /** Log nằm cuối trang: cuộn tới để người dùng thấy tiến trình khi vừa bấm Check News. */
+  function revealLog(): void {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    logRef.current?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
+  }
+
   async function handleCheck(): Promise<void> {
     if (checking || promptLoading || newsBusy) {
       return
@@ -157,6 +165,7 @@ export function NewsPage(): React.JSX.Element {
       return
     }
 
+    revealLog()
     setChecking(true)
     const result = await window.api.news.check()
     setChecking(false)
@@ -351,11 +360,6 @@ export function NewsPage(): React.JSX.Element {
 
       {error ? <ErrorBlock message={error} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
 
-      <AiActivityLog
-        channel="news"
-        emptyText="Chưa có hoạt động. Bấm Check News để bắt đầu."
-      />
-
       <div className="news-grid">
         <section className="card stack news-panel news-panel--important">
           <div className="section-title news-panel__head">
@@ -528,6 +532,25 @@ export function NewsPage(): React.JSX.Element {
               </div>
             )}
           </section>
+      </div>
+
+      <div ref={logRef}>
+        <AiActivityLog
+          channel="news"
+          className={logExpanded ? 'ai-log--expanded' : undefined}
+          emptyText="Chưa có hoạt động. Bấm Check News để bắt đầu."
+        />
+      </div>
+
+      <div className="ai-log-actions">
+        <button
+          type="button"
+          className="ai-log-actions__button"
+          aria-expanded={logExpanded}
+          onClick={() => setLogExpanded((current) => !current)}
+        >
+          {logExpanded ? 'Thu gọn nhật ký' : 'Mở rộng nhật ký'}
+        </button>
       </div>
 
       <Modal
