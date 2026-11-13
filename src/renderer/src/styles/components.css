@@ -447,10 +447,11 @@ select.field__control {
 
 .project-row {
   display: grid;
-  grid-template-columns: 2.2fr 2fr 1.2fr 1fr 0.8fr;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 2fr) minmax(0, 1.2fr) auto auto;
+  grid-template-areas: 'id task dl st cost';
   align-items: center;
   gap: var(--space-4);
-  min-height: 4rem;
+  min-height: 4.75rem;
   padding: var(--space-3) var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -459,6 +460,19 @@ select.field__control {
   text-align: left;
   color: inherit;
   transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.project-row__status {
+  grid-area: st;
+  justify-self: start;
+}
+
+.project-row__cost {
+  grid-area: cost;
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .project-row:hover {
@@ -471,6 +485,7 @@ select.field__control {
 }
 
 .project-row__identity {
+  grid-area: id;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -483,12 +498,14 @@ select.field__control {
 }
 
 .project-row__task {
+  grid-area: task;
   color: var(--color-muted);
   font-size: 0.875rem;
   min-width: 0;
 }
 
 .project-row__deadline {
+  grid-area: dl;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -513,12 +530,18 @@ select.field__control {
 }
 
 @media (max-width: 1100px) {
+  /* Hẹp: chuyển 2 hàng, không ẩn dữ liệu nào. */
   .project-row {
-    grid-template-columns: 2fr 1.4fr 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+    grid-template-areas:
+      'id dl st'
+      'task task cost';
+    align-items: center;
+    row-gap: var(--space-2);
   }
-  .project-row__task,
+
   .project-row__cost {
-    display: none;
+    justify-self: end;
   }
 }
 

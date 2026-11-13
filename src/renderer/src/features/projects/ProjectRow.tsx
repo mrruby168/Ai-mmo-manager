@@ -18,9 +18,9 @@ export function ProjectRow({ project, onOpen }: { project: Project; onOpen: () =
     >
       <span className="project-row__identity">
         <ProjectLogo projectId={project.id} name={project.name} hasLogo={Boolean(project.logoPath)} />
-        <span className="project-row__name text-clamp-1">{project.name}</span>
+        <span className="project-row__name text-clamp-2">{project.name}</span>
       </span>
-      <span className="project-row__task text-clamp-1">
+      <span className="project-row__task text-clamp-2">
         <span className="muted">{CATEGORY_LABEL[project.category]} · </span>
         {summary}
       </span>
@@ -28,7 +28,7 @@ export function ProjectRow({ project, onOpen }: { project: Project; onOpen: () =
         <span>{project.endDate ?? 'Chưa rõ'}</span>
         <span className={`deadline--${deadline.tone}`}>{deadline.text}</span>
       </span>
-      <span>
+      <span className="project-row__status">
         <StatusBadge status={project.status} />
       </span>
       <span className="project-row__cost">
