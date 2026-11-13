@@ -1410,17 +1410,6 @@ select.field__control {
 }
 
 /* Scan table */
-.scan-group + .scan-group {
-  margin-top: var(--space-6);
-}
-
-.scan-group__title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
 .scan-submit-bar {
   position: sticky;
   bottom: 0;
@@ -2019,35 +2008,6 @@ select.field__control {
   display: grid;
   gap: var(--space-1);
   font-size: 0.9375rem;
-}
-
-.scan-row {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-
-.scan-row--disabled {
-  opacity: 0.62;
-}
-
-.scan-row__name {
-  font-weight: 600;
-}
-
-.scan-row__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.scan-row__sources {
-  gap: var(--space-3);
 }
 
 .link-button {
@@ -2769,4 +2729,60 @@ select.field__control {
   .ai-log__bar-fill {
     transition: none;
   }
+}
+
+/* Scan: bảng chọn dự án gọn */
+.scan-results__hint {
+  margin: 0;
+}
+
+.scan-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.scan-table__head,
+.scan-table__row {
+  display: grid;
+  grid-template-columns: 2rem minmax(9rem, 1.2fr) minmax(12rem, 3fr) minmax(8rem, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+}
+
+.scan-table__head {
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.scan-table__row + .scan-table__row {
+  border-top: 1px solid var(--color-border);
+}
+
+.scan-table__row {
+  cursor: pointer;
+}
+
+.scan-table__row--disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.scan-table__name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.scan-table__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
 }

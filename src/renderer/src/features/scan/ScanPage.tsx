@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import type { AiLogProgress, AppSettings, ScanItem } from '@shared/types'
 import { progressPercent } from '@shared/aiLog'
 import {
-  groupScanRows,
   isScanRowSelectable,
   scanRowKey,
   selectedScanNames,
@@ -10,17 +9,15 @@ import {
   toggleScanIndex,
   toggleScanIndexes
 } from '@shared/scanSelection'
-import type { ScanRowEntry } from '@shared/scanSelection'
 import {
   chainWarnings,
   effectiveChain,
   firstRunnable,
   listModelChoices
 } from '@shared/modelConfig'
-import { Badge, CostBadge, RiskBadge, VerificationBadge } from '../../common/Badge'
+import { Badge, CostBadge, RiskBadge } from '../../common/Badge'
 import { Button } from '../../common/Button'
 import { EmptyState, ErrorBlock } from '../../common/EmptyState'
-import { ExternalLink } from '../../common/ExternalLink'
 import { AiActivityLog } from '../../common/AiActivityLog'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
@@ -263,15 +260,13 @@ export function ScanPage(): React.JSX.Element {
     }
     const data = result.data
     setSubmitMessage(
-      `Đã thêm ${data.addedCount} dự án${data.duplicateCount > 0 ? `, trùng ${data.duplicateCount}` : ''}${
-        data.failedCount > 0 ? `, lỗi ${data.failedCount}` : ''
+      `Đã thêm ${data.addedCount} dự án vào danh sách${data.duplicateCount > 0 ? `, ${data.duplicateCount} đã có sẵn` : ''}${
+        data.failedCount > 0 ? `, ${data.failedCount} lỗi` : ''
       }`
     )
     const failed = data.results.filter((entry) => entry.error)
     if (failed.length > 0) {
-      pushToast(`Có ${failed.length} dự án không thêm được: ${failed.map((entry) => `${entry.name} — ${entry.error}`).join('; ')}`, 'error')
-    } else {
-      pushToast(`Đã thêm ${data.addedCount} dự án`, 'success')
+      pushToast(`Không thêm được: ${failed.map((entry) => `${entry.name} (${entry.error})`).join('; ')}`, 'error')
     }
     setSelected(new Set())
     refreshData()
@@ -280,10 +275,6 @@ export function ScanPage(): React.JSX.Element {
   const canScan = isAiEnabled && !scanBusy && !scanning && text.trim().length > 0 && scanDisabledReason === null
   const allSelectable = selectableIndexes()
   const allSelected = allSelectable.length > 0 && allSelectable.every((index) => selected.has(index))
-
-  const eventItems = groupScanRows(items, 'event_mmo')
-  const airdropItems = groupScanRows(items, 'airdrop')
-  const insufficientItems = groupScanRows(items, 'insufficient')
 
   const percent = progressPercent(progress.done, progress.total)
 
@@ -438,63 +429,38 @@ export function ScanPage(): React.JSX.Element {
             </Button>
           </div>
 
-          {message ? (
-            <div className="banner banner--info" role="status">
-              {message}
-            </div>
-          ) : null}
-
-          {submitMessage ? (
-            <div className="banner banner--info" role="status">
-              {submitMessage}
-            </div>
-          ) : null}
-
           {items && items.length > 0 ? (
             <>
-              {eventItems.length > 0 ? (
-                <ScanGroup
-                  title={CATEGORY_LABELS.event_mmo}
-                  rows={eventItems}
-                  selected={selected}
-                  onToggleItem={toggleItem}
-                  onToggleAll={(indexes) => setSelected((current) => toggleScanIndexes(current, indexes))}
-                />
-              ) : null}
-              {airdropItems.length > 0 ? (
-                <ScanGroup
-                  title={CATEGORY_LABELS.airdrop}
-                  rows={airdropItems}
-                  selected={selected}
-                  onToggleItem={toggleItem}
-                  onToggleAll={(indexes) => setSelected((current) => toggleScanIndexes(current, indexes))}
-                />
-              ) : null}
-              {insufficientItems.length > 0 ? (
-                <div className="scan-group">
-                  <div className="scan-group__title">
-                    <h2>Không đủ bằng chứng</h2>
-                    <Badge tone="neutral">{insufficientItems.length} không chọn được</Badge>
-                  </div>
-                  <div className="project-rows">
-                    {insufficientItems.map(({ item, index }) => (
-                      <div className="scan-row scan-row--disabled" key={scanRowKey(item, index)}>
-                        <span className="scan-row__name">{item.name}</span>
-                        <span className="muted">{item.taskSummary || 'AI không xác minh được dự án này'}</span>
-                      </div>
-                    ))}
-                  </div>
+              <p className="muted scan-results__hint">
+                Chọn dự án muốn thêm vào danh sách rồi bấm OK. AI chỉ thêm những dự án bạn đã chọn.
+              </p>
+              <div className="scan-table" role="table" aria-label="Kết quả quét">
+                <div className="scan-table__head" role="row">
+                  <span role="columnheader">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      disabled={allSelectable.length === 0}
+                      onChange={toggleAll}
+                      aria-label="Chọn tất cả dự án có thể thêm"
+                    />
+                  </span>
+                  <span role="columnheader">Dự án</span>
+                  <span role="columnheader">Đánh giá ngắn</span>
+                  <span role="columnheader">Chi phí · Rủi ro</span>
                 </div>
-              ) : null}
+                {items.map((item, index) => (
+                  <ScanRow
+                    key={scanRowKey(item, index)}
+                    item={item}
+                    selected={selected.has(index)}
+                    onToggle={() => toggleItem(index)}
+                  />
+                ))}
+              </div>
 
               <div className="scan-submit-bar">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  aria-label="Chọn tất cả dự án có thể thêm"
-                />
-                <span>Đã chọn {selected.size}</span>
+                <span>{submitMessage ?? `Đã chọn ${selected.size}/${allSelectable.length} dự án`}</span>
                 <span className="spacer" />
                 <Button
                   variant="primary"
@@ -502,14 +468,14 @@ export function ScanPage(): React.JSX.Element {
                   loading={submitting}
                   onClick={() => void handleSubmit()}
                 >
-                  Gửi
+                  {selected.size > 0 ? `OK – Thêm ${selected.size} dự án` : 'OK'}
                 </Button>
               </div>
             </>
           ) : items && items.length === 0 ? (
             <EmptyState
-              title="Không tìm thấy dự án"
-              message={message ?? 'AI không xác định được dự án nào từ nội dung đã dán.'}
+              title="Không có dự án mới để thêm"
+              message={message ?? 'Không tìm thấy dự án nào, hoặc tất cả đã có trong app.'}
             />
           ) : null}
         </section>
@@ -518,75 +484,29 @@ export function ScanPage(): React.JSX.Element {
   )
 }
 
-function ScanGroup({
-  title,
-  rows,
-  selected,
-  onToggleItem,
-  onToggleAll
-}: {
-  title: string
-  rows: ScanRowEntry[]
-  selected: Set<number>
-  onToggleItem: (index: number) => void
-  onToggleAll: (indexes: number[]) => void
-}): React.JSX.Element {
-  const group = rows.filter(({ item }) => isScanRowSelectable(item))
-  const all = group.length > 0 && group.every(({ index }) => selected.has(index))
-
-  return (
-    <div className="scan-group">
-      <div className="scan-group__title">
-        <h2>{title}</h2>
-        <Badge tone="neutral">{rows.length} dự án</Badge>
-        {group.length > 0 ? (
-          <button type="button" className="link-button" onClick={() => onToggleAll(group.map(({ index }) => index))}>
-            {all ? 'Bỏ chọn nhóm này' : 'Chọn tất cả nhóm này'}
-          </button>
-        ) : null}
-      </div>
-      <div className="project-rows">
-        {rows.map(({ item, index }) => (
-          <ScanRow
-            key={scanRowKey(item, index)}
-            item={item}
-            selected={selected.has(index)}
-            onToggle={() => onToggleItem(index)}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function ScanRow({ item, selected, onToggle }: { item: ScanItem; selected: boolean; onToggle: () => void }): React.JSX.Element {
-  const locked = item.duplicateOf !== null
+  const selectable = isScanRowSelectable(item)
+  const insufficient = item.category === 'insufficient'
   return (
-    <div className={`scan-row${locked ? ' scan-row--disabled' : ''}`}>
-      <label className="row">
-        <input type="checkbox" checked={selected} disabled={locked} onChange={onToggle} aria-label={`Chọn ${item.name}`} />
-        <span className="scan-row__name">{item.name}</span>
-        {locked ? <Badge tone="warning">Đã có trong app</Badge> : null}
-      </label>
-      <div className="scan-row__body">
-        <div className="row row--wrap">
-          <CostBadge costType={item.costType} amountUsd={item.costType === 'paid' ? item.costAmountUsd : null} />
-          <VerificationBadge verification={item.verification} />
-          <RiskBadge level={item.riskLevel} />
-          {item.endDate ? <span className="muted">Hạn: {item.endDate}</span> : <span className="muted">Hạn: Chưa rõ</span>}
-        </div>
-        <p className="muted">{item.taskSummary || item.potential || 'Chưa có mô tả chi tiết'}</p>
-        {item.howToJoin ? <p className="muted text-clamp-2">Cách tham gia: {item.howToJoin}</p> : null}
-        <div className="scan-row__sources row row--wrap">
-          {item.website ? <ExternalLink url={item.website}>Website</ExternalLink> : null}
-          {item.sources.map((source, sourceIndex) => (
-            <ExternalLink key={`${sourceIndex}:${source}`} url={source}>
-              Nguồn
-            </ExternalLink>
-          ))}
-        </div>
-        {item.riskReason ? <p className="muted">Rủi ro: {item.riskReason}</p> : null}
-      </div>
-    </div>
+    <label className={`scan-table__row${selectable ? '' : ' scan-table__row--disabled'}`} role="row">
+      <span role="cell">
+        <input type="checkbox" checked={selected} disabled={!selectable} onChange={onToggle} aria-label={`Chọn ${item.name}`} />
+      </span>
+      <span role="cell" className="scan-table__name">
+        <strong>{item.name}</strong>
+        <Badge tone="neutral">{insufficient ? 'Không đủ bằng chứng' : CATEGORY_LABELS[item.category] ?? item.category}</Badge>
+      </span>
+      <span role="cell" className="scan-table__note">
+        {item.summary || item.taskSummary || 'Chưa có đánh giá'}
+      </span>
+      <span role="cell" className="scan-table__meta">
+        {insufficient ? null : (
+          <>
+            <CostBadge costType={item.costType} amountUsd={item.costType === 'paid' ? item.costAmountUsd : null} />
+            <RiskBadge level={item.riskLevel} />
+          </>
+        )}
+      </span>
+    </label>
   )
 }

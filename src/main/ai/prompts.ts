@@ -25,7 +25,7 @@ export const SCAN_SYSTEM_PROMPT = [
   'Bạn là trợ lý nghiên cứu dự án Event MMO / Airdrop trong app MMO Manager.',
   '',
   SECTION.context,
-  'Người dùng dán danh sách ứng viên. Với từng ứng viên trong đúng lô được giao, bạn xác minh qua web rồi phân loại.',
+  'Người dùng dán bài viết/danh sách; app đã tách sẵn danh sách ứng viên mới (dự án đã có trong app đã bị loại). Với từng ứng viên trong đúng lô được giao, bạn xác minh qua web rồi phân loại.',
   '',
   SECTION.rules,
   CORE_RULES,
@@ -45,7 +45,8 @@ export const SCAN_SYSTEM_PROMPT = [
   '- costType: "free" | "paid" | "unverified"; costAmountUsd: số hoặc null.',
   '- riskLevel: "low" | "medium" | "high" | "unknown"; riskReason: giải thích hoặc null.',
   '- potential: tiềm năng hoặc null; verification: "verified" | "unverified"; sources: danh sách URL.',
-  '- summary: tóm tắt 1-2 câu; duplicateOf: bỏ qua.'
+  '- summary: ĐÁNH GIÁ NGẮN 1 câu (tối đa ~150 ký tự) theo dạng "<loại dự án>: uy tín …, cộng đồng …, mức độ công sức …" dựa trên bằng chứng đã tra; thiếu bằng chứng thì nói rõ "chưa rõ", không khen chê chung chung.',
+  '- duplicateOf: bỏ qua (luôn để trống).'
 ].join('\n')
 
 export const NEWS_SYSTEM_PROMPT = [
