@@ -88,7 +88,7 @@ export function SettingsPage(): React.JSX.Element {
       {!error && settings ? <AiModePanel aiMode={settings.aiMode} onChanged={refreshData} /> : null}
 
       {!error && settings ? (
-        <div className="settings-panel">
+        <div className={`settings-panel settings-panel--${section}`}>
           {section === 'ai' ? <AiSettingsPanel providers={providers} onChanged={refreshData} /> : null}
           {section === 'models' ? (
             <ModelConfigPanel ai={settings.ai} providers={providers} onChanged={refreshData} />

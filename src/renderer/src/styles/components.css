@@ -1662,6 +1662,52 @@ select.field__control {
 /* Settings */
 .settings-tabs {
   margin-bottom: var(--space-4);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+
+/* 6 tab luôn nằm một hàng, cuộn ngang khi hẹp. */
+.settings-tabs .segmented {
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: none;
+}
+
+.settings-tabs .segmented__item {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.ai-mode-bar {
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+}
+
+.ai-mode-bar p {
+  font-size: 0.8125rem;
+}
+
+@media (min-width: 1100px) {
+  /* Nội dung Settings chia 2 cột; Model Configuration chiếm hết chiều rộng. */
+  .settings-panel > .stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .settings-panel > .stack > .settings-toolbar,
+  .settings-panel > .stack > .banner {
+    grid-column: 1 / -1;
+  }
+
+  .settings-panel--models > .stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-panel--models .card {
+    grid-column: 1 / -1;
+  }
 }
 
 .settings-toolbar {

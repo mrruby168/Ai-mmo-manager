@@ -9,6 +9,8 @@ const PROJECT_ROW = join(SRC, 'features', 'projects', 'ProjectRow.tsx')
 const PROJECT_DETAIL = join(SRC, 'features', 'projects', 'ProjectDetailPage.tsx')
 const REVENUE_PAGE = join(SRC, 'features', 'revenue', 'RevenuePage.tsx')
 const REVENUE_DETAIL = join(SRC, 'features', 'revenue', 'RevenueDetailPage.tsx')
+const SETTINGS_PAGE = join(SRC, 'features', 'settings', 'SettingsPage.tsx')
+const AI_MODE_PANEL = join(SRC, 'features', 'settings', 'AiModePanel.tsx')
 
 // CI checkouts may use CRLF; normalize so multi-line assertions stay stable.
 const readSource = (path: string): string => readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
@@ -104,5 +106,32 @@ describe('U5: Revenue nổi bật số tiền và không ẩn dữ liệu', () =
   it('Tx Hash dài tự xuống dòng', () => {
     expect(detail).toContain('mono revenue-detail__tx')
     expect(baseCss).toMatch(/\.revenue-detail__tx\s*\{[^}]*overflow-wrap:\s*anywhere/)
+  })
+})
+
+describe('U6: Settings tab một hàng và nội dung 2 cột', () => {
+  const page = readSource(SETTINGS_PAGE)
+  const mode = readSource(AI_MODE_PANEL)
+
+  it('giữ đủ 6 tab, không đổi tên', () => {
+    expect(page.match(/id: '/g)?.length).toBe(6)
+    expect(page).toContain("label: 'Model Configuration'")
+  })
+
+  it('tab không xuống hàng, cuộn ngang khi hẹp', () => {
+    expect(baseCss).toMatch(/\.settings-tabs\s*\{[^}]*overflow-x:\s*auto/)
+    expect(baseCss).toMatch(/\.settings-tabs \.segmented\s*\{[^}]*flex-wrap:\s*nowrap/)
+    expect(baseCss).toMatch(/\.settings-tabs \.segmented__item\s*\{[^}]*white-space:\s*nowrap/)
+  })
+
+  it('nội dung 2 cột khi ≥1100px, Model Configuration full chiều rộng', () => {
+    expect(page).toContain('settings-panel--${section}')
+    expect(css).toMatch(/@media \(min-width: 1100px\)[\s\S]*?\.settings-panel > \.stack\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/)
+    expect(css).toMatch(/\.settings-panel--models > \.stack\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/)
+  })
+
+  it('thanh AI Mode gọn hơn', () => {
+    expect(mode).toContain('ai-mode-bar')
+    expect(baseCss).toMatch(/\.ai-mode-bar\s*\{[^}]*padding:\s*var\(--space-3\) var\(--space-4\)/)
   })
 })
