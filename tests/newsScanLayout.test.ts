@@ -83,3 +83,34 @@ describe('U1: Activity Log của News nằm cuối trang và mở rộng đượ
     expect(news).toContain("prefers-reduced-motion: reduce")
   })
 })
+
+describe('U2: Scan đưa log xuống cuối và bảng kết quả cuộn được', () => {
+  const scan = readSource(SCAN_PAGE)
+  const css = readSource(COMPONENTS)
+
+  it('log đứng sau khối nhập/kết quả', () => {
+    expect(scan.indexOf('<AiActivityLog')).toBeGreaterThan(scan.indexOf("view === 'input'"))
+    expect(scan.indexOf('<AiActivityLog')).toBeGreaterThan(scan.indexOf('scan-results'))
+  })
+
+  it('thanh tiến độ quét nằm ngay trên log', () => {
+    expect(scan.lastIndexOf('Tiến độ quét')).toBeGreaterThan(scan.indexOf("view === 'input'"))
+    expect(scan.indexOf('<AiActivityLog')).toBeGreaterThan(scan.lastIndexOf('Tiến độ quét'))
+  })
+
+  it('có nút mở rộng nhật ký và tự cuộn tới log', () => {
+    expect(scan).toContain('ai-log--expanded')
+    expect(scan).toContain('scrollIntoView({ block: \'nearest\'')
+  })
+
+  it('có chip đếm theo loại nhưng vẫn một bảng duy nhất', () => {
+    expect(scan).toContain('Không đủ bằng chứng {scanCounts.insufficient}')
+    expect(scan.match(/role="table"/g)?.length).toBe(1)
+  })
+
+  it('bảng kết quả cuộn được và header dính trên cùng', () => {
+    expect(css).toMatch(/\.scan-table\s*\{[^}]*max-height:\s*calc\(100vh - 20rem\)/)
+    expect(css).toMatch(/\.scan-table\s*\{[^}]*overflow-y:\s*auto/)
+    expect(css).toMatch(/\.scan-table__head\s*\{[^}]*position:\s*sticky/)
+  })
+})

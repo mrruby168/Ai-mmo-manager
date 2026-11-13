@@ -1918,7 +1918,7 @@ select.field__control {
 .scan-drop {
   position: relative;
   flex: 1 1 auto;
-  min-height: 14rem;
+  min-height: 22rem;
   display: flex;
   flex-direction: column;
   border: 1.5px dashed var(--color-border);
@@ -2757,13 +2757,21 @@ select.field__control {
   margin: 0;
 }
 
+.scan-results__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .scan-table {
   display: flex;
   flex-direction: column;
+  max-height: calc(100vh - 20rem);
+  overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .scan-table__head,
@@ -2776,6 +2784,10 @@ select.field__control {
 }
 
 .scan-table__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
   font-size: 0.8125rem;
   color: var(--color-muted);
   border-bottom: 1px solid var(--color-border);

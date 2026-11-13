@@ -47,6 +47,7 @@ export function ScanPage(): React.JSX.Element {
   const { pushToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragDepth = useRef(0)
+  const logRef = useRef<HTMLDivElement>(null)
 
   const [text, setText] = useState('')
   const [fileName, setFileName] = useState<string | null>(null)
@@ -62,6 +63,7 @@ export function ScanPage(): React.JSX.Element {
   const [submitting, setSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [logExpanded, setLogExpanded] = useState(false)
 
   useEffect(() => {
     void window.api.scan.latest().then((result) => {
@@ -192,6 +194,12 @@ export function ScanPage(): React.JSX.Element {
     }
   }
 
+  /** Log nằm cuối trang: cuộn tới để người dùng thấy tiến trình khi vừa bấm Scan. */
+  function revealLog(): void {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    logRef.current?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
+  }
+
   async function handleScan(): Promise<void> {
     if (!isAiEnabled) {
       pushToast('Vui lòng bật AI Mode trong Settings để sử dụng Scan.', 'info')
@@ -200,6 +208,7 @@ export function ScanPage(): React.JSX.Element {
     if (scanBusy || scanning || text.trim().length === 0 || scanDisabledReason !== null) {
       return
     }
+    revealLog()
     setScanning(true)
     setLoadError(null)
     setSubmitMessage(null)
@@ -276,6 +285,13 @@ export function ScanPage(): React.JSX.Element {
   const allSelectable = selectableIndexes()
   const allSelected = allSelectable.length > 0 && allSelectable.every((index) => selected.has(index))
 
+  // Chip đếm theo loại: chỉ để xem nhanh, không nhóm lại bảng kết quả.
+  const scanCounts = {
+    event_mmo: (items ?? []).filter((item) => item.category === 'event_mmo').length,
+    airdrop: (items ?? []).filter((item) => item.category === 'airdrop').length,
+    insufficient: (items ?? []).filter((item) => item.category === 'insufficient').length
+  }
+
   const percent = progressPercent(progress.done, progress.total)
 
   return (
@@ -328,31 +344,6 @@ export function ScanPage(): React.JSX.Element {
           message={loadError}
           action={!scanning ? <Button onClick={() => void handleScan()}>Thử lại</Button> : undefined}
         />
-      ) : null}
-
-      <AiActivityLog
-        channel="scan"
-        showProgress={false}
-        emptyText="Chưa có hoạt động. Dán nội dung rồi bấm Scan để bắt đầu."
-      />
-
-      {progress.total > 0 ? (
-        <div className="scan-progress">
-          <div className="scan-progress__head">
-            <span>Tiến độ quét</span>
-            <span className="scan-progress__value">{percent}%</span>
-          </div>
-          <div
-            className="scan-progress__track"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent}
-            aria-label="Tiến độ quét"
-          >
-            <div className="scan-progress__fill" style={{ width: `${percent}%` }} />
-          </div>
-        </div>
       ) : null}
 
       {view === 'input' ? (
@@ -434,6 +425,11 @@ export function ScanPage(): React.JSX.Element {
               <p className="muted scan-results__hint">
                 Chọn dự án muốn thêm vào danh sách rồi bấm OK. AI chỉ thêm những dự án bạn đã chọn.
               </p>
+              <div className="scan-results__counts">
+                <span className="chip">Event MMO {scanCounts.event_mmo}</span>
+                <span className="chip">Airdrop {scanCounts.airdrop}</span>
+                <span className="chip">Không đủ bằng chứng {scanCounts.insufficient}</span>
+              </div>
               <div className="scan-table" role="table" aria-label="Kết quả quét">
                 <div className="scan-table__head" role="row">
                   <span role="columnheader">
@@ -480,6 +476,45 @@ export function ScanPage(): React.JSX.Element {
           ) : null}
         </section>
       )}
+
+      {progress.total > 0 ? (
+        <div className="scan-progress">
+          <div className="scan-progress__head">
+            <span>Tiến độ quét</span>
+            <span className="scan-progress__value">{percent}%</span>
+          </div>
+          <div
+            className="scan-progress__track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            aria-label="Tiến độ quét"
+          >
+            <div className="scan-progress__fill" style={{ width: `${percent}%` }} />
+          </div>
+        </div>
+      ) : null}
+
+      <div ref={logRef}>
+        <AiActivityLog
+          channel="scan"
+          showProgress={false}
+          className={logExpanded ? 'ai-log--expanded' : undefined}
+          emptyText="Chưa có hoạt động. Dán nội dung rồi bấm Scan để bắt đầu."
+        />
+      </div>
+
+      <div className="ai-log-actions">
+        <button
+          type="button"
+          className="ai-log-actions__button"
+          aria-expanded={logExpanded}
+          onClick={() => setLogExpanded((current) => !current)}
+        >
+          {logExpanded ? 'Thu gọn nhật ký' : 'Mở rộng nhật ký'}
+        </button>
+      </div>
     </div>
   )
 }
