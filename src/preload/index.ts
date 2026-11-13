@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import { EVENTS, IPC } from '../shared/ipc-channels'
-import type { AiProgress, IpcResult, LockState, RendererApi, UpdateState } from '../shared/types'
+import type { AiLogEvent, AiProgress, IpcResult, LockState, RendererApi, UpdateState } from '../shared/types'
 
 async function invoke<T>(channel: string, payload?: unknown): Promise<IpcResult<T>> {
   return (await ipcRenderer.invoke(channel, payload)) as IpcResult<T>
@@ -62,10 +62,14 @@ const api: RendererApi = {
     cancelAction: (actionId) => invoke(IPC.chatCancelAction, { actionId }),
     cancelTask: (channel) => invoke(IPC.aiCancel, channel ? { channel } : undefined)
   },
+  ai: {
+    getLog: (channel) => invoke(IPC.aiGetLog, { channel })
+  },
   settings: {
     get: () => invoke(IPC.settingsGet),
     setLastSelection: (selection) => invoke(IPC.settingsSetLastSelection, selection),
     setTaskSelection: (task, selection) => invoke(IPC.settingsSetTaskSelection, { task, selection }),
+    setModelConfig: (input) => invoke(IPC.settingsSetModelConfig, input),
     setAppearance: (appearance) => invoke(IPC.settingsSetAppearance, { appearance }),
     setAiMode: (aiMode) => invoke(IPC.settingsSetAiMode, { aiMode }),
     setDataPath: (payload) => invoke(IPC.settingsSetDataPath, payload),
@@ -100,6 +104,7 @@ const api: RendererApi = {
     onLockChanged: (listener) => subscribe<LockState>(EVENTS.lockChanged, listener),
     onDataChanged: (listener) => subscribe<{ entity: string }>(EVENTS.dataChanged, listener),
     onAiProgress: (listener) => subscribe<AiProgress>(EVENTS.aiProgress, listener),
+    onAiLog: (listener) => subscribe<AiLogEvent>(EVENTS.aiLog, listener),
     onUpdateState: (listener) => subscribe<UpdateState>(EVENTS.updateState, listener)
   }
 }

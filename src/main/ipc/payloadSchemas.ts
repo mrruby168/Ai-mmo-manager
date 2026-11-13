@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { PROJECT_CATEGORIES, WEB_SEARCH_PROVIDERS } from '@shared/constants'
+import { NEWS_CACHE_TTL_OPTIONS_MS } from '@shared/types'
 import {
   aiModeSchema,
   appearanceSchema,
@@ -18,12 +19,24 @@ import {
 
 /* ---------- chat ---------- */
 
+/** FIX 4: tệp đính kèm Chat chỉ là văn bản, tối đa 1 MB. */
+export const chatAttachmentPayload = z.object({
+  name: z.string().trim().min(1, 'Tên tệp không được rỗng').max(200),
+  text: z.string().max(1_000_000, 'Tệp lớn hơn 1 MB')
+})
+
 export const chatSendPayload = z.union([
-  z.object({
-    text: z.string().trim().min(1, 'Tin nhắn không được rỗng').max(60_000),
-    providerId: z.string().trim().min(1).max(100),
-    modelId: z.string().trim().min(1).max(200)
-  }),
+  z
+    .object({
+      text: z.string().trim().max(60_000),
+      providerId: z.string().trim().min(1).max(100),
+      modelId: z.string().trim().min(1).max(200),
+      attachment: chatAttachmentPayload.optional()
+    })
+    .refine((value) => value.text.length > 0 || Boolean(value.attachment), {
+      message: 'Tin nhắn không được rỗng',
+      path: ['text']
+    }),
   z.object({ choiceId: z.string().trim().min(1).max(64) })
 ])
 
@@ -33,6 +46,9 @@ export const actionIdPayload = z.object({ actionId: z.string().trim().min(1).max
 export const aiCancelPayload = z
   .object({ channel: z.enum(['news', 'scan', 'chat']).optional() })
   .optional()
+
+/** FIX 3: kênh cần lấy Activity Log. */
+export const aiLogPayload = z.object({ channel: z.enum(['news', 'scan', 'chat']) })
 
 /* ---------- projects ---------- */
 
@@ -150,6 +166,29 @@ export const taskSelectionPayload = z.object({
       modelId: z.string().trim().min(1).max(200)
     })
     .nullable()
+})
+
+/** FIX 2: chuỗi A1–A3 của một tác vụ + TTL cache News (chỉ áp dụng cho News). */
+export const modelConfigPayload = z.object({
+  task: z.enum(['news', 'scan', 'chat']),
+  chain: z
+    .array(
+      z.object({
+        providerId: z.string().trim().min(1).max(100),
+        modelId: z.string().trim().min(1).max(200)
+      })
+    )
+    .max(3)
+    .refine(
+      (chain) => new Set(chain.map((item) => `${item.providerId}::${item.modelId}`)).size === chain.length,
+      { message: 'Không chọn trùng model trong cùng một chuỗi' }
+    ),
+  newsCacheTtlMs: z
+    .number()
+    .refine((value) => (NEWS_CACHE_TTL_OPTIONS_MS as readonly number[]).includes(value), {
+      message: 'TTL cache News phải là 1 phút, 3 giờ hoặc 8 giờ'
+    })
+    .optional()
 })
 
 export const providerSavePayload = z.union([providerSaveSchema, providerSaveJsonSchema])

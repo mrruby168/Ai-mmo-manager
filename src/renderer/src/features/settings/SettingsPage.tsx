@@ -8,13 +8,15 @@ import { AiSettingsPanel } from './AiSettingsPanel'
 import { AiModePanel } from './AiModePanel'
 import { AppearancePanel } from './AppearancePanel'
 import { DataPathPanel } from './DataPathPanel'
+import { ModelConfigPanel } from './ModelConfigPanel'
 import { UpdatePanel } from './UpdatePanel'
 import { WebSearchPanel } from './WebSearchPanel'
 
-type SettingsSection = 'ai' | 'websearch' | 'data' | 'appearance' | 'update'
+type SettingsSection = 'ai' | 'models' | 'websearch' | 'data' | 'appearance' | 'update'
 
 const SECTIONS: Array<{ id: SettingsSection; label: string }> = [
   { id: 'ai', label: 'AI Settings' },
+  { id: 'models', label: 'Model Configuration' },
   { id: 'websearch', label: 'Web Search' },
   { id: 'data', label: 'Data Path' },
   { id: 'appearance', label: 'Appearance' },
@@ -57,7 +59,7 @@ export function SettingsPage(): React.JSX.Element {
       <div className="page-header">
         <div className="page-header__title">
           <h1>Settings</h1>
-          <span className="page-header__subtitle">Provider AI, thư mục dữ liệu và giao diện</span>
+          <span className="page-header__subtitle">Provider AI, model dự phòng, thư mục dữ liệu và giao diện</span>
         </div>
         {isAiBusy ? <span className="muted">AI đang thực thi — hoàn tất trước khi chỉnh Settings</span> : null}
       </div>
@@ -88,6 +90,9 @@ export function SettingsPage(): React.JSX.Element {
       {!error && settings ? (
         <div className="settings-panel">
           {section === 'ai' ? <AiSettingsPanel providers={providers} onChanged={refreshData} /> : null}
+          {section === 'models' ? (
+            <ModelConfigPanel ai={settings.ai} providers={providers} onChanged={refreshData} />
+          ) : null}
           {section === 'websearch' ? (
             <WebSearchPanel webSearch={settings.webSearch} onChanged={refreshData} />
           ) : null}

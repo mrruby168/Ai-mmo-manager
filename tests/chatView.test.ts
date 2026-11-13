@@ -50,9 +50,13 @@ describe('Chat Box — bố cục và ràng buộc (FIX 5c)', () => {
     expect(tsx).toContain('formatChatTime(message.at)')
   })
 
-  it('không vẽ nút kẹp giấy (D6)', () => {
-    expect(tsx.toLowerCase()).not.toContain('paperclip')
-    expect(tsx.toLowerCase()).not.toContain('attach')
+  it('vẽ nút kẹp giấy và vùng đính kèm tệp (FIX 4)', () => {
+    expect(tsx.toLowerCase()).toContain('paperclip')
+    expect(tsx.toLowerCase()).toContain('chat-attach')
+    expect(tsx.toLowerCase()).toContain('đính kèm')
+    expect(tsx.toLowerCase()).toContain('.json')
+    expect(tsx.toLowerCase()).toContain('.txt')
+    expect(tsx.toLowerCase()).toContain('.md')
   })
 
   it('giữ nguyên Ctrl+Enter, dừng và xác nhận OK/Cancel', () => {

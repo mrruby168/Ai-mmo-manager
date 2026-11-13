@@ -4,8 +4,6 @@
  */
 
 export const COST_LIMITS = {
-  /** A project checked inside this window with unchanged links is not searched again. */
-  newsCacheTtlMs: 12 * 60 * 60 * 1000,
   /** A scan result for the same name + website is reused inside this window. */
   scanCacheTtlMs: 24 * 60 * 60 * 1000,
 
@@ -13,7 +11,7 @@ export const COST_LIMITS = {
   newsMaxSearchesPerRun: 30,
   scanMaxSearchesPerRun: 20,
   /** Cap on the app-side `web_search` tool per batch (the grouped prefetch is extra). */
-  newsMaxSearchesPerBatch: 4,
+  newsMaxSearchesPerBatch: 6,
 
   newsBatchSize: 5,
   /** Anthropic native web search allows 5 uses per request, so keep room for a retry. */
@@ -58,6 +56,60 @@ export function isCacheFresh(checkedAtIso: string | null | undefined, nowMs: num
   }
   const age = nowMs - checkedAt
   return age >= 0 && age <= ttlMs
+}
+
+/**
+ * Kết quả một lô Check News: có tin mới hay không.
+ * Lô nộp tin nhưng bị loại hết thì không ghi cache (xem `decideNewsCacheOutcome`).
+ */
+export type NewsCheckOutcome = 'found' | 'empty'
+
+/** Lô không có tin mới chỉ khóa cache tối đa 2 giờ, không khóa hết TTL 3/8 giờ. */
+export const NEWS_EMPTY_CACHE_MAX_MS = 2 * 60 * 60 * 1000
+
+/**
+ * TTL thật của một mục cache News theo kết quả lần trước.
+ * `null` = lần trước có nộp nhưng bị loại hết, không được coi là cache.
+ */
+export function newsCacheTtlForOutcome(
+  outcome: NewsCheckOutcome | null | undefined,
+  configuredTtlMs: number
+): number {
+  if (outcome === null) {
+    return 0
+  }
+  if (outcome === 'empty') {
+    return Math.min(configuredTtlMs, NEWS_EMPTY_CACHE_MAX_MS)
+  }
+  return configuredTtlMs
+}
+
+/**
+ * Quyết định ghi cache sau một lô:
+ * - có tin mới -> `found`
+ * - không có tin và cũng không có tin bị loại -> `empty`
+ * - có nộp nhưng bị loại hết -> `null` (không ghi, lần sau kiểm lại)
+ */
+export function decideNewsCacheOutcome(added: number, rejected: number): NewsCheckOutcome | null {
+  if (added > 0) {
+    return 'found'
+  }
+  if (rejected > 0) {
+    return null
+  }
+  return 'empty'
+}
+
+/** Ngân sách tìm kiếm mỗi lần Check News: 2 lượt/dự án, tối thiểu 30, tối đa 80. */
+export function newsSearchBudgetForProjects(projectCount: number): number {
+  const count = Number.isFinite(projectCount) ? Math.max(0, Math.floor(projectCount)) : 0
+  return Math.min(80, Math.max(COST_LIMITS.newsMaxSearchesPerRun, 2 * count))
+}
+
+/** "1 phút" / "3 giờ" / "8 giờ" cho thông báo cache Check News. */
+export function formatNewsCacheTtl(ttlMs: number): string {
+  const minutes = Math.max(1, Math.round(ttlMs / 60_000))
+  return minutes < 60 ? `${minutes} phút` : `${Math.round(minutes / 60)} giờ`
 }
 
 function cleanTerm(name: string): string {

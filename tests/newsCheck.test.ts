@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   buildNewsCheckMessage,
+  buildNewsRejectLogLine,
+  createNewsRejectReasons,
   parseNewsSubmission,
+  sanitizeLogLine,
   verifyNewsSources
 } from '../src/main/ai/newsCheck'
 import type { VerifiedNewsItem } from '../src/main/ai/newsCheck'
+import { newsSubmissionResultSchema } from '../src/shared/schemas'
 import { SafeFetchError } from '../src/main/services/safeFetch'
 
 const isToday = (iso: string): boolean => iso.startsWith('2026-11-06')
@@ -168,6 +172,90 @@ describe('verifyNewsSources', () => {
 
     expect(result.unverified).toBe(0)
     expect(result.items[0].verification).toBe('verified')
+  })
+})
+
+describe('lý do loại tin (9d)', () => {
+  it('đếm đúng schema, sai dự án, thiếu ngày, sai handle X và ngoài cửa sổ', () => {
+    const result = parseNewsSubmission(
+      [
+        rawItem({ summary: '' }),
+        rawItem({ projectId: 'PRJ-999' }),
+        rawItem({ sourceUrl: 'https://alpha.example.com/no-date', publishedAt: undefined }),
+        rawItem({ sourceUrl: 'https://x.com/Beta/status/1234567890' }),
+        rawItem({ publishedAt: '2026-11-05T08:00:00.000Z' })
+      ],
+      new Set(['PRJ-001']),
+      isToday,
+      new Map([['PRJ-001', 'Alpha']])
+    )
+
+    expect(result.rejected).toBe(5)
+    expect(result.reasons).toEqual({
+      schema: 1,
+      outsideWindow: 1,
+      wrongProject: 1,
+      urlNotSeen: 0,
+      source404: 0,
+      xHandleMismatch: 1,
+      noDate: 1,
+      duplicate: 0,
+      noEvidence: 0
+    })
+  })
+
+  it('đếm nguồn 404 khi xác minh', async () => {
+    const result = await verifyNewsSources([verifiedItem()], new Map([['PRJ-001', 'Alpha']]), async () => ({
+      status: 404,
+      text: ''
+    }))
+    expect(result.rejected).toBe(1)
+    expect(result.reasons.source404).toBe(1)
+  })
+
+  it('hiển thị lý do trong thông báo tổng hợp', () => {
+    const reasons = createNewsRejectReasons()
+    reasons.schema = 2
+    reasons.duplicate = 1
+    const message = buildNewsCheckMessage({
+      added: 0,
+      rejected: 3,
+      failedBatches: 0,
+      totalBatches: 1,
+      searchUnverifiedBatches: 0,
+      reasons
+    })
+    expect(message).toContain('Đã thêm 0 tin, bỏ 3 tin')
+    expect(message).toContain('Lý do bỏ: sai cấu trúc 2, trùng 1')
+  })
+
+  it('dòng Activity Log được làm sạch và cắt còn tối đa 200 ký tự', () => {
+    const reasons = createNewsRejectReasons()
+    reasons.schema = 500
+    reasons.noEvidence = 200
+    const line = buildNewsRejectLogLine(reasons)
+    expect(line).not.toBeNull()
+    expect(line!.length).toBeLessThanOrEqual(200)
+    expect(line!).not.toContain('\n')
+    expect(line!).toContain('sai cấu trúc 500')
+    expect(sanitizeLogLine('a\nb\tc', 10)).toBe('a b c')
+    expect(sanitizeLogLine('x'.repeat(300), 20)).toHaveLength(20)
+    expect(buildNewsRejectLogLine(createNewsRejectReasons())).toBeNull()
+  })
+
+  it('submit_news cho phép thiếu publishedAt và notes tối đa 200 ký tự', () => {
+    expect(newsSubmissionResultSchema.safeParse({ items: [], notes: 'đã tìm 3 từ khóa' }).success).toBe(true)
+    expect(
+      newsSubmissionResultSchema.safeParse({
+        items: [],
+        notes: 'x'.repeat(201)
+      }).success
+    ).toBe(false)
+    expect(
+      newsSubmissionResultSchema.safeParse({
+        items: [rawItem({ publishedAt: undefined, notes: 'bài X' })]
+      }).success
+    ).toBe(true)
   })
 })
 

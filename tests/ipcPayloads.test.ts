@@ -161,6 +161,7 @@ const contracts: Array<{ channel: string; schema: { parse: (value: unknown) => u
     schema: chatSendPayload,
     payload: { text: 'xin chào', providerId: 'google-gemini', modelId: 'gemini-3.5-flash-lite' }
   },
+  { channel: IPC.chatSend, schema: chatSendPayload, payload: { text: '', providerId: 'google-gemini', modelId: 'gemini-3.5-flash-lite', attachment: { name: 'a.json', text: '{}' } } },
   { channel: IPC.chatSend, schema: chatSendPayload, payload: { choiceId: 'choice-1' } },
   { channel: IPC.chatConfirm, schema: actionIdPayload, payload: { actionId: 'action-1' } },
   { channel: IPC.chatCancelAction, schema: actionIdPayload, payload: { actionId: 'action-1' } },

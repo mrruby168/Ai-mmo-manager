@@ -1,9 +1,13 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   COST_LIMITS,
+  NEWS_EMPTY_CACHE_MAX_MS,
   buildGroupedSearchQueries,
   chunk,
+  decideNewsCacheOutcome,
   isCacheFresh,
+  newsCacheTtlForOutcome,
+  newsSearchBudgetForProjects,
   pickNewsBatchSize
 } from '../src/shared/costControl'
 import { extractRelevantText } from '../src/shared/pageExcerpt'
@@ -23,6 +27,9 @@ import {
 import { insertProject } from '../src/main/db/projectsRepo'
 import type { AiMessage, AiRequest, ModelClient } from '../src/main/ai/types'
 import type { ScanItem } from '../src/shared/types'
+
+/** TTL 12 giờ cố định cho các test cache thuần (app dùng TTL trong settings). */
+const NEWS_TTL_MS = 12 * 60 * 60 * 1000
 
 describe('grouped search queries', () => {
   it('merges projects with OR and quotes multi-word names', () => {
@@ -53,6 +60,40 @@ describe('grouped search queries', () => {
   })
 })
 
+describe('news cache theo kết quả và ngân sách động (FIX 5)', () => {
+  const THREE_HOURS = 10_800_000
+
+  it('lô rỗng chỉ khóa cache tối đa 2 giờ, không khóa hết TTL 3/8 giờ', () => {
+    expect(newsCacheTtlForOutcome('empty', THREE_HOURS)).toBe(NEWS_EMPTY_CACHE_MAX_MS)
+    expect(newsCacheTtlForOutcome('empty', 60_000)).toBe(60_000)
+    expect(newsCacheTtlForOutcome('found', THREE_HOURS)).toBe(THREE_HOURS)
+    expect(newsCacheTtlForOutcome(undefined, THREE_HOURS)).toBe(THREE_HOURS)
+    expect(newsCacheTtlForOutcome(null, THREE_HOURS)).toBe(0)
+  })
+
+  it('quyết định found / empty / null theo số tin thêm và bị loại', () => {
+    expect(decideNewsCacheOutcome(2, 1)).toBe('found')
+    expect(decideNewsCacheOutcome(0, 0)).toBe('empty')
+    expect(decideNewsCacheOutcome(0, 3)).toBeNull()
+  })
+
+  it('ngân sách tìm kiếm 2 lượt mỗi dự án, kẹp trong khoảng 30..80', () => {
+    expect(newsSearchBudgetForProjects(0)).toBe(COST_LIMITS.newsMaxSearchesPerRun)
+    expect(newsSearchBudgetForProjects(10)).toBe(30)
+    expect(newsSearchBudgetForProjects(20)).toBe(40)
+    expect(newsSearchBudgetForProjects(41)).toBe(80)
+    expect(newsSearchBudgetForProjects(500)).toBe(80)
+  })
+
+  it('cache empty quá 2 giờ bị coi là cũ dù TTL cấu hình còn hạn', () => {
+    const now = Date.parse('2026-11-09T05:00:00.000Z')
+    const ttl = newsCacheTtlForOutcome('empty', THREE_HOURS)
+    expect(isCacheFresh('2026-11-09T03:30:00.000Z', now, ttl)).toBe(true)
+    expect(isCacheFresh('2026-11-09T02:30:00.000Z', now, ttl)).toBe(false)
+    expect(isCacheFresh('2026-11-09T02:30:00.000Z', now, THREE_HOURS)).toBe(true)
+  })
+})
+
 describe('batching helpers', () => {
   it('chunks lists', () => {
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]])
@@ -68,7 +109,7 @@ describe('batching helpers', () => {
 
 describe('cache freshness', () => {
   const now = Date.parse('2026-11-09T12:00:00.000Z')
-  const ttl = COST_LIMITS.newsCacheTtlMs
+  const ttl = NEWS_TTL_MS
 
   it('is fresh inside the TTL and stale outside it', () => {
     expect(isCacheFresh('2026-11-09T05:00:00.000Z', now, ttl)).toBe(true)
@@ -188,6 +229,17 @@ describe('aiCacheRepo', () => {
     expect(getNewsCheckEntries().get('PRJ-001')?.fingerprint).toBe('def')
   })
 
+  it('stores the outcome of the last check, old entries stay without outcome (found)', () => {
+    markNewsChecked([{ projectId: 'PRJ-001', fingerprint: 'xyz' }], '2026-11-09T03:00:00.000Z')
+    expect(getNewsCheckEntries().get('PRJ-001')?.outcome).toBeUndefined()
+    markNewsChecked([{ projectId: 'PRJ-001', fingerprint: 'xyz' }], '2026-11-09T04:00:00.000Z', 'empty')
+    expect(getNewsCheckEntries().get('PRJ-001')).toEqual({
+      fingerprint: 'xyz',
+      checkedAt: '2026-11-09T04:00:00.000Z',
+      outcome: 'empty'
+    })
+  })
+
   it('stores scan results by key and only returns the requested keys', () => {
     putScanCacheEntries([{ key: 'k1', item }], '2026-11-09T01:00:00.000Z')
     putScanCacheEntries([{ key: 'k2', item: { ...item, name: 'Beta' } }], '2026-11-09T01:00:00.000Z')
@@ -223,7 +275,7 @@ describe('aiCacheRepo', () => {
     markNewsChecked([{ projectId: 'PRJ-009', fingerprint: 'keep' }], '2026-11-09T11:00:00.000Z')
 
     const now = Date.parse('2026-11-09T12:00:00.000Z')
-    const removed = purgeAiCache(now, COST_LIMITS.newsCacheTtlMs, COST_LIMITS.scanCacheTtlMs)
+    const removed = purgeAiCache(now, NEWS_TTL_MS, COST_LIMITS.scanCacheTtlMs)
     // PRJ-001 has no project row, k1/k2 are 11h old (< 24h) so only PRJ-001 goes.
     expect(removed).toBe(1)
     expect(getNewsCheckEntries().has('PRJ-001')).toBe(false)
@@ -231,7 +283,7 @@ describe('aiCacheRepo', () => {
     expect(getScanCacheEntries(['k1', 'k2']).size).toBe(2)
 
     const later = Date.parse('2026-11-11T00:00:00.000Z')
-    expect(purgeAiCache(later, COST_LIMITS.newsCacheTtlMs, COST_LIMITS.scanCacheTtlMs)).toBe(3)
+    expect(purgeAiCache(later, NEWS_TTL_MS, COST_LIMITS.scanCacheTtlMs)).toBe(3)
   })
 })
 
@@ -372,7 +424,7 @@ describe('aiCacheRepo without an open database', () => {
     expect(getScanCacheEntries(['k1']).size).toBe(0)
     expect(() => markNewsChecked([{ projectId: 'PRJ-001', fingerprint: 'x' }], '2026-11-09T00:00:00.000Z')).not.toThrow()
     expect(() => putScanCacheEntries([{ key: 'k', item: {} as ScanItem }], '2026-11-09T00:00:00.000Z')).not.toThrow()
-    expect(purgeAiCache(Date.now(), COST_LIMITS.newsCacheTtlMs, COST_LIMITS.scanCacheTtlMs)).toBe(0)
+    expect(purgeAiCache(Date.now(), NEWS_TTL_MS, COST_LIMITS.scanCacheTtlMs)).toBe(0)
   })
 
   it('still throws real database errors once a database is open', () => {

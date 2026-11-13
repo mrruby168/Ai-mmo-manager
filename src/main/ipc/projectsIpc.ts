@@ -88,10 +88,16 @@ export function registerProjectsIpc(): void {
         relativePath = await fetchLogoForProject({
           projectId: project.id,
           website: project.website,
-          socialsX: project.socials.x ?? null
+          socialsX: project.socials.x ?? null,
+          socialsDiscord: project.socials.discord ?? null,
+          socialsTelegram: project.socials.telegram ?? null
         })
         if (!relativePath) {
-          return { project, logoUpdated: false, message: 'Không tìm thấy logo từ website hoặc X, đang dùng chữ cái đầu tên dự án' }
+          return {
+            project,
+            logoUpdated: false,
+            message: 'Không tìm thấy logo hợp lệ từ website, Discord, Telegram hoặc X, đang dùng chữ cái đầu tên dự án'
+          }
         }
       } else {
         let sourcePath = input.sourcePath

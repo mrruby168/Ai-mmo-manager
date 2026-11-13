@@ -9,9 +9,11 @@ import { findProjectByDomainKey, findProjectByNameKey } from '../db/projectsRepo
 import { addProjects, getProject, setProjectLogo } from '../services/projectService'
 import { fetchLogoForProject } from '../services/logoService'
 import { logError } from '../services/logger'
-import { createModelClient } from './providers'
-import { getModelConnection, getTaskModelMeta } from './providerService'
+import { buildTaskChain } from './providerService'
+import type { TaskChain } from './providerService'
+import { createFailoverClient } from './failoverClient'
 import { getScanTools, SCAN_RESULT_KIND } from './tools'
+import { appendAiLog } from './aiActivityLog'
 import { AgentStepLimitError, runAgent } from './agentRunner'
 import type { AgentResult, AgentUsage } from './agentRunner'
 import { runAiTask } from './aiTaskRunner'
@@ -175,8 +177,7 @@ async function extractCandidates(text: string): Promise<{ candidates: Candidate[
     return { candidates: kept, rejected: rejected + deduped }
   }
 
-  const connection = requireSelection()
-  const client = createModelClient(connection)
+  const client = createScanClient(requireSelection())
   const response = await client.complete({
     system:
       'Bạn là trợ lý trích xuất. Trong nội dung dưới đây, liệt kê tên các dự án Event MMO/Airdrop mà người dùng đề cập. ' +
@@ -232,24 +233,47 @@ function candidatePayload(candidate: Candidate): Record<string, unknown> {
   return payload
 }
 
-function requireSelection() {
-  const meta = getTaskModelMeta('scan')
-  if (!meta) {
-    throw new AiError('unsupported', 'Chưa chọn Model cho Scan. Chọn Model ở khung của tab Scan (hoặc Chat Box làm mặc định)')
+/**
+ * FIX 2: chuỗi A1–A3 cho Scan. Scan cần tool calling và Web Search gốc của model.
+ * Không còn model hợp lệ thì báo về Settings → Model Configuration.
+ */
+function requireSelection(): TaskChain {
+  const chain = buildTaskChain('scan', { requireTools: true, webSearch: 'native' })
+  if (chain.candidates.length === 0) {
+    const blocked = chain.skipped[0]
+    if (blocked?.reason === 'tools') {
+      throw new AiError(
+        'unsupported',
+        'Model đã chọn không hỗ trợ tool calling, không thể Scan. Vào Settings → Model Configuration để chọn model khác cho Scan.'
+      )
+    }
+    if (blocked?.reason === 'web_search') {
+      throw new AiError(
+        'unsupported',
+        `Model "${blocked.label}" không hỗ trợ Web Search, không thể Scan. Vào Settings → Model Configuration để chọn model khác cho Scan.`
+      )
+    }
+    throw new AiError('unsupported', 'Chưa chọn Model cho Scan. Vào Settings → Model Configuration để chọn model A1 cho Scan.')
   }
-  if (!meta.supportsTools) {
-    throw new AiError('unsupported', 'Model đã chọn không hỗ trợ tool calling, không thể Scan. Hãy chọn Model khác ở khung Model của tab Scan')
-  }
-  if (!meta.supportsWebSearch) {
-    throw new AiError('unsupported', `Model "${meta.modelLabel}" không hỗ trợ Web Search, không thể Scan. Hãy chọn Model khác ở khung Model của tab Scan`)
-  }
-  return getModelConnection(meta.providerId, meta.modelId)
+  return chain
+}
+
+/** Client có failover A1→A2→A3; mỗi lần đổi model ghi một dòng log để xem lại sau. */
+function createScanClient(chain: TaskChain) {
+  return createFailoverClient(chain.candidates, {
+    onOnline: (candidate) => appendAiLog('scan', 'online', `${candidate.label} đang online`),
+    onSwap: (from, to, error) => {
+      logInfo(`Scan Project đổi model ${from.label} → ${to.label}: ${error.message}`)
+      appendAiLog('scan', 'warn', `${from.label} lỗi (${error.message}) → chuyển sang ${to.label}`)
+    }
+  })
 }
 
 export async function runScan(input: ScanInput): Promise<ScanResult> {
   assertAiEnabled()
   return runAiTask('Scan Project', 'scan', async (signal, reporter) => {
     reporter.report('Đọc dữ liệu', 0, 4, 'Đang đọc nội dung...')
+    appendAiLog('scan', 'step', input.fileName ? `Đang đọc tệp ${input.fileName}` : 'Đang đọc nội dung đã dán')
     const { candidates, rejected } = await extractCandidates(input.text)
 
     if (candidates.length === 0) {
@@ -260,8 +284,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
     markDuplicates(candidates)
     reporter.report('Kiểm tra trùng', 1, 4, `Đã phát hiện ${candidates.length} ứng viên, ${candidates.filter((c) => c.duplicateOf).length} trùng với app`)
 
-    const connection = requireSelection()
-    const client = createModelClient(connection)
+    const client = createScanClient(requireSelection())
 
     // Cost control 1: candidates already in the app are not researched again.
     const items: ScanItem[] = []
@@ -303,7 +326,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
           client,
           system: SCAN_SYSTEM_PROMPT,
           messages,
-          tools: getScanTools({ costControl: {} }),
+          tools: getScanTools({ costControl: {}, onLog: (level, text) => appendAiLog('scan', level, text) }),
           enableWebSearch: true,
           maxTokens: 4096,
           maxSteps: COST_LIMITS.agentMaxSteps,
@@ -445,6 +468,9 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
         `input=${usageTotal.inputTokens} output=${usageTotal.outputTokens} token, tìm kiếm=${budget.used()}/${budget.max}`
     )
     reporter.report('Tổng hợp', 4, 4, `Hoàn tất ${items.length} dự án`)
+    const usable = items.filter((item) => item.category !== 'insufficient').length
+    appendAiLog('scan', 'success', `Đã phân tích ${candidates.length} ứng viên · ${usable} dự án hợp lệ`)
+    appendAiLog('scan', 'step', 'Chờ bạn xác nhận trước khi thêm dự án')
     const notes: string[] = []
     if (duplicates.length > 0) {
       notes.push(`${duplicates.length} dự án trùng app (không tra cứu)`)
@@ -489,7 +515,9 @@ async function fetchAndSaveLogos(projectIds: string[]): Promise<void> {
       const logo = await fetchLogoForProject({
         projectId: project.id,
         website: project.website,
-        socialsX: project.socials.x ?? null
+        socialsX: project.socials.x ?? null,
+        socialsDiscord: project.socials.discord ?? null,
+        socialsTelegram: project.socials.telegram ?? null
       })
       if (logo) {
         setProjectLogo(project.id, logo)

@@ -1042,5 +1042,36 @@
     "screen_reader": "Banner khóa AI, tiến độ Scan/Check News và Toast dùng aria-live; nút icon có aria-label; bảng có tiêu đề cột.",
     "motion": "Tôn trọng prefers-reduced-motion; không có hiệu ứng tự chạy ngoài spinner tiến độ.",
     "keyboard": "Enter mở dòng dự án; Esc đóng Modal/Chat; phím tắt không bắt buộc."
+  },
+  "v3_additions": {
+    "status": "code xong, GUI chưa kiểm chứng",
+    "settings_model_configuration": {
+      "position": "tab ngay sau AI Settings",
+      "columns": ["Tác vụ", "A1 (chính)", "A2 (dự phòng)", "A3 (dự phòng 2)", "Cache TTL"],
+      "rows": ["News (Check News)", "Scan Project", "AI Chat Box (A1 là model đang chọn ở Chat Box)"],
+      "ttl_options": ["1 phút", "3 giờ", "8 giờ"],
+      "rules": [
+        "Trùng model trong cùng chuỗi bị chặn.",
+        "Cảnh báo khi model thiếu tool calling hoặc thiếu Web Search và app chưa có Web Search.",
+        "Lưu ngay khi đổi qua IPC settings:setModelConfig; TTL giữ sau khi mở lại app."
+      ]
+    },
+    "activity_log": {
+      "channels": ["news", "scan", "chat"],
+      "ipc": "ai:getLog",
+      "event": "ai:log",
+      "ui": "log theo thời gian thực, thanh tiến trình n/N, pill Live; đổi tab quay lại vẫn còn log."
+    },
+    "news": {
+      "cards": "giữ nội dung 3 thẻ v1, cuộn trong thẻ, <1100px xếp 1 cột",
+      "badges": "deadline tiếng Việt; bài X luôn chưa xác minh"
+    },
+    "chat_attachment": {
+      "types": [".json", ".txt", ".md"],
+      "max_size": "1 MB",
+      "context_max_chars": 40000,
+      "untrusted_wrapper": "<untrusted_attachment>",
+      "note": "JSON hợp lệ vẫn tạo PendingAction và không tự thêm dự án."
+    }
   }
 }

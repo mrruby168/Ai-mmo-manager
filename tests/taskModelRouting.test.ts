@@ -1,26 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { FailoverCandidate } from '../src/main/ai/failoverClient'
 
-const {
-  getTaskModelMeta,
-  getModelConnection,
-  createModelClient,
-  runAgent,
-  runAiTask,
-  listProjects,
-  saveScanLatest
-} = vi.hoisted(() => ({
-  getTaskModelMeta: vi.fn(),
-  getModelConnection: vi.fn(),
-  createModelClient: vi.fn(),
-  runAgent: vi.fn(),
-  runAiTask: vi.fn(),
-  listProjects: vi.fn(),
-  saveScanLatest: vi.fn()
-}))
+const { buildTaskChain, createFailoverClient, runAgent, runAiTask, listProjects, saveScanLatest, purgeAiCache, loadSearchProvider } =
+  vi.hoisted(() => ({
+    buildTaskChain: vi.fn(),
+    createFailoverClient: vi.fn(),
+    runAgent: vi.fn(),
+    runAiTask: vi.fn(),
+    listProjects: vi.fn(),
+    saveScanLatest: vi.fn(),
+    purgeAiCache: vi.fn(),
+    loadSearchProvider: vi.fn()
+  }))
 
 vi.mock('electron', () => ({ app: { getPath: () => process.cwd() } }))
-vi.mock('../src/main/ai/providerService', () => ({ getTaskModelMeta, getModelConnection }))
-vi.mock('../src/main/ai/providers', () => ({ createModelClient }))
+vi.mock('../src/main/services/settingsStore', () => ({
+  getSettings: () => ({ ai: { newsCacheTtlMs: 60_000 } })
+}))
+vi.mock('../src/main/ai/providerService', () => ({ buildTaskChain }))
+vi.mock('../src/main/ai/failoverClient', () => ({ createFailoverClient }))
 vi.mock('../src/main/ai/agentRunner', () => ({
   runAgent,
   haltWithSubmit: vi.fn(),
@@ -29,7 +27,7 @@ vi.mock('../src/main/ai/agentRunner', () => ({
 }))
 vi.mock('../src/main/ai/aiTaskRunner', () => ({ runAiTask }))
 vi.mock('../src/main/ai/aiMode', () => ({ assertAiEnabled: vi.fn() }))
-vi.mock('../src/main/services/webSearchService', () => ({ loadSearchProvider: () => null }))
+vi.mock('../src/main/services/webSearchService', () => ({ loadSearchProvider }))
 vi.mock('../src/main/ipc/guard', () => ({ broadcastToRenderers: vi.fn() }))
 vi.mock('../src/main/db/projectsRepo', () => ({
   listProjects,
@@ -40,6 +38,13 @@ vi.mock('../src/main/db/projectsRepo', () => ({
 }))
 vi.mock('../src/main/db/newsRepo', () => ({ listNews: () => [], setLastNewsCheckedAt: vi.fn() }))
 vi.mock('../src/main/db/scanRepo', () => ({ saveScanLatest, getScanLatest: () => null }))
+vi.mock('../src/main/db/aiCacheRepo', () => ({
+  getNewsCheckEntries: () => new Map(),
+  markNewsChecked: vi.fn(),
+  purgeAiCache,
+  getScanCacheEntries: () => new Map(),
+  putScanCacheEntries: vi.fn()
+}))
 vi.mock('../src/main/services/newsService', () => ({ saveNewsBatch: () => ({ added: 0, rejected: 0 }) }))
 vi.mock('../src/main/services/projectService', () => ({
   addProjects: () => [],
@@ -51,6 +56,7 @@ vi.mock('../src/main/services/logger', () => ({ logError: vi.fn(), logInfo: vi.f
 
 import { runCheckNews } from '../src/main/ai/checkNewsService'
 import { runScan } from '../src/main/ai/scanService'
+import type { TaskChain } from '../src/main/ai/providerService'
 import type { Project } from '../src/shared/types'
 
 const project: Project = {
@@ -78,35 +84,42 @@ const project: Project = {
   updatedAt: '2026-11-01T00:00:00.000Z'
 }
 
-const newsMeta = {
-  providerId: 'p-news',
-  modelId: 'm-news',
-  providerName: 'News Provider',
-  modelLabel: 'News Model',
-  supportsTools: true,
-  supportsWebSearch: true
+function candidate(providerId: string, modelId: string): FailoverCandidate & { providerId: string; modelId: string } {
+  return {
+    providerId,
+    modelId,
+    label: `${providerId} · ${modelId}`,
+    providerType: 'openai',
+    supportsTools: true,
+    supportsWebSearch: true,
+    createClient: () => ({ complete: vi.fn() })
+  }
 }
 
-const scanMeta = {
-  providerId: 'p-scan',
-  modelId: 'm-scan',
-  providerName: 'Scan Provider',
-  modelLabel: 'Scan Model',
-  supportsTools: true,
-  supportsWebSearch: true
+function chain(providerId: string, modelId: string): TaskChain {
+  return {
+    candidates: [candidate(providerId, modelId)],
+    providerType: 'openai',
+    nativeSearch: true,
+    skipped: []
+  }
 }
+
+const newsChain = chain('p-news', 'm-news')
+const scanChain = chain('p-scan', 'm-scan')
 
 beforeEach(() => {
   vi.clearAllMocks()
-  getTaskModelMeta.mockImplementation((task: 'news' | 'scan') => (task === 'news' ? newsMeta : scanMeta))
-  getModelConnection.mockImplementation((providerId: string, modelId: string) => ({
-    providerId,
-    modelId,
-    providerType: 'openai',
-    baseUrl: 'https://example.com',
-    apiKey: 'test-key'
-  }))
-  createModelClient.mockReturnValue({
+  buildTaskChain.mockImplementation((task: 'news' | 'scan' | 'chat') => {
+    if (task === 'news') {
+      return newsChain
+    }
+    if (task === 'scan') {
+      return scanChain
+    }
+    return chain('p-chat', 'm-chat')
+  })
+  createFailoverClient.mockReturnValue({
     complete: vi.fn(async () => ({ text: '', toolCalls: [], usage: null }))
   })
   runAiTask.mockImplementation(async (_label: string, _task: string, fn: Function) =>
@@ -114,40 +127,108 @@ beforeEach(() => {
   )
   runAgent.mockResolvedValue({ outcome: 'completed', text: '', messages: [], webSearch: [] })
   listProjects.mockReturnValue([project])
+  loadSearchProvider.mockReturnValue(null)
 })
 
-describe('routing model theo từng tác vụ (FIX 2)', () => {
-  it('Check News đọc getTaskModelMeta("news") và dùng connection của News', async () => {
+describe('nối chuỗi model theo từng tác vụ (FIX 2)', () => {
+  it('Check News dựng chuỗi "news" (cần tool calling + Web Search của app) và chạy qua failover', async () => {
     await runCheckNews()
 
-    expect(getTaskModelMeta).toHaveBeenCalledWith('news')
-    expect(getModelConnection).toHaveBeenCalledWith('p-news', 'm-news')
-    expect(createModelClient).toHaveBeenCalledWith(
-      expect.objectContaining({ providerId: 'p-news', modelId: 'm-news' })
-    )
+    expect(buildTaskChain).toHaveBeenCalledWith('news', { requireTools: true, webSearch: 'native-or-app' }, false)
+    expect(createFailoverClient).toHaveBeenCalledWith(newsChain.candidates, expect.any(Object))
   })
 
-  it('Scan Project đọc getTaskModelMeta("scan") và dùng connection của Scan', async () => {
+  it('D25: có Web Search của app thì prefetch chạy cả khi model có Web Search gốc', async () => {
+    const search = vi.fn(async (_query: string) => [
+      { title: 'Alpha Drop news', url: 'https://alpha.example.com/news', snippet: 'airdrop snapshot' }
+    ])
+    loadSearchProvider.mockReturnValue({ search } as never)
+
+    await runCheckNews()
+
+    expect(search).toHaveBeenCalledTimes(1)
+    expect(search.mock.calls[0][0]).toContain('Alpha Drop')
+  })
+
+  it('9b: prefetch yếu (không khớp tên) thì tìm riêng từng dự án một lần nữa', async () => {
+    const beta = {
+      ...project,
+      id: 'PRJ-002',
+      name: 'Beta Net',
+      nameKey: 'beta net',
+      website: 'https://beta.example.com',
+      domainKey: 'beta.example.com'
+    }
+    listProjects.mockReturnValue([project, beta])
+    const search = vi.fn(async (_query: string) => [
+      { title: 'Tin không liên quan', url: 'https://example.com/other', snippet: 'khác' }
+    ])
+    loadSearchProvider.mockReturnValue({ search } as never)
+
+    await runCheckNews()
+
+    expect(search).toHaveBeenCalledTimes(3)
+    expect(search.mock.calls[0][0]).toContain('Alpha Drop')
+    expect(search.mock.calls[0][0]).toContain('Beta Net')
+    expect(search.mock.calls[0][0]).toContain(' OR ')
+    expect(search.mock.calls[1][0]).toContain('"Alpha Drop"')
+    expect(search.mock.calls[2][0]).toContain('"Beta Net"')
+  })
+
+  it('9d: nộp rỗng dù có bằng chứng thì thử lại một lần', async () => {
+    const search = vi.fn(async (_query: string) => [
+      { title: 'Alpha Drop news', url: 'https://alpha.example.com/news', snippet: 'airdrop' }
+    ])
+    loadSearchProvider.mockReturnValue({ search } as never)
+    runAgent.mockResolvedValue({
+      outcome: 'submit',
+      payload: { kind: 'news', data: { items: [], notes: 'đã tìm' } },
+      messages: [],
+      webSearch: []
+    })
+
+    await runCheckNews()
+
+    expect(runAgent).toHaveBeenCalledTimes(2)
+    const retryRequest = runAgent.mock.calls[1][0] as { messages: Array<{ content: string }> }
+    const last = retryRequest.messages[retryRequest.messages.length - 1]
+    expect(last.content).toContain('nộp items rỗng')
+  })
+
+  it('9d: không thử lại khi lô không có bằng chứng tìm kiếm', async () => {
+    loadSearchProvider.mockReturnValue(null)
+    runAgent.mockResolvedValue({
+      outcome: 'submit',
+      payload: { kind: 'news', data: { items: [], notes: '' } },
+      messages: [],
+      webSearch: []
+    })
+
+    await runCheckNews()
+
+    expect(runAgent).toHaveBeenCalledTimes(1)
+  })
+
+  it('Scan Project dựng chuỗi "scan" (bắt buộc Web Search gốc) và chạy qua failover', async () => {
     await runScan({ text: 'Alpha Drop\nBeta Drop' })
 
-    expect(getTaskModelMeta).toHaveBeenCalledWith('scan')
-    expect(getModelConnection).toHaveBeenCalledWith('p-scan', 'm-scan')
-    expect(createModelClient).toHaveBeenCalledWith(
-      expect.objectContaining({ providerId: 'p-scan', modelId: 'm-scan' })
-    )
+    expect(buildTaskChain).toHaveBeenCalledWith('scan', { requireTools: true, webSearch: 'native' })
+    expect(createFailoverClient).toHaveBeenCalledWith(scanChain.candidates, expect.any(Object))
     expect(saveScanLatest).toHaveBeenCalled()
   })
 
-  it('News không bị ảnh hưởng bởi model Scan và ngược lại', async () => {
+  it('News và Scan dùng đúng chuỗi của mình, không lẫn model', async () => {
     await runCheckNews()
     await runScan({ text: 'Alpha Drop' })
 
-    const newsCall = createModelClient.mock.calls.find((call) => call[0].modelId === 'm-news')
-    const scanCall = createModelClient.mock.calls.find((call) => call[0].modelId === 'm-scan')
+    const passed = createFailoverClient.mock.calls.map((call) => call[0])
+    expect(passed).toContainEqual(newsChain.candidates)
+    expect(passed).toContainEqual(scanChain.candidates)
+  })
 
-    expect(newsCall).toBeTruthy()
-    expect(scanCall).toBeTruthy()
-    expect(newsCall?.[0].providerId).toBe('p-news')
-    expect(scanCall?.[0].providerId).toBe('p-scan')
+  it('TTL cache News lấy từ settings (1 phút) chứ không dùng hằng số 12 giờ', async () => {
+    await runCheckNews()
+
+    expect(purgeAiCache).toHaveBeenCalledWith(expect.any(Number), 60_000, expect.any(Number))
   })
 })

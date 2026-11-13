@@ -3,8 +3,9 @@ import { AiError } from './types'
 import type { ChatChoice, ChatReply } from '@shared/types'
 import type { ProjectImportItem } from '@shared/schemas'
 import { getSettings, saveLastSelection } from '../services/settingsStore'
-import { getModelConnection } from './providerService'
-import { createModelClient } from './providers'
+import { buildChatChain } from './providerService'
+import type { TaskChain } from './providerService'
+import { createFailoverClient } from './failoverClient'
 import { runAiTask } from './aiTaskRunner'
 import { runAgent } from './agentRunner'
 import { buildAddPendingAction, getChatTools } from './tools'
@@ -13,11 +14,13 @@ import { consumePendingAction, peekPendingAction, cancelPendingAction } from './
 import { addProjects, updateProjectWithChanges, deleteProjectById, setProjectLogo } from '../services/projectService'
 import { fetchLogoForProject } from '../services/logoService'
 import { getProject as repoGetProject } from '../db/projectsRepo'
-import { logError } from '../services/logger'
+import { logError, logInfo } from '../services/logger'
 import { broadcastToRenderers } from '../ipc/guard'
 import { EVENTS } from '@shared/ipc-channels'
 import { enrichWithLinks, parseChatProjectJson } from './chatAdd'
 import { assertAiEnabled } from './aiMode'
+import { buildAttachmentUserContent } from '@shared/chatAttachment'
+import type { ChatAttachmentInput } from '@shared/chatAttachment'
 
 const CHOICE_TTL_MS = 10 * 60 * 1000
 const MAX_USER_CHARS = 30_000
@@ -93,21 +96,57 @@ function tryDeterministicAdd(text: string): { reply: ChatReply | null } {
   }
 }
 
-function requireModelWithTools(providerId: string, modelId: string) {
-  const connection = getModelConnection(providerId, modelId)
-  const provider = getSettings().ai.providers.find((entry) => entry.id === providerId)
-  const model = provider?.models.find((entry) => entry.id === modelId)
-  if (model && !model.supportsTools) {
-    throw new AiError('unsupported', 'Model đã chọn không hỗ trợ tool calling, không dùng được Chat')
+/**
+ * FIX 4: tệp JSON hợp lệ vẫn đi đường nhanh không gọi model; nếu tệp không
+ * phải JSON dự án thì thử text người dùng dán kèm.
+ */
+function tryDeterministicAddWithAttachment(
+  text: string,
+  attachment: ChatAttachmentInput | undefined
+): { reply: ChatReply | null } {
+  for (const candidate of [attachment?.text, text]) {
+    if (!candidate) {
+      continue
+    }
+    const attempt = tryDeterministicAdd(candidate)
+    if (attempt.reply) {
+      if (attachment) {
+        // Nói rõ dự án được đọc từ tệp để người dùng không nhầm là từ lời nhắn.
+        attempt.reply.message = `Đã đọc từ tệp "${attachment.name}": ${attempt.reply.message}`
+      }
+      return attempt
+    }
   }
-  return connection
+  return { reply: null }
 }
 
-async function executeChatTurn(current: ChatSession, userContent: string): Promise<ChatReply> {
-  const connection = requireModelWithTools(current.providerId, current.modelId)
+/**
+ * FIX 2: model người dùng chọn ở Chat Box là A1; A2/A3 lấy từ chuỗi Chat trong
+ * Model Configuration. Vẫn kiểm tra A1 trước để báo lỗi rõ như trước.
+ */
+function requireChatChain(providerId: string, modelId: string): TaskChain {
+  const provider = getSettings().ai.providers.find((entry) => entry.id === providerId)
+  const model = provider?.models.find((entry) => entry.id === modelId)
+  if (!provider || !model) {
+    throw new AiError('model_not_found', 'Không tìm thấy Model đã chọn trong Provider')
+  }
+  if (!model.supportsTools) {
+    throw new AiError('unsupported', 'Model đã chọn không hỗ trợ tool calling, không dùng được Chat')
+  }
+  return buildChatChain({ providerId, modelId })
+}
+
+async function executeChatTurn(
+  current: ChatSession,
+  userContent: string,
+  attachment?: ChatAttachmentInput
+): Promise<ChatReply> {
+  const chain = requireChatChain(current.providerId, current.modelId)
   saveLastSelection({ providerId: current.providerId, modelId: current.modelId })
 
-  const client = createModelClient(connection)
+  const client = createFailoverClient(chain.candidates, {
+    onSwap: (from, to, error) => logInfo(`Chat Box đổi model ${from.label} → ${to.label}: ${error.message}`)
+  })
   const tools = getChatTools()
 
   return runAiTask('Chat Box', 'chat', async (outerSignal, reporter) => {
@@ -115,7 +154,9 @@ async function executeChatTurn(current: ChatSession, userContent: string): Promi
     // Build the message inside the task so pasted links can be fetched with the
     // task's abort signal before the model is called.
     const enriched = await enrichWithLinks(userContent.slice(0, MAX_USER_CHARS), outerSignal)
-    const messages: AiMessage[] = [...current.messages, { role: 'user', content: enriched.text }]
+    // FIX 4: tệp đính kèm được bọc thẻ dữ liệu và cắt ngắn trước khi vào ngữ cảnh.
+    const content = buildAttachmentUserContent(enriched.text, attachment)
+    const messages: AiMessage[] = [...current.messages, { role: 'user', content }]
 
     const result = await runAgent({
       client,
@@ -147,21 +188,27 @@ async function executeChatTurn(current: ChatSession, userContent: string): Promi
   })
 }
 
-export async function sendChatMessage(input: { text: string; providerId: string; modelId: string }): Promise<ChatReply> {
+export async function sendChatMessage(input: {
+  text: string
+  providerId: string
+  modelId: string
+  attachment?: ChatAttachmentInput
+}): Promise<ChatReply> {
   assertAiEnabled()
   const current = getSession(input.providerId, input.modelId)
 
-  const deterministic = tryDeterministicAdd(input.text)
+  const deterministic = tryDeterministicAddWithAttachment(input.text, input.attachment)
   if (deterministic.reply) {
-    current.messages = [...current.messages, { role: 'user', content: input.text }]
+    const userContent = buildAttachmentUserContent(input.text, input.attachment)
     current.messages = [
       ...current.messages,
+      { role: 'user', content: userContent },
       { role: 'assistant', content: deterministic.reply.message }
     ]
     return deterministic.reply
   }
 
-  return executeChatTurn(current, input.text)
+  return executeChatTurn(current, input.text, input.attachment)
 }
 
 export async function chooseChatOption(choiceId: string): Promise<ChatReply> {
@@ -210,7 +257,9 @@ async function fetchLogosBestEffort(projectIds: string[]): Promise<void> {
       const logo = await fetchLogoForProject({
         projectId: project.id,
         website: project.website,
-        socialsX: project.socials.x ?? null
+        socialsX: project.socials.x ?? null,
+        socialsDiscord: project.socials.discord ?? null,
+        socialsTelegram: project.socials.telegram ?? null
       })
       if (logo) {
         setProjectLogo(project.id, logo)

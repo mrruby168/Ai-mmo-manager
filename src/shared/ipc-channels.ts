@@ -38,11 +38,13 @@ export const IPC = {
   chatConfirm: 'chat:confirm',
   chatCancelAction: 'chat:cancelAction',
   aiCancel: 'ai:cancel',
+  aiGetLog: 'ai:getLog',
 
   settingsGet: 'settings:get',
   settingsSetAppearance: 'settings:setAppearance',
   settingsSetLastSelection: 'settings:setLastSelection',
   settingsSetTaskSelection: 'settings:setTaskSelection',
+  settingsSetModelConfig: 'settings:setModelConfig',
   settingsSetAiMode: 'settings:setAiMode',
   settingsSetDataPath: 'settings:setDataPath',
   settingsOpenDataFolder: 'settings:openDataFolder',
@@ -72,6 +74,7 @@ export const IPC = {
 export const EVENTS = {
   lockChanged: 'lock:changed',
   aiProgress: 'ai:progress',
+  aiLog: 'ai:log',
   dataChanged: 'data:changed',
   updateState: 'update:state'
 } as const

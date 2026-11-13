@@ -102,7 +102,7 @@ export function buildNewsPrompt(projects: NewsPromptProject[], now: Date): strin
     '- publishedAt lấy từ bài gốc theo ISO 8601; ngày hiển thị cho người dùng theo dd/MM/yyyy.',
     '- Mỗi dự án tối đa MỘT tin kind="important" (tin quan trọng nhất); kind="todo" chỉ cho việc cần làm cụ thể.',
     '- summary tối đa 120 ký tự (todo tối đa 90 ký tự), một dòng. Không bịa tin, không suy đoán điều chưa xác minh. Không tìm được nguồn thì đừng thêm tin đó.',
-    '- Bỏ tin trùng. Dự án không có tin mới thì không tạo mục cho dự án đó, ghi chúng trong phần tóm tắt.',
+    '- Bỏ tin trùng. Dự án không có tin mới thì không tạo mục cho dự án đó, ghi chúng trong phần tóm tắt. Không có tin nào thì để items rỗng, không bịa; ghi rõ đã tìm gì trong phần tóm tắt.',
     '',
     '### CÔNG CỤ',
     '- Bạn làm việc bên ngoài app: dùng công cụ tìm kiếm và đọc web của chính bạn (không có tool nội bộ của app).',

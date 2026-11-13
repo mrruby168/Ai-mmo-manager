@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { saveNewsBatch } from '../src/main/services/newsService'
 import type { NewsBatchInput } from '../src/main/services/newsService'
+import { closeDatabase, openDatabase } from '../src/main/db/connection'
+import { insertProject } from '../src/main/db/projectsRepo'
+import type { ProjectRecord } from '../src/main/db/projectsRepo'
 
 const isToday = (iso: string): boolean => iso.startsWith('2026-11-06')
 
@@ -36,5 +39,43 @@ describe('saveNewsBatch batch guard', () => {
     )
 
     expect(result).toEqual({ added: 0, rejected: 1 })
+  })
+
+  it('đếm tin trùng vào rejected và duplicates (9d)', () => {
+    openDatabase(':memory:')
+    try {
+      const record: ProjectRecord = {
+        id: 'PRJ-001',
+        category: 'airdrop',
+        name: 'Alpha',
+        nameKey: 'alpha',
+        domainKey: 'alpha.example.com',
+        website: 'https://alpha.example.com',
+        socials: {},
+        taskSummary: '',
+        howToJoin: '',
+        startDate: null,
+        endDate: null,
+        costType: 'free',
+        costAmountUsd: null,
+        status: 'not_joined',
+        verification: 'unverified',
+        sources: [],
+        logoPath: null,
+        notes: '',
+        origin: 'manual',
+        createdAt: '2026-11-06T00:00:00.000Z',
+        updatedAt: '2026-11-06T00:00:00.000Z'
+      }
+      insertProject(record)
+
+      const first = saveNewsBatch([item()], '2026-11-06T09:00:00.000Z', isToday, new Set(['PRJ-001']))
+      const second = saveNewsBatch([item()], '2026-11-06T09:00:00.000Z', isToday, new Set(['PRJ-001']))
+
+      expect(first).toEqual({ added: 1, rejected: 0 })
+      expect(second).toEqual({ added: 0, rejected: 1, duplicates: 1 })
+    } finally {
+      closeDatabase()
+    }
   })
 })

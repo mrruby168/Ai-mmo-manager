@@ -1,6 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { LIMITS } from '@shared/constants'
+import {
+  extractSocialPreviewCandidates,
+  extractWebsiteLogoCandidates,
+  extractXLogoCandidates,
+  isDiscordInviteUrl,
+  isLargeEnough,
+  isTelegramProfileUrl,
+  parseImageSize,
+  type ImageSize
+} from '@shared/logoPick'
 import { getCurrentLayout } from './dataPathService'
 import { safeFetch, safeFetchImage } from './safeFetch'
 
@@ -92,69 +102,37 @@ export async function captureLogoFromFile(projectId: string, sourcePath: string)
   return saveLogoBytes(projectId, bytes)
 }
 
-function resolveCandidateUrl(raw: string, baseUrl: string): string | null {
-  try {
-    const resolved = new URL(raw, baseUrl)
-    if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') {
-      return null
-    }
-    return resolved.toString()
-  } catch {
-    return null
-  }
+function area(size: ImageSize | null): number {
+  return size ? size.width * size.height : 0
 }
 
-function matchAttribute(tag: string, attribute: string): string | null {
-  const pattern = new RegExp(`${attribute}\\s*=\\s*["']([^"']+)["']`, 'i')
-  const match = tag.match(pattern)
-  return match ? match[1] : null
-}
+/**
+ * Tải lần lượt các ứng viên, ưu tiên ảnh đủ lớn (>= 48px mỗi cạnh).
+ * Không có ảnh đủ lớn thì giữ ảnh lớn nhất tìm được (favicon vẫn hơn chữ cái đầu).
+ */
+async function downloadBestLogo(candidates: string[]): Promise<Uint8Array | null> {
+  let fallback: Uint8Array | null = null
+  let fallbackSize: ImageSize | null = null
 
-export function extractLogoCandidates(html: string, pageUrl: string): string[] {
-  const candidates: string[] = []
-  const linkTags = html.match(/<link\b[^>]*>/gi) ?? []
-
-  for (const tag of linkTags) {
-    const rel = (matchAttribute(tag, 'rel') ?? '').toLowerCase()
-    if (!rel.includes('icon')) {
-      continue
-    }
-    const href = matchAttribute(tag, 'href')
-    if (href) {
-      candidates.push(href)
-    }
-  }
-
-  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? []
-  for (const tag of metaTags) {
-    const property = (matchAttribute(tag, 'property') ?? matchAttribute(tag, 'name') ?? '').toLowerCase()
-    if (property !== 'og:image' && property !== 'twitter:image') {
-      continue
-    }
-    const content = matchAttribute(tag, 'content')
-    if (content) {
-      candidates.push(content)
-    }
-  }
-
-  const resolved = candidates
-    .map((candidate) => resolveCandidateUrl(candidate, pageUrl))
-    .filter((value): value is string => value !== null)
-  return Array.from(new Set(resolved)).slice(0, 6)
-}
-
-async function downloadFirstAvailable(candidates: string[]): Promise<Uint8Array | null> {
   for (const candidate of candidates) {
     try {
       const result = await safeFetchImage(candidate)
-      if (detectImageType(result.bytes)) {
+      if (!detectImageType(result.bytes)) {
+        continue
+      }
+      const size = parseImageSize(result.bytes)
+      if (isLargeEnough(size)) {
         return result.bytes
+      }
+      if (area(size) > area(fallbackSize)) {
+        fallback = result.bytes
+        fallbackSize = size
       }
     } catch {
       // Logo là tuỳ chọn: thử ứng viên kế tiếp, không làm hỏng thao tác chính.
     }
   }
-  return null
+  return fallback
 }
 
 function xHandleFromUrl(xUrl: string | undefined): string | null {
@@ -179,8 +157,23 @@ function xHandleFromUrl(xUrl: string | undefined): string | null {
 async function fetchWebsiteLogo(website: string): Promise<Uint8Array | null> {
   try {
     const page = await safeFetch(website)
-    const candidates = extractLogoCandidates(page.text, page.url)
-    return await downloadFirstAvailable(candidates)
+    const candidates = extractWebsiteLogoCandidates(page.text, page.url)
+    return await downloadBestLogo(candidates)
+  } catch {
+    return null
+  }
+}
+
+async function fetchSocialLogo(
+  url: string | null | undefined,
+  isSupportedUrl: (raw: string) => boolean
+): Promise<Uint8Array | null> {
+  if (!url || !isSupportedUrl(url)) {
+    return null
+  }
+  try {
+    const page = await safeFetch(url)
+    return await downloadBestLogo(extractSocialPreviewCandidates(page.text, page.url))
   } catch {
     return null
   }
@@ -193,8 +186,8 @@ async function fetchXLogo(xUrl: string | undefined): Promise<Uint8Array | null> 
   }
   try {
     const page = await safeFetch(`https://x.com/${handle}`)
-    const candidates = extractLogoCandidates(page.text, page.url)
-    return await downloadFirstAvailable(candidates)
+    // Chỉ ảnh đại diện thật; icon X chung không bao giờ được lưu làm logo dự án.
+    return await downloadBestLogo(extractXLogoCandidates(page.text, page.url))
   } catch {
     return null
   }
@@ -204,9 +197,13 @@ export async function fetchLogoForProject(input: {
   projectId: string
   website: string | null
   socialsX: string | null
+  socialsDiscord?: string | null
+  socialsTelegram?: string | null
 }): Promise<string | null> {
   const bytes =
     (input.website ? await fetchWebsiteLogo(input.website) : null) ??
+    (await fetchSocialLogo(input.socialsDiscord, isDiscordInviteUrl)) ??
+    (await fetchSocialLogo(input.socialsTelegram, isTelegramProfileUrl)) ??
     (await fetchXLogo(input.socialsX ?? undefined))
 
   if (!bytes) {
