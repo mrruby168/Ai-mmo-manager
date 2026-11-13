@@ -214,9 +214,11 @@ export function ModelConfigPanel({ ai, providers, onChanged }: ModelConfigPanelP
                             {warning.message}
                           </p>
                         ))}
-                        {row.task === 'news' && chain.length > 0 && !appSearch && searchViewLoaded ? (
+                        {(row.task === 'news' || row.task === 'scan') && chain.length > 0 && !appSearch && searchViewLoaded ? (
                           <p className="muted model-config__note">
-                            App chưa cấu hình Web Search: News chỉ chạy được với model có Web Search gốc.
+                            {row.task === 'news'
+                              ? 'App chưa cấu hình Web Search: News chỉ chạy được với model có Web Search gốc.'
+                              : 'App chưa cấu hình Web Search: Scan chỉ chạy được với model có Web Search gốc.'}
                           </p>
                         ) : null}
                       </td>

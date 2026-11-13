@@ -21,7 +21,7 @@ export function registerScanIpc(): void {
     mutating: true,
     parse: (raw) => scanSubmitPayload.parse(raw),
     handler: async (input) => {
-      const outcome = await submitScanSelection(input.names)
+      const outcome = await submitScanSelection(input.names, input.categories)
       broadcastToRenderers(EVENTS.dataChanged, { entity: 'projects' })
       return outcome
     }

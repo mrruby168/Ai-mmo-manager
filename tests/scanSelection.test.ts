@@ -53,9 +53,10 @@ describe('Scan: mỗi dòng có khoá riêng dù trùng tên dự án', () => {
     expect(new Set(keys).size).toBe(items.length)
   })
 
-  it('dòng "insufficient" và dòng trùng dự án đã có thì không chọn được', () => {
+  it('dòng "insufficient" vẫn chọn được, chỉ khóa khi trùng dự án đã có', () => {
     expect(isScanRowSelectable(item())).toBe(true)
-    expect(isScanRowSelectable(item({ category: 'insufficient' }))).toBe(false)
+    expect(isScanRowSelectable(item({ category: 'insufficient' }))).toBe(true)
+    expect(isScanRowSelectable(item({ category: 'insufficient', duplicateOf: 'PRJ-001' }))).toBe(false)
     expect(isScanRowSelectable(item({ duplicateOf: 'PRJ-001' }))).toBe(false)
   })
 
@@ -66,7 +67,7 @@ describe('Scan: mỗi dòng có khoá riêng dù trùng tên dự án', () => {
       item({ name: 'Gamma', duplicateOf: 'PRJ-002' }),
       item({ name: 'Delta', category: 'event_mmo' })
     ]
-    expect(selectableScanIndexes(items)).toEqual([0, 3])
+    expect(selectableScanIndexes(items)).toEqual([0, 1, 3])
   })
 
   it('groupScanRows giữ vị trí gốc và đúng danh mục', () => {
@@ -120,7 +121,8 @@ describe('ScanPage dùng khoá theo vị trí thay vì tên', () => {
 
   it('trạng thái chọn là Set<number> và gửi tên qua selectedScanNames', () => {
     expect(source).toContain('useState<Set<number>>(new Set())')
-    expect(source).toContain('window.api.scan.submit(selectedScanNames(selected, items ?? []))')
+    expect(source).toContain('window.api.scan.submit(')
+    expect(source).toContain('selectedScanNames(selected, items)')
     expect(source).toContain('toggleScanIndex(current, index)')
     expect(source).toContain('toggleScanIndexes(current, selectableIndexes())')
   })

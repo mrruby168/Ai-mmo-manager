@@ -331,3 +331,11 @@ export function describeSearchError(error: unknown): string {
   }
   return 'Không gọi được dịch vụ tìm kiếm'
 }
+
+/**
+ * Một truy vấn nhỏ để kiểm tra kết nối trước khi chạy tác vụ phụ thuộc Web
+ * Search (Scan). Không trừ ngân sách tìm kiếm của ứng dụng.
+ */
+export async function probeSearchProvider(provider: SearchProvider, signal?: AbortSignal): Promise<void> {
+  await provider.search('airdrop', { signal, maxResults: 1 })
+}

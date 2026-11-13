@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentTool } from '../src/main/ai/agentRunner'
-import { haltWithChoice, haltWithPendingAction, runAgent } from '../src/main/ai/agentRunner'
+import { AgentStepLimitError, haltWithChoice, haltWithPendingAction, runAgent } from '../src/main/ai/agentRunner'
 import type { AiMessage, AiRequest, ModelClient } from '../src/main/ai/types'
 import type { PendingAction } from '../src/shared/types'
 
@@ -131,6 +131,32 @@ describe('agentRunner tool_call bookkeeping', () => {
       throw new Error('unexpected outcome')
     }
     assertEveryToolCallAnswered(result.messages)
+  })
+
+  it('stops an unbounded tool-call loop at maxSteps', async () => {
+    let counter = 0
+    const client: ModelClient = {
+      complete: vi.fn(async () => {
+        counter += 1
+        return {
+          text: '',
+          toolCalls: [{ id: `call_${counter}`, name: 'loop', arguments: {} }],
+          usage: null
+        }
+      })
+    }
+
+    await expect(
+      runAgent({
+        client,
+        system: 'test',
+        messages: [{ role: 'user', content: 'loop forever' }],
+        tools: [tool('loop', () => ({ ok: true }))],
+        signal: new AbortController().signal,
+        maxSteps: 3
+      })
+    ).rejects.toBeInstanceOf(AgentStepLimitError)
+    expect(client.complete).toHaveBeenCalledTimes(3)
   })
 
   it('keeps one tool result per call when no tool halts', async () => {

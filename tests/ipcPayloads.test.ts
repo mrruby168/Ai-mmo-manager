@@ -155,6 +155,11 @@ const contracts: Array<{ channel: string; schema: { parse: (value: unknown) => u
 
   { channel: IPC.scanStart, schema: scanStartPayload, payload: { text: 'danh sách dự án', fileName: 'scan.txt' } },
   { channel: IPC.scanSubmit, schema: scanSubmitPayload, payload: { names: ['Alpha', 'Beta'] } },
+  {
+    channel: IPC.scanSubmit,
+    schema: scanSubmitPayload,
+    payload: { names: ['Alpha'], categories: { alpha: 'airdrop' } }
+  },
 
   {
     channel: IPC.chatSend,
@@ -235,6 +240,11 @@ describe('preload ↔ main IPC payload contract', () => {
   it('rejects an unknown web search provider', () => {
     expect(webSearchSavePayload.safeParse({ provider: 'duckduckgo' }).success).toBe(false)
     expect(webSearchTestPayload.safeParse({ provider: 'duckduckgo' }).success).toBe(false)
+  })
+
+  it('rejects an invalid category for scan:submit', () => {
+    expect(scanSubmitPayload.safeParse({ names: ['Alpha'], categories: { alpha: 'insufficient' } }).success).toBe(false)
+    expect(scanSubmitPayload.safeParse({ names: ['Alpha'], categories: { alpha: 'airdrop' } }).success).toBe(true)
   })
 })
 
