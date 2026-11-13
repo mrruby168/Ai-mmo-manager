@@ -145,7 +145,7 @@ export function RevenuePage(): React.JSX.Element {
 
       <div className="toolbar">
         <TextInput
-          className="field__control search-input__control"
+          className="field__control revenue-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Tìm theo dự án, symbol, ghi chú, Tx Hash…"

@@ -534,14 +534,6 @@ export function NewsPage(): React.JSX.Element {
           </section>
       </div>
 
-      <div ref={logRef}>
-        <AiActivityLog
-          channel="news"
-          className={logExpanded ? 'ai-log--expanded' : undefined}
-          emptyText="Chưa có hoạt động. Bấm Check News để bắt đầu."
-        />
-      </div>
-
       <div className="ai-log-actions">
         <button
           type="button"
@@ -551,6 +543,14 @@ export function NewsPage(): React.JSX.Element {
         >
           {logExpanded ? 'Thu gọn nhật ký' : 'Mở rộng nhật ký'}
         </button>
+      </div>
+
+      <div ref={logRef}>
+        <AiActivityLog
+          channel="news"
+          className={logExpanded ? 'ai-log--expanded' : undefined}
+          emptyText="Chưa có hoạt động. Bấm Check News để bắt đầu."
+        />
       </div>
 
       <Modal

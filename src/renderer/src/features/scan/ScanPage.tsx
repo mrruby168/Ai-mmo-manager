@@ -496,15 +496,6 @@ export function ScanPage(): React.JSX.Element {
         </div>
       ) : null}
 
-      <div ref={logRef}>
-        <AiActivityLog
-          channel="scan"
-          showProgress={false}
-          className={logExpanded ? 'ai-log--expanded' : undefined}
-          emptyText="Chưa có hoạt động. Dán nội dung rồi bấm Scan để bắt đầu."
-        />
-      </div>
-
       <div className="ai-log-actions">
         <button
           type="button"
@@ -514,6 +505,15 @@ export function ScanPage(): React.JSX.Element {
         >
           {logExpanded ? 'Thu gọn nhật ký' : 'Mở rộng nhật ký'}
         </button>
+      </div>
+
+      <div ref={logRef}>
+        <AiActivityLog
+          channel="scan"
+          showProgress={false}
+          className={logExpanded ? 'ai-log--expanded' : undefined}
+          emptyText="Chưa có hoạt động. Dán nội dung rồi bấm Scan để bắt đầu."
+        />
       </div>
     </div>
   )
