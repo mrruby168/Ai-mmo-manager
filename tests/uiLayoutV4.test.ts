@@ -7,6 +7,8 @@ const SRC = join(ROOT, 'src', 'renderer', 'src')
 const COMPONENTS = join(SRC, 'styles', 'components.css')
 const PROJECT_ROW = join(SRC, 'features', 'projects', 'ProjectRow.tsx')
 const PROJECT_DETAIL = join(SRC, 'features', 'projects', 'ProjectDetailPage.tsx')
+const REVENUE_PAGE = join(SRC, 'features', 'revenue', 'RevenuePage.tsx')
+const REVENUE_DETAIL = join(SRC, 'features', 'revenue', 'RevenueDetailPage.tsx')
 
 // CI checkouts may use CRLF; normalize so multi-line assertions stay stable.
 const readSource = (path: string): string => readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
@@ -72,5 +74,35 @@ describe('U4: Project Detail chia vùng và cuộn nội dung dài', () => {
     const tasksStart = detail.indexOf('project-detail__tasks')
     expect(detail.indexOf('aria-label="Trạng thái dự án"')).toBeGreaterThan(infoStart)
     expect(detail.indexOf('aria-label="Trạng thái dự án"')).toBeLessThan(tasksStart)
+  })
+})
+
+describe('U5: Revenue nổi bật số tiền và không ẩn dữ liệu', () => {
+  const page = readSource(REVENUE_PAGE)
+  const detail = readSource(REVENUE_DETAIL)
+
+  it('màu trạng thái cho đang chờ và chi phí', () => {
+    expect(page).toContain('summary-card__value summary-card__value--warning')
+    expect(page).toContain('summary-card__value summary-card__value--cost')
+    expect(baseCss).toMatch(/\.summary-card__value--warning\s*\{[^}]*color:\s*var\(--color-warning\)/)
+    expect(baseCss).toMatch(/\.summary-card__value--cost\s*\{[^}]*color:\s*var\(--color-error\)/)
+    expect(baseCss).toMatch(/\.summary-card__value\s*\{[^}]*font-size:\s*1\.5rem/)
+  })
+
+  it('hàng doanh thu không ẩn cột khi hẹp', () => {
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.revenue-row\s*\{[^}]*'details details'/)
+    const narrow = css.slice(css.indexOf('.revenue-row__details'))
+    expect(narrow.slice(0, 200)).not.toContain('display: none')
+  })
+
+  it('Revenue Detail đặt lãi thực tế lên đầu, 2 cột, 1 cột dưới 900px', () => {
+    expect(detail.indexOf('revenue-detail__profit')).toBeLessThan(detail.indexOf('revenue-detail-grid'))
+    expect(css).toMatch(/\.revenue-detail-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(0, 1fr\)/)
+    expect(css).toMatch(/@media \(max-width: 900px\)[\s\S]*?\.revenue-detail-grid\s*\{[^}]*grid-template-columns:\s*1fr/)
+  })
+
+  it('Tx Hash dài tự xuống dòng', () => {
+    expect(detail).toContain('mono revenue-detail__tx')
+    expect(baseCss).toMatch(/\.revenue-detail__tx\s*\{[^}]*overflow-wrap:\s*anywhere/)
   })
 })

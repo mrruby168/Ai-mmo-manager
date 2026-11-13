@@ -715,6 +715,7 @@ select.field__control {
 .summary-card__value {
   font-size: 1.5rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .summary-card__value--positive {
@@ -722,6 +723,14 @@ select.field__control {
 }
 
 .summary-card__value--negative {
+  color: var(--color-error);
+}
+
+.summary-card__value--warning {
+  color: var(--color-warning);
+}
+
+.summary-card__value--cost {
   color: var(--color-error);
 }
 
@@ -2246,7 +2255,8 @@ select.field__control {
 
 .revenue-row {
   display: grid;
-  grid-template-columns: 2.4fr 1fr 1fr auto;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-areas: 'id details details st';
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
@@ -2258,6 +2268,17 @@ select.field__control {
   color: inherit;
 }
 
+/* Bọc 2 cột thưởng/thực nhận để hạ xuống 2 hàng khi hẹp mà không ẩn dữ liệu. */
+.revenue-row__details {
+  grid-area: details;
+  display: contents;
+}
+
+.revenue-row__status {
+  grid-area: st;
+  justify-self: end;
+}
+
 .revenue-row:hover {
   background: var(--color-surface-raised);
   border-color: var(--color-border-strong);
@@ -2265,10 +2286,17 @@ select.field__control {
 
 @media (max-width: 1100px) {
   .revenue-row {
-    grid-template-columns: 2fr 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'id st'
+      'details details';
+    row-gap: var(--space-2);
   }
-  .revenue-row__detail {
-    display: none;
+
+  .revenue-row__details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
   }
 }
 
@@ -2282,6 +2310,7 @@ select.field__control {
 .revenue-row__name {
   font-weight: 600;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .revenue-row__meta {
@@ -2314,13 +2343,29 @@ select.field__control {
   border-color: var(--color-success);
 }
 
-.revenue-detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.revenue-detail {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
 }
 
-@media (max-width: 960px) {
+.revenue-detail__profit {
+  border-color: var(--color-border-strong);
+}
+
+.revenue-detail__tx {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.revenue-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
   .revenue-detail-grid {
     grid-template-columns: 1fr;
   }
