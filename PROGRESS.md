@@ -1,3 +1,9 @@
+## WI-21 — RELEASE v0.1.2 (2026-11-13)
+- Merge vào main: PR #8 `0be87e6` (News UI lưới 2×2 cố định, badge deadline tiếng Việt, Activity Log vào lưới) và PR #9 `686222f` (Scan dùng Web Search của app khi model thiếu Native Search; thêm dự án chưa xác minh). PRs UI V4 (#7) và scan-extract (#6) đã nằm trong main trước đó.
+- Main sau merge: typecheck 0; 65 file / 689 test PASS; build 0. Bump `package.json` 0.1.1 → 0.1.2; tag annotated `v0.1.2`; không kèm binary/installer; release notes Vietnamese.
+- GUI chưa kiểm chứng đầy đủ (xem `report-news-ui.md` mục 5 và `pr-scan-body.md` mục "Chưa kiểm chứng").
+- Scan commit checkpoint `04bc264` đã nằm trong main qua PR #9 (không còn "unverified" ở trạng thái local).
+
 ## WI-20 — SCAN CHO PHÉP THÊM DỰ ÁN CHƯA XÁC MINH (INSUFFICIENT) — CODE XONG, CHƯA COMMIT (2026-11-13)
 - Branch `fix/scan-app-websearch` (tiếp WI-19). Chưa commit / push / PR theo yêu cầu. Task: bỏ khóa checkbox với dự án `insufficient`; vẫn khóa khi dự án trùng; người dùng chủ động tick + xác nhận mới được thêm; Verification giữ `unverified`, không đổi Project JSON 12 trường, không đổi luồng phê duyệt/SQLite.
 - Quyết định nghiệp vụ (user duyệt): dự án `insufficient` khi thêm **hỏi người dùng chọn Event MMO / Airdrop cho từng dự án** — KHÔNG tự đoán (ScanItem không lưu loại; `projectImportItemSchema` bắt buộc `category ∈ {event_mmo, airdrop}`). Thiếu lựa chọn → main trả lỗi "Chưa chọn loại (Event MMO / Airdrop)…", không thêm.
