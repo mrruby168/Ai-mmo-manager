@@ -126,6 +126,28 @@ describe('tool JSON schemas', () => {
     expect(searchTool.parameters.required).toEqual(['query'])
   })
 
+  it('adds web_search to Scan tools only when a search provider is supplied', () => {
+    expect(getScanTools().map((tool) => tool.name)).toEqual([
+      'web_fetch',
+      'list_existing_projects',
+      'submit_scan_result'
+    ])
+
+    const withSearch = getScanTools({
+      search: { provider: 'tavily', search: async () => [] },
+      costControl: { budget: undefined }
+    })
+    const names = withSearch.map((tool) => tool.name)
+
+    expect(names).toEqual(['web_fetch', 'web_search', 'list_existing_projects', 'submit_scan_result'])
+
+    const searchTool = withSearch.find((tool) => tool.name === 'web_search')!
+    const issues: string[] = []
+    collectSchemaIssues(searchTool.parameters, 'web_search.parameters', issues)
+    expect(issues).toEqual([])
+    expect(searchTool.parameters.required).toEqual(['query'])
+  })
+
   it('omits parameters for Gemini tools that take no arguments', () => {    const declarations = toGoogleTools(
       [
         { name: 'list_projects', description: 'no args', parameters: { type: 'object', properties: {} } },

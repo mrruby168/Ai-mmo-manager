@@ -50,7 +50,7 @@ const api: RendererApi = {
   },
   scan: {
     start: (payload) => invoke(IPC.scanStart, payload),
-    submit: (names) => invoke(IPC.scanSubmit, { names }),
+    submit: (names, categories) => invoke(IPC.scanSubmit, categories ? { names, categories } : { names }),
     latest: () => invoke(IPC.scanGetLatest),
     cancel: () => invoke(IPC.scanCancel)
   },

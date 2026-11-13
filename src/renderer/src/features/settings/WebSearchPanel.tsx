@@ -109,7 +109,7 @@ export function WebSearchPanel({ webSearch, onChanged }: WebSearchPanelProps): R
         </div>
         <p className="muted">
           App dùng Web Search này khi Model không có tìm kiếm web gốc (ví dụ OpenRouter free). Check News sẽ tìm và xác minh tin
-          trong 7 ngày gần nhất. API key lưu trong kho bảo mật của app, không hiện lại và không ghi log.
+          trong 7 ngày gần nhất; Scan Project dùng Web Search này để tra cứu dự án. API key lưu trong kho bảo mật của app, không hiện lại và không ghi log.
         </p>
 
         <Field label="Nhà cung cấp" htmlFor="web-search-provider">

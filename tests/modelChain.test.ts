@@ -73,13 +73,25 @@ describe('buildTaskChain', () => {
     expect(chain.skipped).toEqual([{ label: 'Provider 1 · Hai', reason: 'tools' }])
   })
 
-  it('Scan bắt buộc Web Search gốc nên bỏ model không có Web Search', () => {
+  it('Scan dùng điều kiện native-or-app: thiếu Web Search gốc vẫn chạy khi app đã cấu hình Web Search', () => {
     useSettings({ taskModels: { news: [], scan: [m3, m1], chat: [] } })
 
-    const chain = buildTaskChain('scan', { requireTools: true, webSearch: 'native' })
+    const blocked = buildTaskChain('scan', { requireTools: true, webSearch: 'native-or-app' }, false)
+    expect(blocked.candidates.map((entry) => entry.modelId)).toEqual(['m1'])
+    expect(blocked.skipped).toEqual([{ label: 'Provider 1 · Ba', reason: 'web_search' }])
 
-    expect(chain.candidates.map((entry) => entry.modelId)).toEqual(['m1'])
-    expect(chain.skipped).toEqual([{ label: 'Provider 1 · Ba', reason: 'web_search' }])
+    const allowed = buildTaskChain('scan', { requireTools: true, webSearch: 'native-or-app' }, true)
+    expect(allowed.candidates.map((entry) => entry.modelId)).toEqual(['m3', 'm1'])
+    expect(allowed.skipped).toEqual([])
+  })
+
+  it('Scan vẫn chặn model thiếu tool calling dù app đã cấu hình Web Search', () => {
+    useSettings({ taskModels: { news: [], scan: [m2], chat: [] } })
+
+    const chain = buildTaskChain('scan', { requireTools: true, webSearch: 'native-or-app' }, true)
+
+    expect(chain.candidates).toEqual([])
+    expect(chain.skipped).toEqual([{ label: 'Provider 1 · Hai', reason: 'tools' }])
   })
 
   it('News chấp nhận model thiếu Web Search gốc khi app đã cấu hình Web Search', () => {
@@ -111,7 +123,7 @@ describe('buildTaskChain', () => {
     expect(buildTaskChain('news', { requireTools: true }, true).candidates.map((entry) => entry.modelId)).toEqual([
       'm4'
     ])
-    expect(buildTaskChain('scan', { requireTools: true, webSearch: 'native' }).candidates.map((entry) => entry.modelId)).toEqual([
+    expect(buildTaskChain('scan', { requireTools: true, webSearch: 'native-or-app' }, true).candidates.map((entry) => entry.modelId)).toEqual([
       'm1'
     ])
   })

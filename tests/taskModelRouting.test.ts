@@ -209,12 +209,86 @@ describe('nối chuỗi model theo từng tác vụ (FIX 2)', () => {
     expect(runAgent).toHaveBeenCalledTimes(1)
   })
 
-  it('Scan Project dựng chuỗi "scan" (bắt buộc Web Search gốc) và chạy qua failover', async () => {
+  it('Scan Project dựng chuỗi "scan" (tool calling + Web Search gốc hoặc Web Search của app) và chạy qua failover', async () => {
     await runScan({ text: 'Alpha Drop\nBeta Drop' })
 
-    expect(buildTaskChain).toHaveBeenCalledWith('scan', { requireTools: true, webSearch: 'native' })
+    expect(buildTaskChain).toHaveBeenCalledWith('scan', { requireTools: true, webSearch: 'native-or-app' }, false)
     expect(createFailoverClient).toHaveBeenCalledWith(scanChain.candidates, expect.any(Object))
     expect(saveScanLatest).toHaveBeenCalled()
+  })
+
+  it('Scan với model thiếu Web Search gốc + App Search đã cấu hình: pre-flight, enableWebSearch=false, đăng ký web_search', async () => {
+    const search = vi.fn(async (_query: string) => [
+      { title: 'Alpha Drop', url: 'https://alpha.example.com', snippet: 'airdrop' }
+    ])
+    loadSearchProvider.mockReturnValue({ search } as never)
+    const nonNativeScanChain: TaskChain = {
+      ...scanChain,
+      candidates: scanChain.candidates.map((entry) => ({ ...entry, supportsWebSearch: false })),
+      nativeSearch: false
+    }
+    buildTaskChain.mockImplementation((task: 'news' | 'scan' | 'chat') => {
+      if (task === 'scan') {
+        return nonNativeScanChain
+      }
+      if (task === 'news') {
+        return newsChain
+      }
+      return chain('p-chat', 'm-chat')
+    })
+
+    await runScan({ text: 'Alpha Drop\nBeta Drop' })
+
+    expect(buildTaskChain).toHaveBeenCalledWith('scan', { requireTools: true, webSearch: 'native-or-app' }, true)
+    expect(search).toHaveBeenCalledTimes(1) // pre-flight đúng một truy vấn
+    const request = runAgent.mock.calls[0][0] as { enableWebSearch: boolean; tools: Array<{ name: string }> }
+    expect(request.enableWebSearch).toBe(false)
+    expect(request.tools.map((tool) => tool.name)).toEqual([
+      'web_fetch',
+      'web_search',
+      'list_existing_projects',
+      'submit_scan_result'
+    ])
+  })
+
+  it('App Search đã cấu hình nhưng kết nối thất bại: Scan báo lỗi rõ, không gọi model', async () => {
+    const search = vi.fn(async () => {
+      throw new Error('HTTP 502')
+    })
+    loadSearchProvider.mockReturnValue({ search } as never)
+    const nonNativeScanChain: TaskChain = {
+      ...scanChain,
+      candidates: scanChain.candidates.map((entry) => ({ ...entry, supportsWebSearch: false })),
+      nativeSearch: false
+    }
+    buildTaskChain.mockImplementation((task: 'news' | 'scan' | 'chat') => {
+      if (task === 'scan') {
+        return nonNativeScanChain
+      }
+      if (task === 'news') {
+        return newsChain
+      }
+      return chain('p-chat', 'm-chat')
+    })
+
+    await expect(runScan({ text: 'Alpha Drop' })).rejects.toThrow(
+      'Web Search của app đã cấu hình nhưng không kết nối được'
+    )
+    expect(runAgent).not.toHaveBeenCalled()
+  })
+
+  it('Scan khi model có Web Search gốc VÀ App Search đã cấu hình: không chạy pre-flight app search, web_search chỉ là dự phòng', async () => {
+    const search = vi.fn(async (_query: string) => [
+      { title: 'Alpha Drop', url: 'https://alpha.example.com', snippet: 'airdrop' }
+    ])
+    loadSearchProvider.mockReturnValue({ search } as never)
+
+    await runScan({ text: 'Alpha Drop' })
+
+    expect(search).not.toHaveBeenCalled()
+    const request = runAgent.mock.calls[0][0] as { enableWebSearch: boolean; tools: Array<{ name: string }> }
+    expect(request.enableWebSearch).toBe(true)
+    expect(request.tools.map((tool) => tool.name)).toContain('web_search')
   })
 
   it('News và Scan dùng đúng chuỗi của mình, không lẫn model', async () => {

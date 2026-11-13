@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AiLogProgress, AppSettings, ScanItem } from '@shared/types'
+import type { AiLogProgress, AppSettings, ScanItem, WebSearchView } from '@shared/types'
 import { progressPercent } from '@shared/aiLog'
 import {
   isScanRowSelectable,
@@ -10,11 +10,15 @@ import {
   toggleScanIndexes
 } from '@shared/scanSelection'
 import {
-  chainWarnings,
+  appSearchConfigured,
   effectiveChain,
   firstRunnable,
-  listModelChoices
+  listModelChoices,
+  selectionKey
 } from '@shared/modelConfig'
+import { normalizeNameKey } from '@shared/normalize'
+import type { ProjectCategory } from '@shared/constants'
+import { ScanAssignCategoryDialog } from './ScanAssignCategoryDialog'
 import { Badge, CostBadge, RiskBadge } from '../../common/Badge'
 import { Button } from '../../common/Button'
 import { EmptyState, ErrorBlock } from '../../common/EmptyState'
@@ -62,7 +66,10 @@ export function ScanPage(): React.JSX.Element {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [assignValue, setAssignValue] = useState<Record<number, ProjectCategory>>({})
   const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [searchView, setSearchView] = useState<WebSearchView | null>(null)
   const [logExpanded, setLogExpanded] = useState(false)
 
   useEffect(() => {
@@ -113,15 +120,27 @@ export function ScanPage(): React.JSX.Element {
     }
   }, [dataVersion])
 
+  useEffect(() => {
+    let active = true
+    void window.api.settings.webSearch().then((result) => {
+      if (active && result.ok) {
+        setSearchView(result.data)
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [dataVersion])
+
   const choices = listModelChoices(settings?.ai.providers ?? [])
   const scanChain = effectiveChain(
     'scan',
     settings?.ai.taskModels.scan ?? [],
     settings?.ai.lastSelection ?? null
   )
-  // Scan cần Web Search gốc của model, không dùng Web Search của app.
-  const scanWarnings = chainWarnings('scan', scanChain, choices, false)
-  const scanRunnable = firstRunnable('scan', scanChain, choices, false)
+  // Scan cần Tool Calling và một nguồn Web Search khả dụng: Native của model hoặc Web Search của app.
+  const appSearch = appSearchConfigured(searchView)
+  const scanRunnable = firstRunnable('scan', scanChain, choices, appSearch)
   const modelLabel = scanRunnable ? scanRunnable.label : null
 
   const scanBusy = isBusy('scan')
@@ -130,10 +149,18 @@ export function ScanPage(): React.JSX.Element {
   if (!isAiEnabled) {
     scanDisabledReason = 'Vui lòng bật AI Mode trong Settings để sử dụng Scan.'
   } else if (!scanRunnable) {
-    scanDisabledReason =
-      scanChain.length === 0
-        ? 'Chưa có Model cho Scan Project. Vào Settings → Model Configuration để chọn A1.'
-        : `${scanWarnings[0]?.message ?? 'Không có Model nào dùng được cho Scan Project.'} Vào Settings → Model Configuration để chọn model khác.`
+    if (scanChain.length === 0) {
+      scanDisabledReason = 'Chưa có Model cho Scan Project. Vào Settings → Model Configuration để chọn A1.'
+    } else {
+      // Không chạy được: chỉ vì thiếu Tool Calling, hay vì cả chuỗi đều thiếu nguồn Web Search.
+      const hasToolsCapable = scanChain.some((selection) => {
+        const choice = choices.find((entry) => entry.key === selectionKey(selection))
+        return choice?.supportsTools === true
+      })
+      scanDisabledReason = hasToolsCapable
+        ? 'Scan yêu cầu model hỗ trợ Tool Calling và cần có ít nhất một nguồn Web Search khả dụng: Native Web Search của model hoặc Web Search của ứng dụng (Tavily / Brave / SearXNG). Vào Settings → Web Search để cấu hình, hoặc Settings → Model Configuration để chọn model có Web Search gốc.'
+        : 'Model đã chọn không hỗ trợ Tool Calling nên không chạy được Scan. Scan yêu cầu model hỗ trợ Tool Calling và cần có ít nhất một nguồn Web Search khả dụng: Native Web Search của model hoặc Web Search của ứng dụng (Tavily / Brave / SearXNG). Vào Settings → Model Configuration để chọn model khác.'
+    }
   }
 
   async function acceptFile(file: File): Promise<void> {
@@ -256,13 +283,48 @@ export function ScanPage(): React.JSX.Element {
     setSelected((current) => toggleScanIndexes(current, selectableIndexes()))
   }
 
-  async function handleSubmit(): Promise<void> {
-    if (selected.size === 0 || submitting) {
+  /** Vị trí các dòng "insufficient" đang được tick (cần người dùng chọn loại trước khi thêm). */
+  function insufficientSelectedIndexes(): number[] {
+    if (!items) {
+      return []
+    }
+    return [...selected]
+      .filter((index) => items[index]?.category === 'insufficient')
+      .sort((a, b) => a - b)
+  }
+
+  function insufficientSelectedRows(): Array<{ index: number; name: string; website: string | null }> {
+    if (!items) {
+      return []
+    }
+    return insufficientSelectedIndexes().map((index) => ({
+      index,
+      name: items[index].name,
+      website: items[index].website
+    }))
+  }
+
+  async function doSubmit(): Promise<void> {
+    if (!items || selected.size === 0) {
+      setAssignOpen(false)
+      return
+    }
+    // Chưa chọn loại cho đủ dự án chưa xác minh: mở lại dialog thay vì nộp thiếu.
+    if (insufficientSelectedIndexes().some((index) => assignValue[index] === undefined)) {
+      setAssignOpen(true)
       return
     }
     setSubmitting(true)
-    const result = await window.api.scan.submit(selectedScanNames(selected, items ?? []))
+    const categories = Object.fromEntries(
+      insufficientSelectedIndexes().map((index) => [normalizeNameKey(items[index].name), assignValue[index]] as const)
+    ) as Record<string, ProjectCategory>
+    const result = await window.api.scan.submit(
+      selectedScanNames(selected, items),
+      Object.keys(categories).length > 0 ? categories : undefined
+    )
     setSubmitting(false)
+    setAssignOpen(false)
+    setAssignValue({})
     if (!result.ok) {
       pushToast(result.error.message, 'error')
       return
@@ -279,6 +341,19 @@ export function ScanPage(): React.JSX.Element {
     }
     setSelected(new Set())
     refreshData()
+  }
+
+  async function handleSubmit(): Promise<void> {
+    if (selected.size === 0 || submitting) {
+      return
+    }
+    const missing = insufficientSelectedIndexes().filter((index) => assignValue[index] === undefined)
+    if (missing.length > 0) {
+      // Dự án chưa xác minh cần người dùng chọn loại (Event MMO / Airdrop) trước khi thêm.
+      setAssignOpen(true)
+      return
+    }
+    await doSubmit()
   }
 
   const canScan = isAiEnabled && !scanBusy && !scanning && text.trim().length > 0 && scanDisabledReason === null
@@ -423,7 +498,7 @@ export function ScanPage(): React.JSX.Element {
           {items && items.length > 0 ? (
             <>
               <p className="muted scan-results__hint">
-                Chọn dự án muốn thêm vào danh sách rồi bấm OK. AI chỉ thêm những dự án bạn đã chọn.
+                Chọn dự án muốn thêm vào danh sách rồi bấm OK. AI chỉ thêm những dự án bạn đã chọn; dự án chưa xác minh sẽ được hỏi loại khi thêm.
               </p>
               <div className="scan-results__counts">
                 <span className="chip">Event MMO {scanCounts.event_mmo}</span>
@@ -515,6 +590,16 @@ export function ScanPage(): React.JSX.Element {
           emptyText="Chưa có hoạt động. Dán nội dung rồi bấm Scan để bắt đầu."
         />
       </div>
+
+      <ScanAssignCategoryDialog
+        open={assignOpen}
+        rows={insufficientSelectedRows()}
+        value={assignValue}
+        busy={submitting}
+        onChange={(index, category) => setAssignValue((current) => ({ ...current, [index]: category }))}
+        onCancel={() => setAssignOpen(false)}
+        onConfirm={() => void doSubmit()}
+      />
     </div>
   )
 }

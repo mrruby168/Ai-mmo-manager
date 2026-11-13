@@ -116,10 +116,15 @@ describe('chainWarnings', () => {
     expect(warnings).toEqual([{ index: 1, message: 'A2 "Provider 1 · Hai" không hỗ trợ tool calling nên sẽ bị bỏ qua.' }])
   })
 
-  it('Scan cần Web Search gốc', () => {
-    expect(chainWarnings('scan', [m3], choices, true)).toEqual([
-      { index: 0, message: 'A1 "Provider 2 · Ba" không có Web Search gốc nên không dùng được cho Scan Project.' }
+  it('Scan chỉ cảnh báo thiếu Web Search khi app chưa cấu hình Web Search', () => {
+    expect(chainWarnings('scan', [m3], choices, false)).toEqual([
+      {
+        index: 0,
+        message:
+          'A1 "Provider 2 · Ba" không có Web Search gốc và app chưa cấu hình Web Search (Tavily / Brave / SearXNG) nên sẽ bị bỏ qua.'
+      }
     ])
+    expect(chainWarnings('scan', [m3], choices, true)).toEqual([])
   })
 
   it('News chỉ cảnh báo thiếu Web Search khi app chưa cấu hình Web Search', () => {
@@ -133,11 +138,11 @@ describe('chainWarnings', () => {
 })
 
 describe('effectiveChain', () => {
-  it('gi? chu?i �? l�u khi c� model', () => {
+  it('gi? chu?i �? l�u khi c� model', () => {
     expect(effectiveChain('news', [m1], m3)).toEqual([m1])
   })
 
-  it('chu?i tr?ng th? News/Scan r�i v? model Chat, Chat th? kh�ng', () => {
+  it('chu?i tr?ng th? News/Scan r�i v? model Chat, Chat th? kh�ng', () => {
     expect(effectiveChain('news', [], m3)).toEqual([m3])
     expect(effectiveChain('scan', [], m3)).toEqual([m3])
     expect(effectiveChain('chat', [], m3)).toEqual([])
@@ -146,14 +151,15 @@ describe('effectiveChain', () => {
 })
 
 describe('firstRunnable', () => {
-  it('tr? model A1 khi d�ng ��?c, b? qua model l?i v� l?y model k? ti?p', () => {
+  it('tr? model A1 khi d�ng ��?c, b? qua model l?i v� l?y model k? ti?p', () => {
     expect(firstRunnable('chat', [m1, m2], choices, false)).toMatchObject({ key: 'p1::m1' })
-    // A1 thi?u tool calling ? A2 (m3) d�ng ��?c cho Chat/News.
+    // A1 thi?u tool calling ? A2 (m3) d�ng ��?c cho Chat/News.
     expect(firstRunnable('chat', [m2, m3], choices, false)).toMatchObject({ key: 'p2::m3' })
   })
 
-  it('Scan b?t bu?c Web Search g?c, News ch?p nh?n Web Search c?a app', () => {
-    expect(firstRunnable('scan', [m3], choices, true)).toBeNull()
+  it('Scan và News chấp nhận Web Search của app', () => {
+    expect(firstRunnable('scan', [m3], choices, false)).toBeNull()
+    expect(firstRunnable('scan', [m3], choices, true)).toMatchObject({ key: 'p2::m3' })
     expect(firstRunnable('news', [m3], choices, false)).toBeNull()
     expect(firstRunnable('news', [m3], choices, true)).toMatchObject({ key: 'p2::m3' })
   })

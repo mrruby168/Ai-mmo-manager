@@ -471,7 +471,14 @@ export interface RendererApi {
   }
   scan: {
     start(payload: { text: string; fileName?: string }): Promise<IpcResult<{ items: ScanItem[]; rejected: number; message: string }>>
-    submit(names: string[]): Promise<IpcResult<ProjectImportSummary>>
+    /**
+     * `categories` bắt buộc cho dự án "insufficient" được thêm: khoá theo name key
+     * (xem `normalizeNameKey`), giá trị là 'event_mmo' | 'airdrop'.
+     */
+    submit(
+      names: string[],
+      categories?: Record<string, 'event_mmo' | 'airdrop'>
+    ): Promise<IpcResult<ProjectImportSummary>>
     latest(): Promise<IpcResult<ScanLatest | null>>
     cancel(): Promise<IpcResult<{ canceled: boolean }>>
   }

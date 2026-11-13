@@ -85,7 +85,7 @@ export function setChainSlot(chain: ModelChain, index: number, selection: ModelS
   return result
 }
 
-/** App đã cấu hình Web Search chưa (News dùng được model thiếu Web Search gốc khi có). */
+/** App đã cấu hình Web Search chưa (News/Scan dùng được model thiếu Web Search gốc khi có). */
 export function appSearchConfigured(
   view: { provider: WebSearchView['provider']; baseUrl: string | null; hasApiKey?: boolean } | null | undefined
 ): boolean {
@@ -107,7 +107,7 @@ export interface ChainWarning {
 
 /**
  * Cảnh báo cho từng vị trí sẽ bị main bỏ qua khi chạy:
- * mọi tác vụ cần tool calling; Scan cần Web Search gốc; News cần Web Search gốc hoặc Web Search của app.
+ * mọi tác vụ cần tool calling; Scan và News cần Web Search gốc hoặc Web Search của app.
  */
 export function chainWarnings(
   task: ModelTask,
@@ -127,14 +127,10 @@ export function chainWarnings(
       warnings.push({ index, message: `${prefix} không hỗ trợ tool calling nên sẽ bị bỏ qua.` })
       return
     }
-    if (task === 'scan' && !choice.supportsWebSearch) {
-      warnings.push({ index, message: `${prefix} không có Web Search gốc nên không dùng được cho Scan Project.` })
-      return
-    }
-    if (task === 'news' && !choice.supportsWebSearch && !appSearchAvailable) {
+    if (!appSearchAvailable && !choice.supportsWebSearch && (task === 'scan' || task === 'news')) {
       warnings.push({
         index,
-        message: `${prefix} không có Web Search gốc và app chưa cấu hình Web Search ở tab Web Search nên sẽ bị bỏ qua.`
+        message: `${prefix} không có Web Search gốc và app chưa cấu hình Web Search (Tavily / Brave / SearXNG) nên sẽ bị bỏ qua.`
       })
     }
   })
@@ -174,10 +170,7 @@ export function firstRunnable(
     if (!choice || !choice.supportsTools) {
       continue
     }
-    if (task === 'scan' && !choice.supportsWebSearch) {
-      continue
-    }
-    if (task === 'news' && !choice.supportsWebSearch && !appSearchAvailable) {
+    if (!appSearchAvailable && !choice.supportsWebSearch && (task === 'scan' || task === 'news')) {
       continue
     }
     return choice

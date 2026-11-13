@@ -1,6 +1,7 @@
 import type { AiMessage, ModelClient } from './types'
 import { AiError } from './types'
 import type { AiLogLevel, Project, ScanItem, ScanLatest } from '@shared/types'
+import type { ProjectCategory } from '@shared/constants'
 import { scanResultSchema } from '@shared/schemas'
 import type { ProjectImportItem } from '@shared/schemas'
 import { normalizeDomainKey, normalizeNameKey } from '@shared/normalize'
@@ -11,6 +12,9 @@ import { fetchLogoForProject } from '../services/logoService'
 import { logError } from '../services/logger'
 import { buildTaskChain } from './providerService'
 import type { TaskChain } from './providerService'
+import { loadSearchProvider } from '../services/webSearchService'
+import { describeSearchError, probeSearchProvider } from '../services/searchProviders'
+import type { SearchProvider } from '../services/searchProviders'
 import { createFailoverClient } from './failoverClient'
 import {
   SCAN_EXTRACT_MAX_CHARS,
@@ -236,13 +240,37 @@ function candidatePayload(candidate: Candidate): Record<string, unknown> {
   return payload
 }
 
+/** Thông báo chung khi Scan không có nguồn Web Search nào dùng được. */
+export const SCAN_SEARCH_REQUIRED_MESSAGE =
+  'Scan yêu cầu model hỗ trợ Tool Calling và cần có ít nhất một nguồn Web Search khả dụng: Native Web Search của model hoặc Web Search của ứng dụng (Tavily / Brave / SearXNG).'
+
+interface ScanSelection {
+  /** Chuỗi A1–A3 đã lọc: có tool calling và (Web Search gốc hoặc app đã cấu hình Web Search). */
+  chain: TaskChain
+  /** Model A1 có tìm kiếm web gốc (dùng `enableWebSearch` của provider). */
+  nativeSearch: boolean
+  /** Web Search do app cung cấp, null nếu chưa cấu hình. */
+  search: SearchProvider | null
+}
+
 /**
- * FIX 2: chuỗi A1–A3 cho Scan. Scan cần tool calling và Web Search gốc của model.
- * Không còn model hợp lệ thì báo về Settings → Model Configuration.
+ * FIX: giống Check News, Scan chạy được khi Model có tool calling VÀ (Model có
+ * Web Search gốc HOẶC app đã cấu hình Web Search). Thiếu cả hai thì báo rõ.
  */
-function requireSelection(): TaskChain {
-  const chain = buildTaskChain('scan', { requireTools: true, webSearch: 'native' })
-  if (chain.candidates.length === 0) {
+function requireSelection(): ScanSelection {
+  let search: SearchProvider | null = null
+  try {
+    search = loadSearchProvider()
+  } catch (error) {
+    throw new AiError(
+      'unsupported',
+      `Không đọc được cấu hình Web Search: ${describeSearchError(error)}. Vào Settings → Web Search để kiểm tra lại.`
+    )
+  }
+
+  const chain = buildTaskChain('scan', { requireTools: true, webSearch: 'native-or-app' }, search !== null)
+  const first = chain.candidates[0]
+  if (!first) {
     const blocked = chain.skipped[0]
     if (blocked?.reason === 'tools') {
       throw new AiError(
@@ -253,19 +281,23 @@ function requireSelection(): TaskChain {
     if (blocked?.reason === 'web_search') {
       throw new AiError(
         'unsupported',
-        `Model "${blocked.label}" không hỗ trợ Web Search, không thể Scan. Vào Settings → Model Configuration để chọn model khác cho Scan.`
+        `${SCAN_SEARCH_REQUIRED_MESSAGE} Vào Settings → Web Search để cấu hình Tavily / Brave / SearXNG, hoặc Settings → Model Configuration để chọn model có Web Search gốc.`
       )
     }
     throw new AiError('unsupported', 'Chưa chọn Model cho Scan. Vào Settings → Model Configuration để chọn model A1 cho Scan.')
   }
-  return chain
+  return { chain, nativeSearch: first.supportsWebSearch, search }
 }
 
 /** Client có failover A1→A2→A3; mỗi lần đổi model ghi một dòng log để xem lại sau. */
-function createScanClient(chain: TaskChain) {
+function createScanClient(chain: TaskChain, onActiveNativeSearchChange?: (supportsWebSearch: boolean) => void) {
   return createFailoverClient(chain.candidates, {
-    onOnline: (candidate) => appendAiLog('scan', 'online', `${candidate.label} đang online`),
+    onOnline: (candidate) => {
+      onActiveNativeSearchChange?.(candidate.supportsWebSearch)
+      appendAiLog('scan', 'online', `${candidate.label} đang online`)
+    },
     onSwap: (from, to, error) => {
+      onActiveNativeSearchChange?.(to.supportsWebSearch)
       logInfo(`Scan Project đổi model ${from.label} → ${to.label}: ${error.message}`)
       appendAiLog('scan', 'warn', `${from.label} lỗi (${error.message}) → chuyển sang ${to.label}`)
     }
@@ -302,7 +334,13 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
   return runAiTask('Scan Project', 'scan', async (signal, reporter) => {
     reporter.report('Đọc dữ liệu', 0, 1, 'Đang đọc nội dung...')
     appendAiLog('scan', 'step', input.fileName ? `Đang đọc tệp ${input.fileName}` : 'Đang đọc nội dung đã dán')
-    const client = createScanClient(requireSelection())
+    const selection = requireSelection()
+    // Model đang chạy có thể đổi giữa chừng (failover A1→A3) nên cờ Web Search gốc
+    // và ngân sách lượt tìm kiếm gốc phải bám theo model đang online.
+    let activeNativeSearch = selection.nativeSearch
+    const client = createScanClient(selection.chain, (supportsWebSearch) => {
+      activeNativeSearch = supportsWebSearch
+    })
 
     const extraction = await extractCandidates(input.text, client, signal)
     const rejected = extraction.rejected
@@ -365,13 +403,35 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
     }
 
     const batches = chunk(toResearch, BATCH_SIZE)
+    // Web Search của app chỉ là phương án thay thế khi không model nào trong chuỗi
+    // có Native Web Search; khi đó kiểm tra kết nối thật trước khi quét để báo lỗi
+    // rõ thay vì để mọi lô trả về rỗng.
+    const anyNativeSearch = selection.chain.candidates.some((candidate) => candidate.supportsWebSearch)
+    if (toResearch.length > 0 && selection.search && !anyNativeSearch) {
+      appendAiLog('scan', 'step', 'Kiểm tra kết nối Web Search của app...')
+      try {
+        await probeSearchProvider(selection.search, signal)
+      } catch (error) {
+        if (signal.aborted) {
+          throw error
+        }
+        throw new AiError(
+          'network',
+          `Web Search của app đã cấu hình nhưng không kết nối được (${describeSearchError(error)}). Vào Settings → Web Search để kiểm tra lại, hoặc chọn model có Native Web Search cho Scan.`
+        )
+      }
+    }
     const budget = createSearchBudget(COST_LIMITS.scanMaxSearchesPerRun)
     const usageTotal = { inputTokens: 0, outputTokens: 0, calls: 0 }
     const onUsage = (usage: AgentUsage): void => {
       usageTotal.inputTokens += usage.inputTokens
       usageTotal.outputTokens += usage.outputTokens
       usageTotal.calls += 1
-      budget.record(usage.searches)
+      // Chỉ đếm lượt tìm kiếm gốc của model; lượt tìm kiếm qua web_search của app
+      // đã bị trừ ngân sách ngay khi chạy nên không đếm lặp.
+      if (activeNativeSearch) {
+        budget.record(usage.searches)
+      }
     }
     let skippedByBudget = 0
 
@@ -388,8 +448,12 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
           client,
           system: SCAN_SYSTEM_PROMPT,
           messages,
-          tools: getScanTools({ costControl: {}, onLog: toolLog }),
-          enableWebSearch: true,
+          tools: getScanTools({
+            search: selection.search,
+            costControl: { maxSearches: COST_LIMITS.scanMaxSearchesPerRun, budget },
+            onLog: toolLog
+          }),
+          enableWebSearch: activeNativeSearch,
           maxTokens: 4096,
           maxSteps: COST_LIMITS.agentMaxSteps,
           promptCache: true,
@@ -572,27 +636,46 @@ async function fetchAndSaveLogos(projectIds: string[]): Promise<void> {
   }
 }
 
-export async function submitScanSelection(names: string[]): Promise<ScanSubmitOutcome> {
+export async function submitScanSelection(
+  names: string[],
+  /** Loại người dùng chọn cho từng dự án "insufficient" (khoá theo name key). */
+  categories?: Record<string, ProjectCategory>
+): Promise<ScanSubmitOutcome> {
   const latest = getScanLatest()
   const wanted = new Set(names.map((name) => normalizeNameKey(name)).filter(Boolean))
 
   const results: ScanSubmitOutcome['results'] = []
-  const toAdd: Array<{ item: ScanItem; name: string }> = []
+  const toAdd: Array<{ item: ScanItem; name: string; assignedCategory: ProjectCategory }> = []
 
   if (latest) {
     for (const item of latest.items) {
-      if (!wanted.has(normalizeNameKey(item.name))) {
-        continue
-      }
-      if (item.category === 'insufficient') {
-        results.push({ name: item.name, project: null, duplicateOf: null, error: 'Không đủ bằng chứng, không thêm được' })
+      const nameKey = normalizeNameKey(item.name)
+      if (!wanted.has(nameKey)) {
         continue
       }
       if (item.duplicateOf) {
+        // Trùng dự án đã có trong app: khóa thêm dù người dùng cố tick.
         results.push({ name: item.name, project: null, duplicateOf: item.duplicateOf, error: null })
         continue
       }
-      toAdd.push({ item, name: item.name })
+      let assignedCategory: ProjectCategory
+      if (item.category === 'insufficient') {
+        // Không tự đoán loại khi chưa xác minh: người dùng phải chọn (dialog khi bấm OK).
+        const picked = categories?.[nameKey] ?? null
+        if (!picked) {
+          results.push({
+            name: item.name,
+            project: null,
+            duplicateOf: null,
+            error: 'Chưa chọn loại (Event MMO / Airdrop) cho dự án chưa xác minh này'
+          })
+          continue
+        }
+        assignedCategory = picked
+      } else {
+        assignedCategory = item.category
+      }
+      toAdd.push({ item, name: item.name, assignedCategory })
     }
   }
 
@@ -603,7 +686,7 @@ export async function submitScanSelection(names: string[]): Promise<ScanSubmitOu
   }
 
   const itemsToAdd = toAdd.map((entry): ProjectImportItem => ({
-    category: entry.item.category as 'event_mmo' | 'airdrop',
+    category: entry.assignedCategory,
     name: entry.item.name,
     website: entry.item.website ?? undefined,
     taskSummary: entry.item.taskSummary || undefined,

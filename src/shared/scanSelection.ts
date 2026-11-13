@@ -16,9 +16,9 @@ export function scanRowKey(item: ScanItem, index: number): string {
   return `${index}:${item.name}`
 }
 
-/** Dòng chọn được: không phải "insufficient" và không trùng dự án đã có trong app. */
+/** Dòng chọn được: chỉ khóa khi trùng dự án đã có trong app (kể cả "insufficient"). */
 export function isScanRowSelectable(item: ScanItem): boolean {
-  return item.category !== 'insufficient' && item.duplicateOf === null
+  return item.duplicateOf === null
 }
 
 /** Vị trí các dòng chọn được, theo thứ tự gốc. */

@@ -136,7 +136,9 @@ export const scanStartPayload = z.object({
 })
 
 export const scanSubmitPayload = z.object({
-  names: z.array(z.string().trim().min(1).max(200)).min(1, 'Chưa chọn dự án nào').max(100)
+  names: z.array(z.string().trim().min(1).max(200)).min(1, 'Chưa chọn dự án nào').max(100),
+  /** Loại người dùng chọn cho từng dự án "insufficient" được thêm (khoá theo name key). */
+  categories: z.record(z.string().trim().min(1).max(200), z.enum(PROJECT_CATEGORIES)).optional()
 })
 
 /* ---------- settings / providers ---------- */
