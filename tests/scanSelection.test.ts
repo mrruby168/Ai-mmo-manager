@@ -122,15 +122,12 @@ describe('ScanPage dùng khoá theo vị trí thay vì tên', () => {
     expect(source).toContain('useState<Set<number>>(new Set())')
     expect(source).toContain('window.api.scan.submit(selectedScanNames(selected, items ?? []))')
     expect(source).toContain('toggleScanIndex(current, index)')
-    expect(source).toContain('toggleScanIndexes(current, indexes)')
+    expect(source).toContain('toggleScanIndexes(current, selectableIndexes())')
   })
 
-  it('nhóm dùng rows kèm vị trí gốc', () => {
-    expect(source).toContain('groupScanRows(items,')
-    expect(source).toContain('onToggleAll(group.map(({ index }) => index))')
-  })
-
-  it('nguồn của dòng cũng có khoá không trùng', () => {
-    expect(source).toContain('key={`${sourceIndex}:${source}`}')
+  it('một bảng duy nhất, nút OK thêm dự án đã chọn', () => {
+    expect(source).toContain('aria-label="Kết quả quét"')
+    expect(source).toContain('OK – Thêm ${selected.size} dự án')
+    expect(source).not.toContain('ScanGroup')
   })
 })

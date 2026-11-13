@@ -1,17 +1,27 @@
-import type { AiMessage } from './types'
+import type { AiMessage, ModelClient } from './types'
 import { AiError } from './types'
-import type { Project, ScanItem, ScanLatest } from '@shared/types'
+import type { AiLogLevel, Project, ScanItem, ScanLatest } from '@shared/types'
 import { scanResultSchema } from '@shared/schemas'
 import type { ProjectImportItem } from '@shared/schemas'
 import { normalizeDomainKey, normalizeNameKey } from '@shared/normalize'
 import { saveScanLatest, getScanLatest } from '../db/scanRepo'
-import { findProjectByDomainKey, findProjectByNameKey } from '../db/projectsRepo'
+import { findProjectByDomainKey, findProjectByNameKey, listProjects } from '../db/projectsRepo'
 import { addProjects, getProject, setProjectLogo } from '../services/projectService'
 import { fetchLogoForProject } from '../services/logoService'
 import { logError } from '../services/logger'
 import { buildTaskChain } from './providerService'
 import type { TaskChain } from './providerService'
 import { createFailoverClient } from './failoverClient'
+import {
+  SCAN_EXTRACT_MAX_CHARS,
+  SCAN_EXTRACT_SYSTEM_PROMPT,
+  SCAN_MAX_PROJECTS,
+  capProjects,
+  classifyScanText,
+  handleKey,
+  parseExtractionOutput,
+  parseNameList
+} from '@shared/scanText'
 import { getScanTools, SCAN_RESULT_KIND } from './tools'
 import { appendAiLog } from './aiActivityLog'
 import { AgentStepLimitError, runAgent } from './agentRunner'
@@ -25,7 +35,7 @@ import { scanCacheKey } from './cacheKeys'
 import { createSearchBudget } from './searchBudget'
 import { logInfo } from '../services/logger'
 
-const MAX_CANDIDATES = 20
+const MAX_CANDIDATES = SCAN_MAX_PROJECTS
 const BATCH_SIZE = 5
 
 export interface ScanInput {
@@ -54,15 +64,9 @@ interface Candidate {
   name: string
   website: string | null
   domainKey: string | null
+  xHandle: string | null
   seed: CandidateSeed
   duplicateOf: string | null
-}
-
-function splitTextLines(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^\s*[-*•\d.)]+\s*/, '').trim())
-    .filter((line) => line.length >= 3 && line.length <= 160 && !/^\{|^\[/.test(line))
 }
 
 function dedupeCandidates(candidates: Candidate[]): { kept: Candidate[]; rejected: number } {
@@ -82,13 +86,21 @@ function dedupeCandidates(candidates: Candidate[]): { kept: Candidate[]; rejecte
 }
 
 function markDuplicates(candidates: Candidate[]): void {
+  // Một lần đọc toàn bộ app để so khớp theo tên, website và tài khoản X.
+  const existingProjects = listProjects()
+  const byHandle = new Map<string, string>()
+  for (const project of existingProjects) {
+    const key = handleKey(project.socials.x ?? null)
+    if (key && !byHandle.has(key)) {
+      byHandle.set(key, project.id)
+    }
+  }
   for (const candidate of candidates) {
     if (candidate.duplicateOf) {
       continue
     }
-    const byNameMmo = findProjectByNameKey('event_mmo', normalizeNameKey(candidate.name))
-    const byNameAirdrop = findProjectByNameKey('airdrop', normalizeNameKey(candidate.name))
-    const existing = byNameMmo ?? byNameAirdrop
+    const nameKey = normalizeNameKey(candidate.name)
+    const existing = findProjectByNameKey('event_mmo', nameKey) ?? findProjectByNameKey('airdrop', nameKey)
     if (existing) {
       candidate.duplicateOf = existing.id
       continue
@@ -98,125 +110,116 @@ function markDuplicates(candidates: Candidate[]): void {
       const byDomain = findProjectByDomainKey(domainKey)
       if (byDomain) {
         candidate.duplicateOf = byDomain.id
+        continue
       }
+    }
+    const xKey = candidate.xHandle ? handleKey(candidate.xHandle) : null
+    const byX = xKey ? byHandle.get(xKey) : undefined
+    if (byX) {
+      candidate.duplicateOf = byX
     }
   }
 }
 
-async function extractCandidates(text: string): Promise<{ candidates: Candidate[]; rejected: number }> {
+function plainCandidate(name: string, website: string | null = null, xHandle: string | null = null): Candidate {
+  return { name, website, domainKey: normalizeDomainKey(website), xHandle, seed: {}, duplicateOf: null }
+}
+
+interface Extraction {
+  candidates: Candidate[]
+  /** Số dự án trùng tên trong chính bài viết (đã gộp). */
+  rejected: number
+  kind: 'json' | 'list' | 'article'
+  truncated: boolean
+}
+
+function parseJsonCandidates(trimmed: string): { candidates: Candidate[]; rejected: number } | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(trimmed)
+  } catch {
+    return null
+  }
+  const array = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && Array.isArray((parsed as { projects?: unknown }).projects)
+      ? ((parsed as { projects: unknown[] }).projects as unknown[])
+      : null
+  if (!array) {
+    return null
+  }
+  const candidates: Candidate[] = []
   let rejected = 0
+  for (const entry of array) {
+    if (entry && typeof entry === 'object' && typeof (entry as { name?: unknown }).name === 'string') {
+      const item = entry as Record<string, unknown>
+      const name = String(item.name).trim()
+      const website = typeof item.website === 'string' ? item.website.trim() : null
+      if (name.length > 0) {
+        candidates.push({
+          name,
+          website,
+          domainKey: normalizeDomainKey(website),
+          xHandle: typeof item.xHandle === 'string' ? item.xHandle : typeof item.x === 'string' ? item.x : null,
+          seed: {
+            website,
+            category: item.category === 'event_mmo' || item.category === 'airdrop' ? item.category : undefined,
+            taskSummary: typeof item.taskSummary === 'string' ? item.taskSummary : undefined,
+            howToJoin: typeof item.howToJoin === 'string' ? item.howToJoin : undefined,
+            startDate: typeof item.startDate === 'string' ? item.startDate : undefined,
+            endDate: typeof item.endDate === 'string' ? item.endDate : undefined,
+            costType: item.costType === 'free' || item.costType === 'paid' || item.costType === 'unverified' ? item.costType : undefined,
+            costAmountUsd: typeof item.costAmountUsd === 'number' ? item.costAmountUsd : undefined
+          },
+          duplicateOf: null
+        })
+        continue
+      }
+    }
+    rejected += 1
+  }
+  return { candidates, rejected }
+}
+
+/**
+ * Đọc nội dung dán vào và trả về MỌI dự án phát hiện được (chưa giới hạn số lượng).
+ * - JSON: đọc trực tiếp.
+ * - Danh sách tên ngắn (mỗi dòng một dự án): đọc trực tiếp.
+ * - Bài viết/đoạn văn: nhờ AI (không tool, không web) trích xuất tên dự án.
+ */
+async function extractCandidates(text: string, client: ModelClient, signal: AbortSignal): Promise<Extraction> {
   const trimmed = text.trim()
   if (trimmed.length === 0) {
-    return { candidates: [], rejected: 0 }
+    return { candidates: [], rejected: 0, kind: 'list', truncated: false }
   }
+  const kind = classifyScanText(trimmed)
 
-  let jsonCandidates: Candidate[] | null = null
-  try {
-    const parsed = JSON.parse(trimmed) as unknown
-    const array = Array.isArray(parsed)
-      ? parsed
-      : parsed && typeof parsed === 'object' && Array.isArray((parsed as { projects?: unknown }).projects)
-        ? ((parsed as { projects: unknown[] }).projects as unknown[])
-        : null
-    if (array) {
-      jsonCandidates = []
-      for (const entry of array) {
-        if (entry && typeof entry === 'object' && typeof (entry as { name?: unknown }).name === 'string') {
-          const item = entry as Record<string, unknown>
-          const name = String(item.name).trim()
-          const website = typeof item.website === 'string' ? item.website.trim() : null
-          if (name.length > 0) {
-            jsonCandidates.push({
-              name,
-              website,
-              domainKey: normalizeDomainKey(website),
-              seed: {
-                website,
-                category: item.category === 'event_mmo' || item.category === 'airdrop' ? item.category : undefined,
-                taskSummary: typeof item.taskSummary === 'string' ? item.taskSummary : undefined,
-                howToJoin: typeof item.howToJoin === 'string' ? item.howToJoin : undefined,
-                startDate: typeof item.startDate === 'string' ? item.startDate : undefined,
-                endDate: typeof item.endDate === 'string' ? item.endDate : undefined,
-                costType: item.costType === 'free' || item.costType === 'paid' || item.costType === 'unverified' ? item.costType : undefined,
-                costAmountUsd: typeof item.costAmountUsd === 'number' ? item.costAmountUsd : undefined
-              },
-              duplicateOf: null
-            })
-            continue
-          }
-        }
-        rejected += 1
-      }
+  if (kind === 'json') {
+    const fromJson = parseJsonCandidates(trimmed)
+    if (fromJson) {
+      const { kept, rejected } = dedupeCandidates(fromJson.candidates)
+      return { candidates: kept, rejected: fromJson.rejected + rejected, kind, truncated: false }
     }
-  } catch {
-    jsonCandidates = null
   }
 
-  if (jsonCandidates) {
-    const { kept, rejected: deduped } = dedupeCandidates(jsonCandidates)
-    return { candidates: kept.slice(0, MAX_CANDIDATES), rejected: rejected + deduped }
+  if (kind === 'list') {
+    const { kept, rejected } = dedupeCandidates(parseNameList(trimmed).map((name) => plainCandidate(name)))
+    return { candidates: kept, rejected, kind, truncated: false }
   }
 
-  const lines = splitTextLines(trimmed)
-  const { kept, rejected: deduped } = dedupeCandidates(
-    lines.map((name) => ({
-      name,
-      website: null,
-      domainKey: null,
-      seed: {},
-      duplicateOf: null
-    }))
-  )
-
-  if (kept.length > MAX_CANDIDATES) {
-    rejected += kept.length - MAX_CANDIDATES
-    return { candidates: kept.slice(0, MAX_CANDIDATES), rejected }
-  }
-
-  if (kept.length > 0) {
-    return { candidates: kept, rejected: rejected + deduped }
-  }
-
-  const client = createScanClient(requireSelection())
+  const truncated = trimmed.length > SCAN_EXTRACT_MAX_CHARS
   const response = await client.complete({
-    system:
-      'Bạn là trợ lý trích xuất. Trong nội dung dưới đây, liệt kê tên các dự án Event MMO/Airdrop mà người dùng đề cập. ' +
-      'Chỉ trả lại danh sách tên, mỗi tên một dòng, không đánh số, không giải thích, không bịa. Tối đa 20 tên.',
-    messages: [{ role: 'user', content: trimmed.slice(0, 20_000) }],
+    system: SCAN_EXTRACT_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: `Bài viết:\n"""\n${trimmed.slice(0, SCAN_EXTRACT_MAX_CHARS)}\n"""` }],
     tools: [],
     enableWebSearch: false,
-    signal: AbortSignal.timeout(45_000),
-    maxTokens: 1024
+    signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
+    maxTokens: 2048
   })
-
-  const extractionLines = splitTextLines(response.text)
-  const candidates = dedupeCandidates(
-    extractionLines.map((name) => ({ name, website: null, domainKey: null, seed: {}, duplicateOf: null }))
-  ).kept.slice(0, MAX_CANDIDATES)
-  return { candidates, rejected: rejected + deduped }
-}
-
-/** Row for a candidate that already exists in the app: no web research is paid for it. */
-function duplicateItem(candidate: Candidate): ScanItem {
-  const existing = candidate.duplicateOf ? getProject(candidate.duplicateOf) : null
-  return {
-    name: candidate.name,
-    category: existing?.category ?? 'insufficient',
-    website: existing?.website ?? candidate.website,
-    summary: 'Đã có trong app, bỏ qua tra cứu web để tiết kiệm chi phí',
-    taskSummary: existing?.taskSummary ?? '',
-    howToJoin: existing?.howToJoin ?? '',
-    startDate: existing?.startDate ?? null,
-    endDate: existing?.endDate ?? null,
-    costType: existing?.costType ?? 'unverified',
-    costAmountUsd: existing?.costAmountUsd ?? null,
-    riskLevel: 'unknown',
-    riskReason: null,
-    potential: null,
-    verification: existing?.verification ?? 'unverified',
-    sources: existing?.sources ?? [],
-    duplicateOf: candidate.duplicateOf
-  }
+  const { kept, rejected } = dedupeCandidates(
+    parseExtractionOutput(response.text).map((entry) => plainCandidate(entry.name, entry.website, entry.xHandle))
+  )
+  return { candidates: kept, rejected, kind: 'article', truncated }
 }
 
 function candidatePayload(candidate: Candidate): Record<string, unknown> {
@@ -269,40 +272,93 @@ function createScanClient(chain: TaskChain) {
   })
 }
 
+function insufficientItem(candidate: Candidate, summary: string): ScanItem {
+  return {
+    name: candidate.name,
+    category: 'insufficient',
+    website: candidate.website,
+    summary,
+    taskSummary: '',
+    howToJoin: '',
+    startDate: null,
+    endDate: null,
+    costType: 'unverified',
+    costAmountUsd: null,
+    riskLevel: 'unknown',
+    riskReason: null,
+    potential: null,
+    verification: 'unverified',
+    sources: [],
+    duplicateOf: null
+  }
+}
+
+function listNames(names: readonly string[], max = 6): string {
+  return names.length <= max ? names.join(', ') : `${names.slice(0, max).join(', ')}… (+${names.length - max})`
+}
+
 export async function runScan(input: ScanInput): Promise<ScanResult> {
   assertAiEnabled()
   return runAiTask('Scan Project', 'scan', async (signal, reporter) => {
-    reporter.report('Đọc dữ liệu', 0, 4, 'Đang đọc nội dung...')
+    reporter.report('Đọc dữ liệu', 0, 1, 'Đang đọc nội dung...')
     appendAiLog('scan', 'step', input.fileName ? `Đang đọc tệp ${input.fileName}` : 'Đang đọc nội dung đã dán')
-    const { candidates, rejected } = await extractCandidates(input.text)
+    const client = createScanClient(requireSelection())
 
-    if (candidates.length === 0) {
-      reporter.report('Tổng hợp', 4, 4, 'Không tìm thấy dự án nào')
+    const extraction = await extractCandidates(input.text, client, signal)
+    const rejected = extraction.rejected
+    if (extraction.truncated) {
+      appendAiLog('scan', 'warn', `Bài viết dài, chỉ đọc ${SCAN_EXTRACT_MAX_CHARS.toLocaleString('vi-VN')} ký tự đầu`)
+    }
+
+    const found = extraction.candidates
+    if (found.length === 0) {
+      appendAiLog('scan', 'warn', 'Không tìm thấy dự án nào trong nội dung')
+      reporter.report('Tổng hợp', 1, 1, 'Không tìm thấy dự án nào')
       return { items: [], rejected, message: 'Không tìm thấy dự án nào trong nội dung đã dán' }
     }
 
-    markDuplicates(candidates)
-    reporter.report('Kiểm tra trùng', 1, 4, `Đã phát hiện ${candidates.length} ứng viên, ${candidates.filter((c) => c.duplicateOf).length} trùng với app`)
+    // Bước 1: đếm dự án, bỏ dự án đã có trong app (không tra cứu lại).
+    markDuplicates(found)
+    const duplicates = found.filter((candidate) => candidate.duplicateOf)
+    const fresh = found.filter((candidate) => !candidate.duplicateOf)
+    appendAiLog('scan', 'success', `Phát hiện ${found.length} dự án trong nội dung`)
+    if (duplicates.length > 0) {
+      appendAiLog('scan', 'step', `${duplicates.length} dự án đã có trong app, bỏ qua: ${listNames(duplicates.map((c) => c.name))}`)
+    }
+    if (fresh.length === 0) {
+      appendAiLog('scan', 'success', 'Không có dự án mới cần quét')
+      reporter.report('Tổng hợp', 1, 1, 'Tất cả dự án đã có trong app')
+      return { items: [], rejected, message: `Cả ${found.length} dự án đã có trong app, không cần quét` }
+    }
 
-    const client = createScanClient(requireSelection())
+    const { kept: toScan, dropped } = capProjects(fresh, MAX_CANDIDATES)
+    if (dropped > 0) {
+      appendAiLog('scan', 'warn', `Chỉ quét ${toScan.length} dự án đầu tiên, bỏ ${dropped} dự án (giới hạn mỗi lần quét)`)
+    }
+    const total = toScan.length
+    const numberOf = new Map<Candidate, number>(toScan.map((candidate, index) => [candidate, index + 1]))
+    appendAiLog('scan', 'step', `Bắt đầu quét ${total} dự án`)
+    reporter.report('Quét dự án', 0, total, `Bắt đầu quét ${total} dự án`)
 
-    // Cost control 1: candidates already in the app are not researched again.
     const items: ScanItem[] = []
-    const duplicates = candidates.filter((candidate) => candidate.duplicateOf)
-    items.push(...duplicates.map(duplicateItem))
+    let doneCount = 0
+    const markDone = (candidate: Candidate, note = ''): void => {
+      doneCount += 1
+      appendAiLog('scan', 'step', `Dự án ${numberOf.get(candidate)}/${total}: ${candidate.name}${note}`)
+      reporter.report('Quét dự án', doneCount, total, `Đã quét ${doneCount}/${total}`)
+    }
 
-    // Cost control 2: a candidate researched within the TTL (same name + domain)
-    // is reused from the cache; failed lookups are never cached.
+    // Cost control: dự án đã quét trong TTL (cùng tên + domain) dùng lại từ cache; lỗi không bao giờ được cache.
     const nowMs = Date.now()
-    const pending = candidates.filter((candidate) => !candidate.duplicateOf)
-    const cacheEntries = getScanCacheEntries(pending.map((candidate) => scanCacheKey(candidate.name, candidate.website)))
+    const cacheEntries = getScanCacheEntries(toScan.map((candidate) => scanCacheKey(candidate.name, candidate.website)))
     const toResearch: Candidate[] = []
     let reusedCount = 0
-    for (const candidate of pending) {
+    for (const candidate of toScan) {
       const entry = cacheEntries.get(scanCacheKey(candidate.name, candidate.website))
       if (entry && entry.item.category !== 'insufficient' && isCacheFresh(entry.createdAt, nowMs, COST_LIMITS.scanCacheTtlMs)) {
         items.push({ ...entry.item, name: candidate.name, duplicateOf: null })
         reusedCount += 1
+        markDone(candidate, ' (dùng lại kết quả vừa quét)')
       } else {
         toResearch.push(candidate)
       }
@@ -318,7 +374,13 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
       budget.record(usage.searches)
     }
     let skippedByBudget = 0
-    const total = batches.length
+
+    // Log chi tiết của từng tool (mỗi lượt tìm web, mở bài…) làm log rối: chỉ giữ cảnh báo và lỗi.
+    const toolLog = (level: AiLogLevel, text: string): void => {
+      if (level === 'warn' || level === 'error') {
+        appendAiLog('scan', level, text)
+      }
+    }
 
     const runBatchAgent = async (messages: AiMessage[]): Promise<AgentResult | null> => {
       try {
@@ -326,7 +388,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
           client,
           system: SCAN_SYSTEM_PROMPT,
           messages,
-          tools: getScanTools({ costControl: {}, onLog: (level, text) => appendAiLog('scan', level, text) }),
+          tools: getScanTools({ costControl: {}, onLog: toolLog }),
           enableWebSearch: true,
           maxTokens: 4096,
           maxSteps: COST_LIMITS.agentMaxSteps,
@@ -346,36 +408,21 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
       }
     }
 
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+    for (const batch of batches) {
       if (signal.aborted) {
         break
       }
 
-      const batch = batches[batchIndex]
       if (budget.exhausted()) {
         // Hard search cap reached: keep the rest as "insufficient" so nothing is silently lost.
         skippedByBudget += batch.length
-        items.push(
-          ...batch.map((candidate): ScanItem => ({
-            ...duplicateItem(candidate),
-            category: 'insufficient',
-            summary: `Chưa tra cứu: đạt giới hạn ${budget.max} lượt tìm kiếm mỗi phiên, hãy Scan lại phần này`,
-            taskSummary: '',
-            howToJoin: '',
-            costType: 'unverified',
-            verification: 'unverified',
-            sources: [],
-            duplicateOf: null
-          }))
-        )
+        for (const candidate of batch) {
+          items.push(insufficientItem(candidate, `Chưa tra cứu: đạt giới hạn ${budget.max} lượt tìm kiếm mỗi phiên, hãy Scan lại phần này`))
+          markDone(candidate, ' (chưa tra cứu, hết lượt tìm kiếm)')
+        }
         continue
       }
-      reporter.report(
-        'Tra cứu web',
-        2 + batchIndex / Math.max(total, 1),
-        4,
-        `Lô ${batchIndex + 1}/${total}: ${batch.map((candidate) => candidate.name).join(', ')}`
-      )
+      appendAiLog('scan', 'step', `Đang tra cứu: ${batch.map((candidate) => candidate.name).join(', ')}`)
 
       const messages: AiMessage[] = [
         {
@@ -389,6 +436,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
 
       try {
         const result = await runBatchAgent(messages)
+        const batchItems: ScanItem[] = []
 
         if (result && result.outcome === 'submit') {
           const payload = result.payload as { kind?: string; data?: unknown }
@@ -396,8 +444,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
             const parsed = scanResultSchema.safeParse(payload.data)
             if (parsed.success) {
               for (const rawItem of parsed.data.items) {
-                const duplicateOf = rawItem.duplicateOf ?? batch.find((candidate) => candidate.name === rawItem.name)?.duplicateOf ?? null
-                const item: ScanItem = {
+                batchItems.push({
                   ...rawItem,
                   website: rawItem.website ?? null,
                   startDate: rawItem.startDate ?? null,
@@ -405,56 +452,44 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
                   riskReason: rawItem.riskReason ?? null,
                   potential: rawItem.potential ?? null,
                   costAmountUsd: rawItem.costAmountUsd ?? null,
-                  duplicateOf
-                }
-                items.push(item)
+                  duplicateOf: null
+                })
               }
               const stamp = new Date().toISOString()
               putScanCacheEntries(
-                parsed.data.items.flatMap((rawItem) => {
-                  const source = batch.find((candidate) => candidate.name === rawItem.name)
-                  const stored = items.find((item) => item.name === rawItem.name)
-                  return source && stored && stored.category !== 'insufficient'
+                batchItems.flatMap((stored) => {
+                  const source = batch.find((candidate) => normalizeNameKey(candidate.name) === normalizeNameKey(stored.name))
+                  return source && stored.category !== 'insufficient'
                     ? [{ key: scanCacheKey(source.name, source.website), item: stored }]
                     : []
                 }),
                 stamp
               )
-              saveScanLatest(items, stamp)
-              continue
             }
           }
         }
 
-        // Model không nộp kết quả hợp lệ → đánh dấu cả lô là không đủ bằng chứng.
-        const fallback = batch.map((candidate): ScanItem => ({
-          name: candidate.name,
-          category: 'insufficient',
-          website: candidate.website,
-          summary: 'AI không trả về kết quả hợp lệ cho dự án này',
-          taskSummary: '',
-          howToJoin: '',
-          startDate: null,
-          endDate: null,
-          costType: 'unverified',
-          costAmountUsd: null,
-          riskLevel: 'unknown',
-          riskReason: null,
-          potential: null,
-          verification: 'unverified',
-          sources: [],
-          duplicateOf: candidate.duplicateOf
-        }))
-        items.push(...fallback)
+        // Dự án nào AI không trả về → "không đủ bằng chứng" (không bỏ sót im lặng).
+        for (const candidate of batch) {
+          const key = normalizeNameKey(candidate.name)
+          const matched = batchItems.find((item) => normalizeNameKey(item.name) === key)
+          if (matched) {
+            items.push(matched)
+            markDone(candidate)
+          } else {
+            items.push(insufficientItem(candidate, 'AI không trả về kết quả hợp lệ cho dự án này'))
+            markDone(candidate, ' (không có kết quả hợp lệ)')
+          }
+        }
         saveScanLatest(items, new Date().toISOString())
       } catch (error) {
         if (signal.aborted) {
           saveScanLatest(items, new Date().toISOString())
-          reporter.report('Đã hủy', 4, 4, `Đã hủy, giữ kết quả ${items.length} dự án`)
+          reporter.report('Đã hủy', total, total, `Đã hủy, giữ kết quả ${items.length} dự án`)
           return {
             items,
             rejected,
-            message: `Đã hủy, giữ kết quả ${items.length} dự án đã phân tích`
+            message: `Đã hủy, giữ kết quả ${items.length} dự án đã quét`
           }
         }
         throw error
@@ -463,20 +498,29 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
 
     saveScanLatest(items, new Date().toISOString())
     logInfo(
-      `Scan: ${candidates.length} ứng viên, ${duplicates.length} trùng app, ${reusedCount} từ cache, ` +
+      `Scan: ${found.length} phát hiện, ${duplicates.length} trùng app, ${reusedCount} từ cache, ` +
         `${toResearch.length - skippedByBudget} tra cứu, ${usageTotal.calls} lượt gọi model, ` +
         `input=${usageTotal.inputTokens} output=${usageTotal.outputTokens} token, tìm kiếm=${budget.used()}/${budget.max}`
     )
-    reporter.report('Tổng hợp', 4, 4, `Hoàn tất ${items.length} dự án`)
+    reporter.report('Tổng hợp', total, total, `Hoàn tất ${items.length} dự án`)
+    appendAiLog('scan', 'success', `Đã quét xong ${total} dự án`)
+
+    // Bước 2: đánh giá ngắn gọn từng dự án (1 dòng, lấy từ `summary` của AI).
+    items.forEach((item, index) => {
+      const note = item.summary.trim() || 'Chưa đủ thông tin để đánh giá'
+      appendAiLog('scan', item.category === 'insufficient' ? 'warn' : 'step', `Dự án ${index + 1}: ${item.name} — ${note}`)
+    })
     const usable = items.filter((item) => item.category !== 'insufficient').length
-    appendAiLog('scan', 'success', `Đã phân tích ${candidates.length} ứng viên · ${usable} dự án hợp lệ`)
-    appendAiLog('scan', 'step', 'Chờ bạn xác nhận trước khi thêm dự án')
+    if (usable > 0) {
+      appendAiLog('scan', 'step', 'Chọn dự án muốn thêm trong bảng bên dưới rồi bấm OK')
+    }
+
     const notes: string[] = []
     if (duplicates.length > 0) {
-      notes.push(`${duplicates.length} dự án trùng app (không tra cứu)`)
+      notes.push(`${duplicates.length} dự án đã có trong app, bỏ qua`)
     }
     if (reusedCount > 0) {
-      notes.push(`${reusedCount} lấy từ cache`)
+      notes.push(`${reusedCount} dùng lại kết quả vừa quét`)
     }
     if (skippedByBudget > 0) {
       notes.push(`${skippedByBudget} chưa tra cứu do đạt giới hạn ${budget.max} lượt tìm kiếm, hãy Scan lại`)
@@ -484,7 +528,7 @@ export async function runScan(input: ScanInput): Promise<ScanResult> {
     return {
       items,
       rejected,
-      message: `Đã phân tích ${items.length} dự án từ ${candidates.length} ứng viên${notes.length > 0 ? ` (${notes.join(', ')})` : ''}`
+      message: `Phát hiện ${found.length} dự án, quét ${total}${notes.length > 0 ? ` (${notes.join(', ')})` : ''}`
     }
   })
 }
