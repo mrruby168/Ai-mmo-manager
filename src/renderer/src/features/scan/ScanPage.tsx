@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import type { AiLogProgress, AppSettings, ScanItem } from '@shared/types'
 import { progressPercent } from '@shared/aiLog'
 import {
+  groupScanRows,
+  isScanRowSelectable,
+  scanRowKey,
+  selectedScanNames,
+  selectableScanIndexes,
+  toggleScanIndex,
+  toggleScanIndexes
+} from '@shared/scanSelection'
+import type { ScanRowEntry } from '@shared/scanSelection'
+import {
   chainWarnings,
   effectiveChain,
   firstRunnable,
@@ -51,7 +61,7 @@ export function ScanPage(): React.JSX.Element {
   const [scanAt, setScanAt] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -228,30 +238,16 @@ export function ScanPage(): React.JSX.Element {
     setSelected(new Set())
   }
 
-  function toggleItem(name: string): void {
-    setSelected((current) => {
-      const next = new Set(current)
-      if (next.has(name)) {
-        next.delete(name)
-      } else {
-        next.add(name)
-      }
-      return next
-    })
+  function toggleItem(index: number): void {
+    setSelected((current) => toggleScanIndex(current, index))
   }
 
-  function selectableItems(): ScanItem[] {
-    return (items ?? []).filter((item) => item.category !== 'insufficient' && !item.duplicateOf)
+  function selectableIndexes(): number[] {
+    return selectableScanIndexes(items ?? [])
   }
 
   function toggleAll(): void {
-    const selectable = selectableItems()
-    const allSelected = selectable.length > 0 && selectable.every((item) => selected.has(item.name))
-    setSelected(allSelected ? new Set() : new Set(selectable.map((item) => item.name)))
-  }
-
-  function groupItems(itemsList: ScanItem[] | null, category: 'event_mmo' | 'airdrop' | 'insufficient'): ScanItem[] {
-    return (itemsList ?? []).filter((item) => item.category === category)
+    setSelected((current) => toggleScanIndexes(current, selectableIndexes()))
   }
 
   async function handleSubmit(): Promise<void> {
@@ -259,7 +255,7 @@ export function ScanPage(): React.JSX.Element {
       return
     }
     setSubmitting(true)
-    const result = await window.api.scan.submit(Array.from(selected))
+    const result = await window.api.scan.submit(selectedScanNames(selected, items ?? []))
     setSubmitting(false)
     if (!result.ok) {
       pushToast(result.error.message, 'error')
@@ -282,12 +278,12 @@ export function ScanPage(): React.JSX.Element {
   }
 
   const canScan = isAiEnabled && !scanBusy && !scanning && text.trim().length > 0 && scanDisabledReason === null
-  const allSelectable = selectableItems()
-  const allSelected = allSelectable.length > 0 && allSelectable.every((item) => selected.has(item.name))
+  const allSelectable = selectableIndexes()
+  const allSelected = allSelectable.length > 0 && allSelectable.every((index) => selected.has(index))
 
-  const eventItems = groupItems(items, 'event_mmo')
-  const airdropItems = groupItems(items, 'airdrop')
-  const insufficientItems = groupItems(items, 'insufficient')
+  const eventItems = groupScanRows(items, 'event_mmo')
+  const airdropItems = groupScanRows(items, 'airdrop')
+  const insufficientItems = groupScanRows(items, 'insufficient')
 
   const percent = progressPercent(progress.done, progress.total)
 
@@ -459,47 +455,19 @@ export function ScanPage(): React.JSX.Element {
               {eventItems.length > 0 ? (
                 <ScanGroup
                   title={CATEGORY_LABELS.event_mmo}
-                  items={eventItems}
+                  rows={eventItems}
                   selected={selected}
                   onToggleItem={toggleItem}
-                  onToggleAll={() => {
-                    const group = eventItems.filter((item) => !item.duplicateOf)
-                    const all = group.length > 0 && group.every((item) => selected.has(item.name))
-                    setSelected((current) => {
-                      const next = new Set(current)
-                      for (const item of group) {
-                        if (all) {
-                          next.delete(item.name)
-                        } else {
-                          next.add(item.name)
-                        }
-                      }
-                      return next
-                    })
-                  }}
+                  onToggleAll={(indexes) => setSelected((current) => toggleScanIndexes(current, indexes))}
                 />
               ) : null}
               {airdropItems.length > 0 ? (
                 <ScanGroup
                   title={CATEGORY_LABELS.airdrop}
-                  items={airdropItems}
+                  rows={airdropItems}
                   selected={selected}
                   onToggleItem={toggleItem}
-                  onToggleAll={() => {
-                    const group = airdropItems.filter((item) => !item.duplicateOf)
-                    const all = group.length > 0 && group.every((item) => selected.has(item.name))
-                    setSelected((current) => {
-                      const next = new Set(current)
-                      for (const item of group) {
-                        if (all) {
-                          next.delete(item.name)
-                        } else {
-                          next.add(item.name)
-                        }
-                      }
-                      return next
-                    })
-                  }}
+                  onToggleAll={(indexes) => setSelected((current) => toggleScanIndexes(current, indexes))}
                 />
               ) : null}
               {insufficientItems.length > 0 ? (
@@ -509,8 +477,8 @@ export function ScanPage(): React.JSX.Element {
                     <Badge tone="neutral">{insufficientItems.length} không chọn được</Badge>
                   </div>
                   <div className="project-rows">
-                    {insufficientItems.map((item) => (
-                      <div className="scan-row scan-row--disabled" key={item.name}>
+                    {insufficientItems.map(({ item, index }) => (
+                      <div className="scan-row scan-row--disabled" key={scanRowKey(item, index)}>
                         <span className="scan-row__name">{item.name}</span>
                         <span className="muted">{item.taskSummary || 'AI không xác minh được dự án này'}</span>
                       </div>
@@ -552,34 +520,39 @@ export function ScanPage(): React.JSX.Element {
 
 function ScanGroup({
   title,
-  items,
+  rows,
   selected,
   onToggleItem,
   onToggleAll
 }: {
   title: string
-  items: ScanItem[]
-  selected: Set<string>
-  onToggleItem: (name: string) => void
-  onToggleAll: () => void
+  rows: ScanRowEntry[]
+  selected: Set<number>
+  onToggleItem: (index: number) => void
+  onToggleAll: (indexes: number[]) => void
 }): React.JSX.Element {
-  const group = items.filter((item) => !item.duplicateOf)
-  const all = group.length > 0 && group.every((item) => selected.has(item.name))
+  const group = rows.filter(({ item }) => isScanRowSelectable(item))
+  const all = group.length > 0 && group.every(({ index }) => selected.has(index))
 
   return (
     <div className="scan-group">
       <div className="scan-group__title">
         <h2>{title}</h2>
-        <Badge tone="neutral">{items.length} dự án</Badge>
+        <Badge tone="neutral">{rows.length} dự án</Badge>
         {group.length > 0 ? (
-          <button type="button" className="link-button" onClick={onToggleAll}>
+          <button type="button" className="link-button" onClick={() => onToggleAll(group.map(({ index }) => index))}>
             {all ? 'Bỏ chọn nhóm này' : 'Chọn tất cả nhóm này'}
           </button>
         ) : null}
       </div>
       <div className="project-rows">
-        {items.map((item) => (
-          <ScanRow key={item.name} item={item} selected={selected.has(item.name)} onToggle={() => onToggleItem(item.name)} />
+        {rows.map(({ item, index }) => (
+          <ScanRow
+            key={scanRowKey(item, index)}
+            item={item}
+            selected={selected.has(index)}
+            onToggle={() => onToggleItem(index)}
+          />
         ))}
       </div>
     </div>
@@ -606,8 +579,10 @@ function ScanRow({ item, selected, onToggle }: { item: ScanItem; selected: boole
         {item.howToJoin ? <p className="muted text-clamp-2">Cách tham gia: {item.howToJoin}</p> : null}
         <div className="scan-row__sources row row--wrap">
           {item.website ? <ExternalLink url={item.website}>Website</ExternalLink> : null}
-          {item.sources.map((source) => (
-            <ExternalLink key={source} url={source}>Nguồn</ExternalLink>
+          {item.sources.map((source, sourceIndex) => (
+            <ExternalLink key={`${sourceIndex}:${source}`} url={source}>
+              Nguồn
+            </ExternalLink>
           ))}
         </div>
         {item.riskReason ? <p className="muted">Rủi ro: {item.riskReason}</p> : null}
