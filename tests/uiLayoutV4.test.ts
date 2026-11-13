@@ -11,6 +11,7 @@ const REVENUE_PAGE = join(SRC, 'features', 'revenue', 'RevenuePage.tsx')
 const REVENUE_DETAIL = join(SRC, 'features', 'revenue', 'RevenueDetailPage.tsx')
 const SETTINGS_PAGE = join(SRC, 'features', 'settings', 'SettingsPage.tsx')
 const AI_MODE_PANEL = join(SRC, 'features', 'settings', 'AiModePanel.tsx')
+const CHAT_PANEL = join(SRC, 'features', 'chat', 'ChatPanel.tsx')
 
 // CI checkouts may use CRLF; normalize so multi-line assertions stay stable.
 const readSource = (path: string): string => readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
@@ -133,5 +134,35 @@ describe('U6: Settings tab một hàng và nội dung 2 cột', () => {
   it('thanh AI Mode gọn hơn', () => {
     expect(mode).toContain('ai-mode-bar')
     expect(baseCss).toMatch(/\.ai-mode-bar\s*\{[^}]*padding:\s*var\(--space-3\) var\(--space-4\)/)
+  })
+})
+
+describe('U7: Chat, Sidebar và Dialog', () => {
+  const chat = readSource(CHAT_PANEL)
+
+  it('Chat giữ 84vh, vùng tin nhắn cuộn riêng, thanh nhập ở cuối', () => {
+    expect(baseCss).toMatch(/\.chat-panel\s*\{[^}]*height:\s*84vh/)
+    expect(baseCss).toMatch(/\.chat-messages\s*\{[^}]*overflow-y:\s*auto/)
+    expect(baseCss).toMatch(/\.chat-composer\s*\{[^}]*flex:\s*0 0 auto/)
+  })
+
+  it('PendingAction: nút xác nhận luôn thấy, JSON dài tự xuống dòng', () => {
+    expect(chat).toContain('pending-action__buttons')
+    expect(baseCss).toMatch(/\.pending-action__buttons\s*\{[^}]*position:\s*sticky/)
+    expect(baseCss).toMatch(/\.pending-action__block\s*\{[^}]*max-height:\s*9rem/)
+    expect(baseCss).toMatch(/\.pending-action__block\s*\{[^}]*overflow-wrap:\s*anywhere/)
+  })
+
+  it('Sidebar active rõ hơn nhưng vẫn 48px và icon 20px', () => {
+    expect(baseCss).toMatch(/\.sidebar__item\s*\{[^}]*height:\s*3rem/)
+    expect(baseCss).toMatch(/\.sidebar__icon\s*\{[^}]*width:\s*1\.25rem/)
+    expect(baseCss).toMatch(/\.sidebar__item--active\s*\{[^}]*background:\s*var\(--color-primary-soft\)/)
+  })
+
+  it('Dialog giữ header/footer cố định, thân cuộn', () => {
+    expect(baseCss).toMatch(/\.modal\s*\{[^}]*width:\s*min\(44rem, 100%\)/)
+    expect(baseCss).toMatch(/\.modal__header\s*\{[^}]*flex:\s*0 0 auto/)
+    expect(baseCss).toMatch(/\.modal__footer\s*\{[^}]*flex:\s*0 0 auto/)
+    expect(baseCss).toMatch(/\.modal__body\s*\{[^}]*min-height:\s*0/)
   })
 })
