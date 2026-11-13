@@ -65,17 +65,21 @@ describe('FIX 3: News/Scan bỏ card chọn Model, Chat giữ nguyên', () => {
   })
 })
 
-describe('U1: Activity Log của News nằm cuối trang và mở rộng được', () => {
+describe('U1: Activity Log của News nằm trong lưới và mở rộng được', () => {
   const news = readSource(NEWS_PAGE)
 
-  it('log đứng sau news-grid', () => {
-    expect(news.indexOf('<AiActivityLog')).toBeGreaterThan(news.indexOf('className="news-grid"'))
+  it('log nằm bên trong .news-board', () => {
+    expect(news).toContain('className="news-board"')
+    expect(news.indexOf('<AiActivityLog')).toBeGreaterThan(news.indexOf('className="news-board"'))
+    expect(news).not.toContain('news-grid')
   })
 
-  it('có nút mở rộng và class mở rộng', () => {
+  it('có nút mở rộng, lớp phủ và class phóng to toàn màn hình', () => {
     expect(news).toContain('Mở rộng nhật ký')
     expect(news).toContain('Thu gọn nhật ký')
-    expect(news).toContain('ai-log--expanded')
+    expect(news).toContain('news-log--fullscreen')
+    expect(news).toContain('news-log-backdrop')
+    expect(news).toContain("event.key === 'Escape'")
   })
 
   it('bấm Check News thì cuộn tới log', () => {

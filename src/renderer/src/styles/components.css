@@ -1466,67 +1466,117 @@ select.field__control {
 }
 
 /* News (FIX 1 + FIX 3) */
-.news-panel {
+/* Khung card dùng chung cho 4 khu vực của trang News (lưới 2×2). */
+.news-card {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
-.news-panel__head {
-  flex: 0 0 auto;
+/* Đầu card cố định 48px: tiêu đề + đếm; không bao giờ xuống dòng. */
+.news-card__head {
+  flex: 0 0 48px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.news-panel__head h2 {
+.news-card__head h2 {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.news-panel__scroll {
+.news-card__head-end {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* Thân card: cuộn dọc bên trong, không bao giờ cuộn ngang. */
+.news-card__body {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  max-height: clamp(260px, 44vh, 520px);
+  padding: var(--space-3);
   overflow-y: auto;
-  padding: 2px 4px 2px 0;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
   overscroll-behavior: contain;
 }
 
-.news-panel--important .news-panel__scroll {
-  max-height: clamp(320px, 60vh, 640px);
-}
-
-.news-panel__scroll::-webkit-scrollbar {
+.news-card__body::-webkit-scrollbar {
   width: var(--scrollbar-thin-width);
 }
 
-.news-panel__scroll::-webkit-scrollbar-thumb {
+.news-card__body::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: var(--radius-pill);
 }
 
-.news-panel__scroll::-webkit-scrollbar-thumb:hover {
+.news-card__body::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-strong);
 }
 
-.news-panel__scroll::-webkit-scrollbar-track {
+.news-card__body::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.news-card {
+/* Trạng thái trống: căn giữa, không đổi kích thước card. */
+.news-empty {
+  margin: auto;
+  max-width: 32ch;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Hàng trong danh sách News: avatar 40px | khối chữ 2 dòng | cột phải. */
+.news-item {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-3);
+  min-height: 64px;
+  padding: var(--space-2) var(--space-3);
   background: var(--gradient-news-card);
   border: 1px solid var(--color-news-card-border);
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow: inset 0 1px 0 var(--color-news-card-border-strong);
+  transition: border-color 0.15s ease;
 }
 
-.news-card__open {
+.news-item:hover {
+  border-color: var(--color-border-strong);
+}
+
+.news-item__open {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -1534,59 +1584,36 @@ select.field__control {
   min-width: 0;
   padding: 0;
   border: 0;
+  border-radius: 10px;
   background: transparent;
   color: var(--color-text);
   text-align: left;
   cursor: pointer;
 }
 
-.news-card__open:hover .news-card__name {
+.news-item__open:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.news-item__open:hover .news-item__title {
   color: var(--color-primary-hover);
 }
 
-.news-card__logo {
-  flex: 0 0 auto;
+.news-item__logo {
+  flex: 0 0 40px;
   width: 2.5rem;
   height: 2.5rem;
   display: grid;
   place-items: center;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 1px solid var(--color-news-card-border);
   background: var(--gradient-news-logo);
   overflow: hidden;
 }
 
-.news-card__line {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  color: var(--color-text);
-}
-
-.news-card__name {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.news-card__text {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-text);
-}
-
-.news-card__body {
+/* Khối chữ hai dòng: dòng 1 tiêu đề, dòng 2 phụ (dự án, ngày, Chưa xác minh). */
+.news-item__line {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1594,13 +1621,41 @@ select.field__control {
   min-width: 0;
 }
 
-.news-card__text--single {
-  display: block;
-  font-weight: 400;
+.news-item__title {
+  font-weight: 600;
+  line-height: 1.35;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.news-card__flag {
+.news-item__sub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.news-item__project {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.news-item__dot {
+  flex: 0 0 auto;
+}
+
+.news-item__date {
+  flex: 0 0 auto;
+}
+
+.news-item__flag {
   flex: 0 0 auto;
   border: 1px solid var(--color-warning);
   border-radius: var(--radius-pill);
@@ -1610,33 +1665,63 @@ select.field__control {
   white-space: nowrap;
 }
 
-.news-card__link {
+.news-item__link {
   flex: 0 0 auto;
   color: var(--color-primary);
   font-weight: 600;
+  border-radius: 8px;
 }
 
-.news-card__badge {
+.news-item__link:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Huy hiệu đếm ngược: màu theo mức khẩn (đỏ ≤3 ngày, vàng 4–7, xám quá hạn). */
+.news-item__badge {
   flex: 0 0 auto;
-  border: 1px solid rgba(248, 113, 113, 0.35);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 4px 10px;
-  background: var(--gradient-news-badge);
-  color: var(--color-error);
+  background: transparent;
+  color: var(--color-muted);
   font-size: 0.8125rem;
   font-weight: 700;
   white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(248, 113, 113, 0.18);
 }
 
-.news-card__actions {
+.news-item__badge--muted {
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.news-item__badge--error {
+  border-color: var(--color-error-soft);
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.news-item__badge--warning {
+  border-color: var(--color-warning-soft);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.news-item__badge--neutral {
+  border-color: var(--color-success-soft);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.news-item__actions {
   display: flex;
   align-items: center;
   gap: 2px;
   flex: 0 0 auto;
 }
 
-.news-card__check {
+.news-item__check {
   flex: 0 0 auto;
   width: 1.05rem;
   height: 1.05rem;
@@ -1644,8 +1729,8 @@ select.field__control {
   cursor: pointer;
 }
 
-.news-card--done .news-card__name,
-.news-card--done .news-card__text {
+.news-item--done .news-item__title,
+.news-item--done .news-item__project {
   color: var(--color-muted);
   text-decoration: line-through;
 }
@@ -1901,8 +1986,8 @@ select.field__control {
   align-items: center;
 }
 
-/* Log của News/Scan nằm cuối trang và chỉ cao ~150px; nút "Mở rộng" cho xem dài. */
-.news-page .ai-log,
+/* Log của News/Scan nằm cuối trang; bản inline cao ~150px. Riêng News dùng bản card. */
+.news-page .ai-log:not(.ai-log--card),
 .scan-page .ai-log {
   flex: 0 0 auto;
   height: 150px;
@@ -1910,11 +1995,60 @@ select.field__control {
   max-height: 160px;
 }
 
-.news-page .ai-log--expanded,
+.news-page .ai-log:not(.ai-log--card).ai-log--expanded,
 .scan-page .ai-log--expanded {
   height: auto;
   min-height: 160px;
   max-height: 60vh;
+}
+
+/* News 2×2: ô dưới-phải là Activity Log điền đầy ô. */
+.news-log-slot {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.news-log-slot > .ai-log--card {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.ai-log--card {
+  min-width: 0;
+  border-radius: var(--radius-lg);
+}
+
+.ai-log--card .ai-log__head {
+  min-height: 48px;
+  padding: 0 var(--space-4);
+}
+
+.ai-log__head-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Lớp phủ phóng to nhật ký (không nhân đôi DOM, Esc/đóng bằng nút). */
+.news-log-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  border: 0;
+  background: rgba(5, 9, 18, 0.55);
+  cursor: pointer;
+}
+
+.news-log--fullscreen {
+  position: fixed;
+  inset: 5vh 5vw;
+  z-index: 50;
+  height: auto;
+  max-height: none;
+  box-shadow: var(--shadow-raised);
 }
 
 .ai-log-actions {
@@ -2180,7 +2314,39 @@ select.field__control {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  min-height: calc(100vh - 2 * var(--screen-padding) - 3rem);
+  height: calc(100vh - 2 * var(--screen-padding));
+  min-height: calc(560px + 2 * var(--screen-padding));
+}
+
+/* Lưới 2 cột × 2 hàng cố định; cao theo chiều cao còn lại của trang. */
+.news-board {
+  flex: 1 1 0;
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .news-page {
+    height: auto;
+    min-height: 0;
+  }
+
+  .news-board {
+    flex: 0 0 auto;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: 320px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .news-board {
+    gap: var(--space-3);
+  }
 }
 
 .news-page__meta {
@@ -2199,19 +2365,6 @@ select.field__control {
   height: 8px;
   border-radius: var(--radius-pill);
   background: var(--color-success);
-}
-
-.news-grid {
-  display: grid;
-  grid-template-columns: 1.3fr minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-@media (max-width: 1024px) {
-  .news-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .expired-group__summary {
@@ -2997,7 +3150,7 @@ select.field__control {
 /* Card/khối không được rộng hơn khung; thân tự cuộn thay vì đẩy layout. */
 .card,
 .summary-card,
-.news-panel,
+.news-card,
 .scan-results,
 .scan-table,
 .project-row,

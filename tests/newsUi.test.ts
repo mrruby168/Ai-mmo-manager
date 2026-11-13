@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest'
 const ROOT = resolve(__dirname, '..')
 const NEWS_PAGE = join(ROOT, 'src', 'renderer', 'src', 'features', 'news', 'NewsPage.tsx')
 const NEWS_FORM = join(ROOT, 'src', 'renderer', 'src', 'features', 'news', 'NewsFormDialog.tsx')
+const DEADLINE_VIEW = join(ROOT, 'src', 'shared', 'deadlineView.ts')
 const COMPONENTS = join(ROOT, 'src', 'renderer', 'src', 'styles', 'components.css')
+const deadlineView = readFileSync(DEADLINE_VIEW, 'utf8')
 
 describe('News UI — tiêu đề emoji và panel cuộn (FIX 1)', () => {
   const source = readFileSync(NEWS_PAGE, 'utf8')
@@ -17,12 +19,14 @@ describe('News UI — tiêu đề emoji và panel cuộn (FIX 1)', () => {
     expect(source).toContain('<span aria-hidden="true">🎯</span> Việc cần làm ngay')
   })
 
-  it('panel chỉ cao tối đa, danh sách bên trong tự cuộn với scrollbar mảnh', () => {
-    expect(css).toMatch(/\.news-panel\s*\{[^}]*min-height:\s*0/)
-    expect(css).toMatch(/\.news-panel__scroll\s*\{[^}]*max-height:/)
-    expect(css).toMatch(/\.news-panel__scroll\s*\{[^}]*overflow-y:\s*auto/)
-    expect(css).toMatch(/\.news-panel__scroll\s*\{[^}]*min-height:\s*0/)
-    expect(css).toMatch(/\.news-panel__scroll::-webkit-scrollbar\s*\{[^}]*width:\s*var\(--scrollbar-thin-width\)/)
+  it('khung card 2×2: đầu card 48px, thân cuộn bên trong', () => {
+    expect(css).toMatch(/\.news-card\s*\{[^}]*overflow:\s*hidden/)
+    expect(css).toMatch(/\.news-card\s*\{[^}]*min-height:\s*0/)
+    expect(css).toMatch(/\.news-card__head\s*\{[^}]*flex:\s*0 0 48px/)
+    expect(css).toMatch(/\.news-card__body\s*\{[^}]*overflow-y:\s*auto/)
+    expect(css).toMatch(/\.news-card__body\s*\{[^}]*overflow-x:\s*hidden/)
+    expect(css).toMatch(/\.news-card__body\s*\{[^}]*min-height:\s*0/)
+    expect(css).toMatch(/\.news-card__body::-webkit-scrollbar\s*\{[^}]*width:\s*var\(--scrollbar-thin-width\)/)
   })
 
   it('chỉ render một danh sách đã chọn tin, không còn nhóm "Chưa xác minh"', () => {
@@ -33,27 +37,28 @@ describe('News UI — tiêu đề emoji và panel cuộn (FIX 1)', () => {
   })
 })
 
-describe('News UI — card một dòng (FIX 1)', () => {
+describe('News UI — card hai dòng (FIX 1, đổi có chủ đích sang lưới 2×2)', () => {
   const source = readFileSync(NEWS_PAGE, 'utf8')
   const css = readFileSync(COMPONENTS, 'utf8')
 
-  it('card nền tối, bo 16–20px, viền mảnh, highlight trên, logo tile gradient', () => {
-    expect(css).toMatch(/\.news-card\s*\{[^}]*background:\s*var\(--gradient-news-card\)/)
-    expect(css).toMatch(/\.news-card\s*\{[^}]*border:\s*1px solid var\(--color-news-card-border\)/)
-    expect(css).toMatch(/\.news-card\s*\{[^}]*border-radius:\s*(1[6-9]|20)px/)
-    expect(css).toMatch(/\.news-card\s*\{[^}]*box-shadow:\s*inset 0 1px 0/)
-    expect(css).toMatch(/\.news-card__logo\s*\{[^}]*background:\s*var\(--gradient-news-logo\)/)
-    expect(css).toMatch(/\.news-card__logo\s*\{[^}]*border-radius:\s*1[4-6]px/)
+  it('card nền tối, bo 14px, viền mảnh, highlight trên, logo tile gradient', () => {
+    expect(css).toMatch(/\.news-item\s*\{[^}]*background:\s*var\(--gradient-news-card\)/)
+    expect(css).toMatch(/\.news-item\s*\{[^}]*border:\s*1px solid var\(--color-news-card-border\)/)
+    expect(css).toMatch(/\.news-item\s*\{[^}]*border-radius:\s*\d+px/)
+    expect(css).toMatch(/\.news-item\s*\{[^}]*box-shadow:\s*inset 0 1px 0/)
+    expect(css).toMatch(/\.news-item__logo\s*\{[^}]*background:\s*var\(--gradient-news-logo\)/)
+    expect(css).toMatch(/\.news-item__logo\s*\{[^}]*border-radius:\s*\d+px/)
   })
 
-  it('tên + mô tả một dòng có ellipsis, chữ trắng', () => {
+  it('tiêu đề một dòng có ellipsis, dòng phụ suy luận, chữ trắng', () => {
     expect(source).toContain('const summary = oneLine(item.summary, 160)')
     expect(source).toContain('title={`${name} · ${item.summary}`}')
     expect(source).not.toContain('buildHeadline')
-    expect(css).toMatch(/\.news-card__text\s*\{[^}]*white-space:\s*nowrap/)
-    expect(css).toMatch(/\.news-card__text\s*\{[^}]*text-overflow:\s*ellipsis/)
-    expect(css).toMatch(/\.news-card__name\s*\{[^}]*color:\s*var\(--color-text\)/)
-    expect(css).toMatch(/\.news-card__text\s*\{[^}]*color:\s*var\(--color-text\)/)
+    expect(css).toMatch(/\.news-item__title\s*\{[^}]*white-space:\s*nowrap/)
+    expect(css).toMatch(/\.news-item__title\s*\{[^}]*text-overflow:\s*ellipsis/)
+    expect(css).toMatch(/\.news-item__title\s*\{[^}]*color:\s*var\(--color-text\)/)
+    expect(css).toMatch(/\.news-item__sub\s*\{[^}]*color:\s*var\(--color-muted\)/)
+    expect(css).toMatch(/\.news-item__project\s*\{[^}]*text-overflow:\s*ellipsis/)
   })
 
   it('mở bài gốc bằng biểu tượng có aria-label', () => {
@@ -72,12 +77,15 @@ describe('News UI — deadline (FIX 1.2)', () => {
     expect(source).toContain('formatDmy(item.date)')
   })
 
-  it('badge đỏ cho 14 day, Overdue và Today', () => {
-    expect(source).toContain("return 'Overdue'")
-    expect(source).toContain("return 'Today'")
-    expect(source).toContain('return `${daysRemaining} day`')
-    expect(css).toMatch(/\.news-card__badge\s*\{[^}]*border-radius:\s*12px/)
-    expect(css).toMatch(/\.news-card__badge\s*\{[^}]*color:\s*var\(--color-error\)/)
+  it('badge tiếng Việt theo mức khẩn (Quá hạn / Hôm nay / Ngày mai / Còn N ngày)', () => {
+    expect(deadlineView).toContain("return 'Quá hạn'")
+    expect(deadlineView).toContain("return 'Hôm nay'")
+    expect(deadlineView).toContain("return 'Ngày mai'")
+    expect(deadlineView).toContain('return `Còn ${days} ngày`')
+    expect(css).toMatch(/\.news-item__badge\s*\{[^}]*border-radius:\s*12px/)
+    expect(css).toMatch(/\.news-item__badge--error\s*\{[^}]*color:\s*var\(--color-error\)/)
+    expect(css).toMatch(/\.news-item__badge--warning\s*\{[^}]*color:\s*var\(--color-warning\)/)
+    expect(css).toMatch(/\.news-item__badge--muted\s*\{[^}]*color:\s*var\(--color-muted\)/)
   })
 })
 
@@ -85,11 +93,11 @@ describe('News UI — việc cần làm (FIX 1.3)', () => {
   const source = readFileSync(NEWS_PAGE, 'utf8')
   const css = readFileSync(COMPONENTS, 'utf8')
 
-  it('checkbox Primary, tên + task một dòng', () => {
-    expect(source).toContain('className="news-card__check"')
-    expect(css).toMatch(/\.news-card__check\s*\{[^}]*accent-color:\s*var\(--color-primary\)/)
+  it('checkbox Primary, tên + task hai dòng', () => {
+    expect(source).toContain('className="news-item__check"')
+    expect(css).toMatch(/\.news-item__check\s*\{[^}]*accent-color:\s*var\(--color-primary\)/)
     expect(source).toContain('oneLine(item.summary, 160)')
-    expect(css).toMatch(/\.news-card__text--single\s*\{[^}]*color:\s*var\(--color-text\)/)
+    expect(css).toMatch(/\.news-item__title\s*\{[^}]*color:\s*var\(--color-text\)/)
   })
 })
 
