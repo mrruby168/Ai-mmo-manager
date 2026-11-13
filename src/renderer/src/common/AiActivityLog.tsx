@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { AiChannel, AiLogEntry, AiLogProgress } from '@shared/types'
 import { AI_LOG_LEVEL_SYMBOL, AI_LOG_LEVEL_TONE, formatLogProgress, progressPercent } from '@shared/aiLog'
 
@@ -8,6 +9,13 @@ export interface AiActivityLogProps {
   emptyText: string
   /** Scan hiển thị thanh "Tiến độ quét" riêng bên dưới nên tắt footer của log. */
   showProgress?: boolean
+  /**
+   * `card`: ô grid của News 2×2 (điền đầy chiều cao ô). `inline` (mặc định):
+   * khối riêng cao cố định như hiện có, dùng cho Scan.
+   */
+  layout?: 'inline' | 'card'
+  /** Nút/điều khiển đặt bên phải của đầu khung (News: "Mở rộng nhật ký"). */
+  headerExtra?: ReactNode
   className?: string
 }
 
@@ -23,6 +31,8 @@ export function AiActivityLog({
   channel,
   emptyText,
   showProgress = true,
+  layout = 'inline',
+  headerExtra,
   className
 }: AiActivityLogProps): React.JSX.Element {
   const [entries, setEntries] = useState<AiLogEntry[]>([])
@@ -100,13 +110,19 @@ export function AiActivityLog({
   const countLabel = formatLogProgress(channel, progress.done, progress.total)
 
   return (
-    <section className={`ai-log${className ? ` ${className}` : ''}`} aria-label="Activity Log">
+    <section
+      className={`ai-log${layout === 'card' ? ' ai-log--card' : ''}${className ? ` ${className}` : ''}`}
+      aria-label="Activity Log"
+    >
       <header className="ai-log__head">
         <span className="ai-log__title">Activity Log</span>
-        <span className={`ai-log__pill${progress.running ? ' ai-log__pill--live' : ''}`} role="status">
-          <span className="ai-log__pill-dot" aria-hidden="true" />
-          {pillLabel}
-        </span>
+        <div className="ai-log__head-end">
+          <span className={`ai-log__pill${progress.running ? ' ai-log__pill--live' : ''}`} role="status">
+            <span className="ai-log__pill-dot" aria-hidden="true" />
+            {pillLabel}
+          </span>
+          {headerExtra}
+        </div>
       </header>
 
       <div

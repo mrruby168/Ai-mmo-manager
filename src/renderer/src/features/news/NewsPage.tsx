@@ -17,6 +17,7 @@ import {
   selectTopImportantPerProject
 } from '@shared/newsView'
 import { canImportNews } from '@shared/newsAccess'
+import { formatDeadlineBadge, deadlineTone } from '@shared/deadlineView'
 import {
   appSearchConfigured,
   chainWarnings,
@@ -27,7 +28,7 @@ import {
 import { ProjectLogo } from '../../common/ProjectLogo'
 import { Button } from '../../common/Button'
 import { AiActivityLog } from '../../common/AiActivityLog'
-import { EmptyState, ErrorBlock, LoadingBlock } from '../../common/EmptyState'
+import { ErrorBlock, LoadingBlock } from '../../common/EmptyState'
 import { ExternalLink } from '../../common/ExternalLink'
 import { Modal, ConfirmDialog } from '../../common/Modal'
 import { useApp } from '../../state/AppContext'
@@ -51,16 +52,6 @@ function sortByVerification(items: NewsItem[]): NewsItem[] {
       (VERIFICATION_SORT[left.verification] ?? 1) - (VERIFICATION_SORT[right.verification] ?? 1) ||
       right.publishedAt.localeCompare(left.publishedAt)
   )
-}
-
-function deadlineBadge(daysRemaining: number): string {
-  if (daysRemaining < 0) {
-    return 'Overdue'
-  }
-  if (daysRemaining === 0) {
-    return 'Today'
-  }
-  return `${daysRemaining} day`
 }
 
 export function NewsPage(): React.JSX.Element {
@@ -134,6 +125,23 @@ export function NewsPage(): React.JSX.Element {
       setDeleteTarget(null)
     }
   }, [isAiEnabled])
+
+  // Nhật ký phóng to toàn màn hình: Esc đóng như lớp phủ.
+  useEffect(() => {
+    if (!logExpanded) {
+      return undefined
+    }
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setLogExpanded(false)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [logExpanded])
 
   /** Log nằm cuối trang: cuộn tới để người dùng thấy tiến trình khi vừa bấm Check News. */
   function revealLog(): void {
@@ -360,13 +368,13 @@ export function NewsPage(): React.JSX.Element {
 
       {error ? <ErrorBlock message={error} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
 
-      <div className="news-grid">
-        <section className="card stack news-panel news-panel--important">
-          <div className="section-title news-panel__head">
+      <div className="news-board">
+        <section className="news-card news-panel news-panel--important" aria-label="Tin quan trọng mới">
+          <header className="news-card__head">
             <h2>
               <span aria-hidden="true">🔔</span> Tin quan trọng mới
             </h2>
-            <div className="row row--wrap">
+            <div className="news-card__head-end">
               <span className="muted">{topImportant.length} dự án</span>
               {canEdit ? (
                 <Button size="sm" variant="secondary" onClick={() => openCreate('important')}>
@@ -374,20 +382,17 @@ export function NewsPage(): React.JSX.Element {
                 </Button>
               ) : null}
             </div>
-          </div>
+          </header>
 
-          {topImportant.length === 0 ? (
-            <EmptyState
-              title="Chưa có tin nào"
-              message={
-                isAiEnabled
-                  ? 'Bấm Check News để AI tìm tin trong 7 ngày gần nhất.'
-                  : 'Bấm Thêm để nhập tin, hoặc Import News từ file JSON.'
-              }
-            />
-          ) : (
-            <div className="news-panel__scroll">
-              {topImportant.map((item) => (
+          <div className="news-card__body">
+            {topImportant.length === 0 ? (
+              <div className="news-empty">
+                {isAiEnabled
+                  ? 'Chưa có tin nào. Bấm Check News để AI tìm tin trong 7 ngày gần nhất.'
+                  : 'Chưa có tin nào. Bấm Thêm để nhập tin, hoặc Import News từ file JSON.'}
+              </div>
+            ) : (
+              topImportant.map((item) => (
                 <ImportantCard
                   key={item.id}
                   item={item}
@@ -396,29 +401,31 @@ export function NewsPage(): React.JSX.Element {
                   onEdit={canEdit ? () => openEdit(item) : null}
                   onDelete={canEdit ? () => setDeleteTarget(item) : null}
                 />
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </section>
 
-        <section className="card stack news-panel">
-          <div className="section-title news-panel__head">
+        <section className="news-card news-panel" aria-label="Deadline sắp hết">
+          <header className="news-card__head">
             <h2>
               <span aria-hidden="true">⏰</span> Deadline sắp hết
             </h2>
-              <div className="row row--wrap">
-                <span className="muted">{urgent.length + soon.length} mốc</span>
-                {canEdit ? (
-                  <Button size="sm" variant="secondary" onClick={() => openCreate('important', 'end')}>
-                    Thêm
-                  </Button>
-                ) : null}
-              </div>
+            <div className="news-card__head-end">
+              <span className="muted">{urgent.length + soon.length} mốc</span>
+              {canEdit ? (
+                <Button size="sm" variant="secondary" onClick={() => openCreate('important', 'end')}>
+                  Thêm
+                </Button>
+              ) : null}
             </div>
+          </header>
             {urgent.length + soon.length === 0 && expired.length === 0 ? (
-              <p className="muted">Không có hạn chót nào trong 14 ngày tới.</p>
+              <div className="news-card__body">
+                <div className="news-empty">Không có hạn chót nào trong 14 ngày tới.</div>
+              </div>
             ) : (
-              <div className="news-panel__scroll">
+              <div className="news-card__body">
                 {urgent.length + soon.length === 0 ? (
                   <p className="muted">Không có hạn chót nào trong 14 ngày tới. Hạn đã qua hiển thị ở nhóm dưới.</p>
                 ) : null}
@@ -482,29 +489,31 @@ export function NewsPage(): React.JSX.Element {
             )}
           </section>
 
-          <section className="card stack news-panel">
-            <div className="section-title news-panel__head">
-              <h2>
-                <span aria-hidden="true">🎯</span> Việc cần làm ngay
-              </h2>
-              <div className="row row--wrap">
-                <span className="muted">{todos.filter((item) => !item.isDone).length} chưa xử lý</span>
-                {canEdit ? (
-                  <Button size="sm" variant="secondary" onClick={() => openCreate('todo')}>
-                    Thêm
-                  </Button>
-                ) : null}
-              </div>
+        <section className="news-card news-panel" aria-label="Việc cần làm ngay">
+          <header className="news-card__head">
+            <h2>
+              <span aria-hidden="true">🎯</span> Việc cần làm ngay
+            </h2>
+            <div className="news-card__head-end">
+              <span className="muted">{todos.filter((item) => !item.isDone).length} chưa xử lý</span>
+              {canEdit ? (
+                <Button size="sm" variant="secondary" onClick={() => openCreate('todo')}>
+                  Thêm
+                </Button>
+              ) : null}
             </div>
-            {todos.length === 0 ? (
-              <p className="muted">
+          </header>
+          {todos.length === 0 ? (
+            <div className="news-card__body">
+              <div className="news-empty">
                 {isAiEnabled
                   ? 'Chưa có việc nào. Check News sẽ liệt kê việc cần làm trong ngày.'
                   : 'Chưa có việc nào. Bấm Thêm để nhập việc cần làm.'}
-              </p>
-            ) : (
-              <div className="news-panel__scroll">
-                {[...verifiedTodos, ...unverifiedTodos].map((item) => (
+              </div>
+            </div>
+          ) : (
+            <div className="news-card__body">
+              {[...verifiedTodos, ...unverifiedTodos].map((item) => (
                   <TodoCard
                     key={item.id}
                     item={item}
@@ -528,29 +537,30 @@ export function NewsPage(): React.JSX.Element {
                     onEdit={canEdit ? () => openEdit(item) : null}
                     onDelete={canEdit ? () => setDeleteTarget(item) : null}
                   />
-                ))}
-              </div>
-            )}
-          </section>
-      </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-      <div className="ai-log-actions">
-        <button
-          type="button"
-          className="ai-log-actions__button"
-          aria-expanded={logExpanded}
-          onClick={() => setLogExpanded((current) => !current)}
-        >
-          {logExpanded ? 'Thu gọn nhật ký' : 'Mở rộng nhật ký'}
-        </button>
-      </div>
-
-      <div ref={logRef}>
-        <AiActivityLog
-          channel="news"
-          className={logExpanded ? 'ai-log--expanded' : undefined}
-          emptyText="Chưa có hoạt động. Bấm Check News để bắt đầu."
-        />
+        {logExpanded ? <button type="button" className="news-log-backdrop" aria-label="Đóng nhật ký" onClick={() => setLogExpanded(false)} /> : null}
+        <div ref={logRef} className="news-log-slot">
+          <AiActivityLog
+            channel="news"
+            layout="card"
+            className={logExpanded ? 'news-log--fullscreen' : undefined}
+            headerExtra={
+              <button
+                type="button"
+                className="ai-log-actions__button"
+                aria-expanded={logExpanded}
+                onClick={() => setLogExpanded((current) => !current)}
+              >
+                {logExpanded ? 'Thu gọn nhật ký' : 'Mở rộng nhật ký'}
+              </button>
+            }
+            emptyText="Chưa có hoạt động. Bấm Check News để bắt đầu."
+          />
+        </div>
       </div>
 
       <Modal
@@ -673,7 +683,7 @@ function CardActions({
     return null
   }
   return (
-    <span className="news-card__actions">
+    <span className="news-item__actions">
       {onEdit ? (
         <Button size="sm" variant="ghost" iconOnly aria-label="Sửa tin" title="Sửa" onClick={onEdit}>
           ✎
@@ -712,25 +722,31 @@ function ImportantCard({
   const summary = oneLine(item.summary, 160)
   const unverified = item.verification !== 'verified'
   return (
-    <article className="news-card">
+    <article className="news-item">
       <button
         type="button"
-        className="news-card__open"
+        className="news-item__open"
         data-lock-allow="true"
         title={`${name} · ${item.summary}`}
         onClick={() => onOpenProject(item.projectId)}
       >
-        <span className="news-card__logo">
+        <span className="news-item__logo">
           <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
         </span>
-        <span className="news-card__line">
-          <span className="news-card__name">{name}</span>
-          <span className="news-card__text">{summary}</span>
+        <span className="news-item__line">
+          <span className="news-item__title" title={summary}>
+            {summary}
+          </span>
+          <span className="news-item__sub">
+            <span className="news-item__project">{name}</span>
+            <span className="news-item__dot" aria-hidden="true">·</span>
+            <span className="news-item__date">{formatDmy(item.publishedAt.slice(0, 10))}</span>
+            {unverified ? <span className="news-item__flag">Chưa xác minh</span> : null}
+          </span>
         </span>
       </button>
-      {unverified ? <span className="news-card__flag">Chưa xác minh</span> : null}
       {item.sourceUrl ? (
-        <ExternalLink url={item.sourceUrl} className="news-card__link" ariaLabel="Mở bài gốc">
+        <ExternalLink url={item.sourceUrl} className="news-item__link" ariaLabel="Mở bài gốc">
           {null}
         </ExternalLink>
       ) : null}
@@ -751,26 +767,30 @@ function DeadlineCard({
   onDelete: (() => void) | null
 }): React.JSX.Element {
   return (
-    <article className="news-card news-card--deadline">
+    <article className="news-item news-item--deadline">
       <button
         type="button"
-        className="news-card__open"
+        className="news-item__open"
         data-lock-allow="true"
         title={`${item.projectName} · ${MILESTONE_LABEL[item.kind]} ${formatDmy(item.date)}`}
         onClick={() => onOpenProject(item.projectId)}
       >
-        <span className="news-card__logo">
+        <span className="news-item__logo">
           <ProjectLogo projectId={item.projectId} name={item.projectName} hasLogo={Boolean(item.logoPath)} size="news" />
         </span>
-        <span className="news-card__line">
-          <span className="news-card__name">{item.projectName}</span>
-          <span className="news-card__text">
-            {MILESTONE_LABEL[item.kind]} {formatDmy(item.date)}
+        <span className="news-item__line">
+          <span className="news-item__title" title={`${MILESTONE_LABEL[item.kind]} · ${formatDmy(item.date)}`}>
+            {MILESTONE_LABEL[item.kind]} · {formatDmy(item.date)}
+          </span>
+          <span className="news-item__sub">
+            <span className="news-item__project">{item.projectName}</span>
+            {item.verification !== 'verified' ? <span className="news-item__flag">Chưa xác minh</span> : null}
           </span>
         </span>
       </button>
-      {item.verification !== 'verified' ? <span className="news-card__flag">Chưa xác minh</span> : null}
-      <span className="news-card__badge">{deadlineBadge(item.daysRemaining)}</span>
+      <span className={`news-item__badge news-item__badge--${deadlineTone(item.daysRemaining)}`}>
+        {formatDeadlineBadge(item.daysRemaining)}
+      </span>
       <CardActions onEdit={onEdit} onDelete={onDelete} />
     </article>
   )
@@ -796,10 +816,32 @@ function TodoCard({
   onDelete: (() => void) | null
 }): React.JSX.Element {
   const name = project?.name ?? 'Dự án không tồn tại'
+  const summary = oneLine(item.summary, 160)
   return (
-    <article className={`news-card news-card--todo${done ? ' news-card--done' : ''}`}>
+    <article className={`news-item news-item--todo${done ? ' news-item--done' : ''}`}>
+      <button
+        type="button"
+        className="news-item__open"
+        data-lock-allow="true"
+        title={item.summary}
+        onClick={() => onOpenProject(item.projectId)}
+      >
+        <span className="news-item__logo">
+          <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
+        </span>
+        <span className="news-item__line">
+          <span className="news-item__title" title={summary}>
+            {summary}
+          </span>
+          <span className="news-item__sub">
+            <span className="news-item__project">{name}</span>
+            {item.verification !== 'verified' ? <span className="news-item__flag">Chưa xác minh</span> : null}
+          </span>
+        </span>
+      </button>
+      <CardActions onEdit={onEdit} onDelete={onDelete} />
       <input
-        className="news-card__check"
+        className="news-item__check"
         type="checkbox"
         id={`todo-${item.id}`}
         checked={done}
@@ -807,25 +849,6 @@ function TodoCard({
         onChange={onToggle}
         aria-label={`Đánh dấu đã xử lý: ${name}`}
       />
-      <button
-        type="button"
-        className="news-card__open"
-        data-lock-allow="true"
-        title={item.summary}
-        onClick={() => onOpenProject(item.projectId)}
-      >
-        <span className="news-card__logo">
-          <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
-        </span>
-        <span className="news-card__body">
-          <span className="news-card__line">
-            <span className="news-card__name">{name}</span>
-          </span>
-          <span className="news-card__text news-card__text--single">{oneLine(item.summary, 160)}</span>
-        </span>
-      </button>
-      {item.verification !== 'verified' ? <span className="news-card__flag">Chưa xác minh</span> : null}
-      <CardActions onEdit={onEdit} onDelete={onDelete} />
     </article>
   )
 }
