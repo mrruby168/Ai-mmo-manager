@@ -3177,3 +3177,85 @@ select.field__control {
 .scan-table__note {
   overflow-wrap: anywhere;
 }
+
+/* Công tắc chọn dự án ưu tiên (UI-only, không lưu ra đĩa). */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.switch__label {
+  white-space: nowrap;
+}
+
+.switch__track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+  transition: background var(--transition-fast);
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--transition-fast);
+}
+
+.switch--on .switch__track {
+  background: var(--color-primary);
+}
+
+.switch--on .switch__thumb {
+  transform: translateX(14px);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__track,
+  .switch__thumb {
+    transition: none;
+  }
+}
+
+.priority-hint {
+  margin-top: var(--space-2);
+}
+
+/* Viền gradient cho dự án ưu tiên: vẫn là viền 1px như cũ nên không đổi kích thước/bố cục. */
+.project-row--priority {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
+    linear-gradient(135deg, #e6cf9a 0%, #b8793f 52%, #5f86a8 100%) border-box;
+}
+
+.project-row--priority:hover {
+  background:
+    linear-gradient(var(--color-surface-raised), var(--color-surface-raised)) padding-box,
+    linear-gradient(135deg, #e6cf9a 0%, #b8793f 52%, #5f86a8 100%) border-box;
+  border-color: transparent;
+}

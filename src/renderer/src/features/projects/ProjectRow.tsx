@@ -5,15 +5,36 @@ import { ProjectLogo } from '../../common/ProjectLogo'
 
 const CATEGORY_LABEL = { event_mmo: 'Event MMO', airdrop: 'Airdrop' } as const
 
-export function ProjectRow({ project, onOpen }: { project: Project; onOpen: () => void }): React.JSX.Element {
+export function ProjectRow({
+  project,
+  onOpen,
+  priority = false,
+  selectMode = false,
+  onTogglePriority
+}: {
+  project: Project
+  onOpen: () => void
+  priority?: boolean
+  selectMode?: boolean
+  onTogglePriority?: () => void
+}): React.JSX.Element {
   const deadline = getDeadlineInfo(project.endDate, todayDateOnly())
   const summary = project.taskSummary || project.howToJoin || 'Chưa có mô tả nhiệm vụ'
+  const className = [
+    'project-row',
+    deadline.tone === 'expired' ? 'project-row--expired' : '',
+    priority ? 'project-row--priority' : '',
+    selectMode ? 'project-row--selecting' : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <button
       type="button"
-      className={`project-row${deadline.tone === 'expired' ? ' project-row--expired' : ''}`}
-      onClick={onOpen}
+      className={className}
+      onClick={selectMode ? onTogglePriority : onOpen}
+      aria-pressed={selectMode ? priority : undefined}
       data-lock-allow="true"
     >
       <span className="project-row__identity">
