@@ -7,8 +7,10 @@ import { EmptyState, ErrorBlock, LoadingBlock } from '../../common/EmptyState'
 import { Field, Select } from '../../common/Field'
 import { CheckboxField } from '../../common/Field'
 import { Modal } from '../../common/Modal'
+import { Switch } from '../../common/Switch'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
+import { usePriorityPicks } from '../../state/priorityStore'
 import { useToast } from '../../state/ToastContext'
 import { applyProjectFilters, emptyFilters, ProjectFilters } from './ProjectFilters'
 import type { ProjectFilterState } from './ProjectFilters'
@@ -22,9 +24,11 @@ const TITLES: Record<ProjectCategory, string> = {
 }
 
 export function ProjectListPage({ category }: { category: ProjectCategory }): React.JSX.Element {
-  const { dataVersion, refreshData, openProject } = useApp()
+  const { dataVersion, refreshData, openProject, isAiEnabled } = useApp()
   const { isAiBusy } = useLock()
   const { pushToast } = useToast()
+  const picks = usePriorityPicks(category)
+  const selectActive = !isAiEnabled && picks.selectMode
 
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,6 +92,9 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
           </span>
         </div>
         <div className="row">
+          {!isAiEnabled ? (
+            <Switch label="Chọn dự án ưu tiên" checked={picks.selectMode} onChange={picks.setSelectMode} />
+          ) : null}
           <Button variant="secondary" onClick={() => setImportOpen(true)} disabled={isAiBusy}>
             Nhập JSON
           </Button>
@@ -101,6 +108,10 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
       </div>
 
       <ProjectFilters filters={filters} onChange={setFilters} />
+
+      {selectActive ? (
+        <p className="muted priority-hint">Chế độ chọn ưu tiên đang bật · Click Card để chọn hoặc bỏ chọn</p>
+      ) : null}
 
       {loading && projects.length === 0 ? <LoadingBlock message="Đang tải danh sách dự án…" /> : null}
 
@@ -129,7 +140,14 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
       {filtered.length > 0 ? (
         <div className="project-rows">
           {filtered.map((project) => (
-            <ProjectRow key={project.id} project={project} onOpen={() => openProject(project.id)} />
+            <ProjectRow
+              key={project.id}
+              project={project}
+              priority={picks.ids.has(project.id)}
+              selectMode={selectActive}
+              onOpen={() => openProject(project.id)}
+              onTogglePriority={() => picks.toggle(project.id)}
+            />
           ))}
         </div>
       ) : null}
