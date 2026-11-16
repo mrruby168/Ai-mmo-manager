@@ -323,6 +323,8 @@ export function WebSearchPanel({ webSearch, onChanged }: WebSearchPanelProps): R
             </>
           ) : null}
 
+          <p className="settings-hint">Chế độ này áp dụng cho nút Check News ở tab News (chỉ AI mode).</p>
+
           <div className="row">
             <Button variant="primary" loading={scanSaving} disabled={isAiBusy || scanSaving} onClick={() => void handleSaveScan()}>
               Lưu chế độ quét

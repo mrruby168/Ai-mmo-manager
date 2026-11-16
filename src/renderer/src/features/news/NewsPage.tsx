@@ -154,7 +154,7 @@ export function NewsPage(): React.JSX.Element {
     logRef.current?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
   }
 
-  async function handleCheck(mode?: NewsScanMode): Promise<void> {
+  async function handleCheck(): Promise<void> {
     if (checking || promptLoading || newsBusy) {
       return
     }
@@ -178,7 +178,7 @@ export function NewsPage(): React.JSX.Element {
       return
     }
 
-    const runMode: NewsScanMode = mode ?? settings?.newsScan.defaultMode ?? DEFAULT_NEWS_SCAN_SETTINGS.defaultMode
+    const runMode: NewsScanMode = settings?.newsScan.defaultMode ?? DEFAULT_NEWS_SCAN_SETTINGS.defaultMode
     if (runMode === 'daily') {
       clearDailyAdded()
     }
@@ -322,7 +322,13 @@ export function NewsPage(): React.JSX.Element {
   const appSearch = appSearchConfigured(settings?.webSearch ?? null)
   const scanSettings = settings?.newsScan ?? DEFAULT_NEWS_SCAN_SETTINGS
   const defaultMode: NewsScanMode = scanSettings.defaultMode
-  const windowLabel = `Daily ${scanSettings.dailyWindowDays} ngày / Full 7 ngày`
+  const modeLabel = defaultMode === 'daily' ? 'Daily Scan' : 'Full Scan'
+  const windowLabel =
+    defaultMode === 'daily'
+      ? scanSettings.dailyWindowDays === 1
+        ? 'Daily · hôm nay'
+        : `Daily · ${scanSettings.dailyWindowDays} ngày gần nhất`
+      : 'Full · 7 ngày gần nhất'
   const newsChain = effectiveChain(
     'news',
     settings?.ai.taskModels.news ?? [],
@@ -356,28 +362,22 @@ export function NewsPage(): React.JSX.Element {
           ) : null}
           {isAiEnabled ? (
             <>
+              <span className="news-mode-chip" title="Đổi ở Settings → Web Search">
+                Chế độ: {modeLabel}
+              </span>
               <Button
-                variant={defaultMode === 'daily' ? 'primary' : 'secondary'}
-                loading={checking && defaultMode === 'daily'}
+                variant="primary"
+                loading={checking}
                 disabled={newsBusy || checking || promptLoading || newsModelWarning !== null}
-                title={newsModelWarning ?? `Daily Scan · ${scanSettings.dailyWindowDays} ngày gần nhất`}
-                onClick={() => void handleCheck('daily')}
+                title={newsModelWarning ?? `${modeLabel} · ${windowLabel}`}
+                onClick={() => void handleCheck()}
               >
-                Daily Scan
-                {dailyAdded > 0 ? (
+                Check News
+                {defaultMode === 'daily' && dailyAdded > 0 ? (
                   <span className="news-mode-badge" aria-label={`${dailyAdded} tin mới từ Daily`}>
                     +{dailyAdded}
                   </span>
                 ) : null}
-              </Button>
-              <Button
-                variant={defaultMode === 'full' ? 'primary' : 'secondary'}
-                loading={checking && defaultMode === 'full'}
-                disabled={newsBusy || checking || promptLoading || newsModelWarning !== null}
-                title={isAiEnabled && newsModelWarning ? newsModelWarning : 'Full Scan · 7 ngày gần nhất'}
-                onClick={() => void handleCheck('full')}
-              >
-                Full Scan
               </Button>
             </>
           ) : (
@@ -428,7 +428,7 @@ export function NewsPage(): React.JSX.Element {
             {topImportant.length === 0 ? (
               <div className="news-empty">
                 {isAiEnabled
-                  ? 'Chưa có tin nào. Bấm Daily Scan hoặc Full Scan để AI tìm tin.'
+                  ? 'Chưa có tin nào. Bấm Check News để AI tìm tin.'
                   : 'Chưa có tin nào. Bấm Thêm để nhập tin, hoặc Import News từ file JSON.'}
               </div>
             ) : (

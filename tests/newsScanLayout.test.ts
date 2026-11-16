@@ -26,7 +26,7 @@ describe('FIX 3: News/Scan bỏ card chọn Model, Chat giữ nguyên', () => {
     expect(news).toContain('<AiActivityLog')
     expect(news).toContain('channel="news"')
     expect(news).toContain('Settings → Model Configuration')
-    expect(news).toContain('title={isAiEnabled && newsModelWarning')
+    expect(news).toContain('title={newsModelWarning')
     expect(news).toContain('banner banner--warning')
   })
 

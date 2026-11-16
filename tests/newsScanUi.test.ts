@@ -25,26 +25,33 @@ function listSources(dir: string): string[] {
   return result
 }
 
-describe('v0.1.4: News có hai nút ở AI Mode, No AI giữ giao diện cũ', () => {
+describe('v0.1.4: News chỉ có MỘT nút Check News, chế độ lấy từ Settings', () => {
   const news = readSource(NEWS_PAGE)
 
-  it('có nút Daily Scan và Full Scan, gọi handleCheck theo mode', () => {
-    expect(news).toContain('Daily Scan')
-    expect(news).toContain('Full Scan')
-    expect(news).toContain("handleCheck('daily')")
-    expect(news).toContain("handleCheck('full')")
+  it('không còn nút Daily Scan / Full Scan riêng, không truyền mode vào handleCheck', () => {
+    expect(news).not.toContain("handleCheck('daily')")
+    expect(news).not.toContain("handleCheck('full')")
+    expect(news).not.toContain('<Button variant={defaultMode')
+    expect(news).toContain('async function handleCheck(): Promise<void>')
+  })
+
+  it('mode chạy lấy từ settings.newsScan.defaultMode rồi gọi window.api.news.check(runMode)', () => {
+    expect(news).toContain('settings?.newsScan.defaultMode ?? DEFAULT_NEWS_SCAN_SETTINGS.defaultMode')
     expect(news).toContain('window.api.news.check(runMode)')
   })
 
-  it('hai nút chỉ nằm trong nhánh isAiEnabled, No AI vẫn là nút Check News cũ', () => {
+  it('chỉ có một nút Check News trong khối AI và có chip chế độ', () => {
     const branch = news.indexOf('{isAiEnabled ? (')
     expect(branch).toBeGreaterThan(0)
-    const daily = news.indexOf('Daily Scan', branch)
-    const full = news.indexOf('Full Scan', branch)
-    const fallback = news.indexOf('Check News\n            </Button>', branch)
-    expect(daily).toBeGreaterThan(branch)
-    expect(full).toBeGreaterThan(daily)
-    expect(fallback).toBeGreaterThan(full)
+    const chip = news.indexOf('news-mode-chip', branch)
+    const button = news.indexOf('Check News', branch)
+    expect(chip).toBeGreaterThan(branch)
+    expect(button).toBeGreaterThan(chip)
+    expect(news.match(/>\s*Check News\s*(?:\{|<\/Button>)/g)?.length).toBe(2)
+  })
+
+  it('huy hiệu +N chỉ hiện khi mode là Daily', () => {
+    expect(news).toContain("defaultMode === 'daily' && dailyAdded > 0")
   })
 })
 
