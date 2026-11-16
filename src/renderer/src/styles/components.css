@@ -3426,17 +3426,6 @@ select.field__control {
   box-shadow: 0 0 0 2px var(--color-surface-raised);
 }
 
-.news-mode-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  color: var(--color-muted);
-  font-size: 0.8125rem;
-  white-space: nowrap;
-}
-
 .news-mode-badge {
   margin-left: var(--space-2);
   padding: 0 0.4rem;

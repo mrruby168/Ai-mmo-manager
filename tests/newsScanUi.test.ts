@@ -40,13 +40,11 @@ describe('v0.1.4: News chỉ có MỘT nút Check News, chế độ lấy từ S
     expect(news).toContain('window.api.news.check(runMode)')
   })
 
-  it('chỉ có một nút Check News trong khối AI và có chip chế độ', () => {
+  it('chỉ có một nút Check News trong khối AI, không còn chip chế độ', () => {
     const branch = news.indexOf('{isAiEnabled ? (')
     expect(branch).toBeGreaterThan(0)
-    const chip = news.indexOf('news-mode-chip', branch)
-    const button = news.indexOf('Check News', branch)
-    expect(chip).toBeGreaterThan(branch)
-    expect(button).toBeGreaterThan(chip)
+    expect(news).not.toContain('news-mode-chip')
+    expect(news.indexOf('Check News', branch)).toBeGreaterThan(branch)
     expect(news.match(/>\s*Check News\s*(?:\{|<\/Button>)/g)?.length).toBe(2)
   })
 

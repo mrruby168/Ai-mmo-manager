@@ -362,9 +362,6 @@ export function NewsPage(): React.JSX.Element {
           ) : null}
           {isAiEnabled ? (
             <>
-              <span className="news-mode-chip" title="Đổi ở Settings → Web Search">
-                Chế độ: {modeLabel}
-              </span>
               <Button
                 variant="primary"
                 loading={checking}
