@@ -95,7 +95,7 @@ export function registerNewsIpc(): void {
   registerHandler({
     channel: IPC.newsCheck,
     parse: (raw) => newsCheckPayload.parse(raw ?? {}),
-    handler: async (input) => runCheckNews({ mode: input.mode })
+    handler: async (input) => runCheckNews({ mode: input.mode, force: input.force })
   })
 
   // No AI Mode: build the prompt locally, never call a provider.

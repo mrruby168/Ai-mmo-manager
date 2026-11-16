@@ -117,9 +117,10 @@ export const newsImportConfirmPayload = z.object({
   token: z.string().trim().min(1).max(64)
 })
 
-/** v0.1.4: mode Check News do renderer chọn; bỏ trống = mode mặc định. */
+/** v0.1.4: mode Check News do renderer chọn; bỏ trống = mode mặc định. `force` = bỏ qua cache. */
 export const newsCheckPayload = z.object({
-  mode: z.enum(['daily', 'full']).optional()
+  mode: z.enum(['daily', 'full']).optional(),
+  force: z.boolean().optional()
 })
 
 /* ---------- news manual CRUD (No AI Mode) ---------- */
