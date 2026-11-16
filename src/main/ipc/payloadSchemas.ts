@@ -117,6 +117,12 @@ export const newsImportConfirmPayload = z.object({
   token: z.string().trim().min(1).max(64)
 })
 
+/** v0.1.4: mode Check News do renderer chọn; bỏ trống = mode mặc định. `force` = bỏ qua cache. */
+export const newsCheckPayload = z.object({
+  mode: z.enum(['daily', 'full']).optional(),
+  force: z.boolean().optional()
+})
+
 /* ---------- news manual CRUD (No AI Mode) ---------- */
 
 export const newsCreatePayload = z.object({ input: newsManualInputSchema })
@@ -215,6 +221,16 @@ export const webSearchTestPayload = z.object({
   provider: webSearchProviderSchema.optional(),
   baseUrl: z.string().trim().max(2048).nullable().optional(),
   apiKey: z.string().trim().max(4096).optional()
+})
+
+/* ---------- news scan modes (v0.1.4) ---------- */
+
+export const newsScanSavePayload = z.object({
+  newsScan: z.object({
+    defaultMode: z.enum(['daily', 'full']),
+    dailyMinIntervalHours: z.union([z.literal(3), z.literal(12), z.literal(24)]),
+    dailyWindowDays: z.union([z.literal(1), z.literal(2), z.literal(3)])
+  })
 })
 
 /* ---------- app ---------- */

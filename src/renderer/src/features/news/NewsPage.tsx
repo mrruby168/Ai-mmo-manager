@@ -5,10 +5,13 @@ import type {
   NewsImportPreview,
   NewsItem,
   NewsManualInput,
+  NewsScanMode,
   Project
 } from '@shared/types'
+import { DEFAULT_NEWS_SCAN_SETTINGS } from '@shared/types'
 import type { MilestoneKind, NewsKind } from '@shared/constants'
 import { todayDateOnly } from '@shared/date-utils'
+import { NEWS_TAG_LABEL, deriveNewsTags } from '@shared/newsTags'
 import {
   MILESTONE_LABEL,
   buildDeadlineRows,
@@ -34,6 +37,7 @@ import { Modal, ConfirmDialog } from '../../common/Modal'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
+import { clearDailyAdded, markNewsAdded, useNewsBadge } from '../../state/newsBadgeStore'
 import { NewsFormDialog } from './NewsFormDialog'
 
 const VERIFICATION_SORT: Record<string, number> = { verified: 0, unverified: 1 }
@@ -58,6 +62,7 @@ export function NewsPage(): React.JSX.Element {
   const { refreshData, dataVersion, openProject, isAiEnabled } = useApp()
   const { isAiBusy, isBusy } = useLock()
   const { pushToast } = useToast()
+  const { dailyAdded } = useNewsBadge()
   const newsBusy = isBusy('news')
 
   const [important, setImportant] = useState<NewsItem[]>([])
@@ -173,14 +178,19 @@ export function NewsPage(): React.JSX.Element {
       return
     }
 
+    const runMode: NewsScanMode = settings?.newsScan.defaultMode ?? DEFAULT_NEWS_SCAN_SETTINGS.defaultMode
+    if (runMode === 'daily') {
+      clearDailyAdded()
+    }
     revealLog()
     setChecking(true)
-    const result = await window.api.news.check()
+    const result = await window.api.news.check(runMode)
     setChecking(false)
     if (!result.ok) {
       pushToast(result.error.message, 'error')
       return
     }
+    markNewsAdded(result.data.added, runMode)
     pushToast(result.data.message, result.data.added > 0 ? 'success' : 'info')
     refreshData()
   }
@@ -310,6 +320,15 @@ export function NewsPage(): React.JSX.Element {
   const providers = settings?.ai.providers ?? []
   const modelChoices = listModelChoices(providers)
   const appSearch = appSearchConfigured(settings?.webSearch ?? null)
+  const scanSettings = settings?.newsScan ?? DEFAULT_NEWS_SCAN_SETTINGS
+  const defaultMode: NewsScanMode = scanSettings.defaultMode
+  const modeLabel = defaultMode === 'daily' ? 'Daily Scan' : 'Full Scan'
+  const windowLabel =
+    defaultMode === 'daily'
+      ? scanSettings.dailyWindowDays === 1
+        ? 'Daily · hôm nay'
+        : `Daily · ${scanSettings.dailyWindowDays} ngày gần nhất`
+      : 'Full · 7 ngày gần nhất'
   const newsChain = effectiveChain(
     'news',
     settings?.ai.taskModels.news ?? [],
@@ -341,22 +360,40 @@ export function NewsPage(): React.JSX.Element {
               Import News
             </Button>
           ) : null}
-          <Button
-            variant="primary"
-            loading={checking || promptLoading}
-            disabled={newsBusy || checking || promptLoading || (isAiEnabled && newsModelWarning !== null)}
-            title={isAiEnabled && newsModelWarning ? newsModelWarning : undefined}
-            onClick={() => void handleCheck()}
-          >
-            Check News
-          </Button>
+          {isAiEnabled ? (
+            <>
+              <Button
+                variant="primary"
+                loading={checking}
+                disabled={newsBusy || checking || promptLoading || newsModelWarning !== null}
+                title={newsModelWarning ?? `${modeLabel} · ${windowLabel}`}
+                onClick={() => void handleCheck()}
+              >
+                Check News
+                {defaultMode === 'daily' && dailyAdded > 0 ? (
+                  <span className="news-mode-badge" aria-label={`${dailyAdded} tin mới từ Daily`}>
+                    +{dailyAdded}
+                  </span>
+                ) : null}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="primary"
+              loading={checking || promptLoading}
+              disabled={newsBusy || checking || promptLoading}
+              onClick={() => void handleCheck()}
+            >
+              Check News
+            </Button>
+          )}
         </div>
       </div>
 
       <div className="news-page__meta">
         <span className="news-page__dot" aria-hidden="true" />
         <span>
-          {lastCheckedAt ? `Kiểm tra gần nhất: ${new Date(lastCheckedAt).toLocaleString('vi-VN')}` : 'Chưa kiểm tra lần nào'} · 7 ngày gần nhất
+          {lastCheckedAt ? `Kiểm tra gần nhất: ${new Date(lastCheckedAt).toLocaleString('vi-VN')}` : 'Chưa kiểm tra lần nào'} · {windowLabel}
         </span>
       </div>
 
@@ -388,7 +425,7 @@ export function NewsPage(): React.JSX.Element {
             {topImportant.length === 0 ? (
               <div className="news-empty">
                 {isAiEnabled
-                  ? 'Chưa có tin nào. Bấm Check News để AI tìm tin trong 7 ngày gần nhất.'
+                  ? 'Chưa có tin nào. Bấm Check News để AI tìm tin.'
                   : 'Chưa có tin nào. Bấm Thêm để nhập tin, hoặc Import News từ file JSON.'}
               </div>
             ) : (
@@ -721,6 +758,7 @@ function ImportantCard({
   const name = project?.name ?? 'Dự án không tồn tại'
   const summary = oneLine(item.summary, 160)
   const unverified = item.verification !== 'verified'
+  const tags = deriveNewsTags(item)
   return (
     <article className="news-item">
       <button
@@ -743,6 +781,15 @@ function ImportantCard({
             <span className="news-item__date">{formatDmy(item.publishedAt.slice(0, 10))}</span>
             {unverified ? <span className="news-item__flag">Chưa xác minh</span> : null}
           </span>
+          {tags.length > 0 ? (
+            <span className="news-item__tags">
+              {tags.map((tag) => (
+                <span key={tag} className={`news-tag news-tag--${tag}`}>
+                  {NEWS_TAG_LABEL[tag]}
+                </span>
+              ))}
+            </span>
+          ) : null}
         </span>
       </button>
       {item.sourceUrl ? (
@@ -817,6 +864,7 @@ function TodoCard({
 }): React.JSX.Element {
   const name = project?.name ?? 'Dự án không tồn tại'
   const summary = oneLine(item.summary, 160)
+  const tags = deriveNewsTags(item)
   return (
     <article className={`news-item news-item--todo${done ? ' news-item--done' : ''}`}>
       <button
@@ -837,6 +885,15 @@ function TodoCard({
             <span className="news-item__project">{name}</span>
             {item.verification !== 'verified' ? <span className="news-item__flag">Chưa xác minh</span> : null}
           </span>
+          {tags.length > 0 ? (
+            <span className="news-item__tags">
+              {tags.map((tag) => (
+                <span key={tag} className={`news-tag news-tag--${tag}`}>
+                  {NEWS_TAG_LABEL[tag]}
+                </span>
+              ))}
+            </span>
+          ) : null}
         </span>
       </button>
       <CardActions onEdit={onEdit} onDelete={onDelete} />

@@ -198,6 +198,27 @@ export interface TaskModels {
 export const NEWS_CACHE_TTL_OPTIONS_MS = [60_000, 3 * 3_600_000, 8 * 3_600_000] as const
 export const DEFAULT_NEWS_CACHE_TTL_MS = 3 * 3_600_000
 
+/** v0.1.4: hai chế độ Check News. Daily nhanh/rẻ, Full sâu/7 ngày. */
+export type NewsScanMode = 'daily' | 'full'
+
+/** v0.1.4: cấu hình mode quét, lưu trong settings.json (không đổi DB). */
+export interface NewsScanSettings {
+  /** Mode mặc định: nút primary trên News và mode khi lời gọi không chỉ rõ. */
+  defaultMode: NewsScanMode
+  /** Daily bỏ qua dự án đã quét trong khoảng này (3 / 12 / 24 giờ). */
+  dailyMinIntervalHours: 3 | 12 | 24
+  /** Cửa sổ tin của Daily: hôm nay (1) hoặc 2–3 ngày (≈48–72 giờ). */
+  dailyWindowDays: 1 | 2 | 3
+}
+
+export const NEWS_SCAN_INTERVAL_HOURS = [3, 12, 24] as const
+export const NEWS_SCAN_WINDOW_DAYS = [1, 2, 3] as const
+export const DEFAULT_NEWS_SCAN_SETTINGS: NewsScanSettings = {
+  defaultMode: 'full',
+  dailyMinIntervalHours: 12,
+  dailyWindowDays: 1
+}
+
 export interface AiSettings {
   providers: ProviderConfig[]
   /** Chat Box selection, also A1 of the Chat chain. */
@@ -240,6 +261,8 @@ export interface AppSettings {
   ai: AiSettings
   aiMode: AiMode
   webSearch: WebSearchSettings
+  /** v0.1.4: mode Check News + tham số Daily. File cũ được chuẩn hóa về Full. */
+  newsScan: NewsScanSettings
 }
 
 export type LockOwner = 'none' | 'ai'
@@ -461,7 +484,8 @@ export interface RendererApi {
     list(): Promise<IpcResult<NewsSnapshot>>
     deadlines(): Promise<IpcResult<DeadlineItem[]>>
     toggleTodo(id: number, isDone: boolean): Promise<IpcResult<{ id: number; isDone: boolean }>>
-    check(): Promise<IpcResult<{ added: number; rejected: number; message: string }>>
+    /** v0.1.4: bỏ trống mode = mode mặc định trong Settings. */
+    check(mode?: NewsScanMode): Promise<IpcResult<{ added: number; rejected: number; message: string }>>
     buildPrompt(): Promise<IpcResult<NewsPromptResult>>
     importPreview(): Promise<IpcResult<NewsImportPreview>>
     importConfirm(token: string): Promise<IpcResult<NewsImportResult>>
@@ -531,6 +555,8 @@ export interface RendererApi {
       baseUrl?: string | null
       apiKey?: string
     }): Promise<IpcResult<WebSearchTestResult>>
+    /** v0.1.4: lưu mode Check News (Daily/Full) và tham số Daily. */
+    saveNewsScan(newsScan: NewsScanSettings): Promise<IpcResult<AppSettings>>
   }
   lock: {
     get(): Promise<IpcResult<LockState>>

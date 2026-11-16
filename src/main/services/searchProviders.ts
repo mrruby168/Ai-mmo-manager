@@ -28,6 +28,38 @@ export interface SearchResultItem {
 export interface SearchOptions {
   signal?: AbortSignal
   maxResults?: number
+  /** v0.1.4: giới hạn kết quả theo số ngày gần nhất (Daily = 2–3, Full = 7). */
+  recencyDays?: number
+}
+
+export type SearchRecency = 'day' | 'week' | 'month'
+
+/** Map số ngày sang bucket mà cả Tavily, Brave và SearXNG đều hỗ trợ. */
+export function recencyBucket(days: number | undefined): SearchRecency | null {
+  if (typeof days !== 'number' || !Number.isFinite(days) || days <= 0) {
+    return null
+  }
+  if (days <= 1) {
+    return 'day'
+  }
+  if (days <= 7) {
+    return 'week'
+  }
+  return 'month'
+}
+
+/** Brave dùng mã riêng: pd = past day, pw = past week, pm = past month. */
+function braveFreshness(bucket: SearchRecency | null): string | null {
+  if (bucket === 'day') {
+    return 'pd'
+  }
+  if (bucket === 'week') {
+    return 'pw'
+  }
+  if (bucket === 'month') {
+    return 'pm'
+  }
+  return null
 }
 
 export interface SearchProvider {
@@ -216,6 +248,7 @@ function createTavilyProvider(apiKey: string, fetchImpl: SearchFetch): SearchPro
   return {
     provider: 'tavily',
     async search(query, options = {}) {
+      const recency = recencyBucket(options.recencyDays)
       const payload = await request(
         { fetchImpl, signal: options.signal },
         'https://api.tavily.com/search',
@@ -230,7 +263,8 @@ function createTavilyProvider(apiKey: string, fetchImpl: SearchFetch): SearchPro
             max_results: clampResults(options.maxResults),
             search_depth: 'basic',
             topic: 'general',
-            include_published_date: true
+            include_published_date: true,
+            ...(recency ? { time_range: recency } : {})
           })
         }
       )
@@ -246,6 +280,10 @@ function createBraveProvider(apiKey: string, fetchImpl: SearchFetch): SearchProv
       const url = new URL('https://api.search.brave.com/res/v1/web/search')
       url.searchParams.set('q', query)
       url.searchParams.set('count', String(clampResults(options.maxResults)))
+      const freshness = braveFreshness(recencyBucket(options.recencyDays))
+      if (freshness) {
+        url.searchParams.set('freshness', freshness)
+      }
       const payload = await request({ fetchImpl, signal: options.signal }, url.toString(), {
         method: 'GET',
         headers: {
@@ -259,7 +297,7 @@ function createBraveProvider(apiKey: string, fetchImpl: SearchFetch): SearchProv
   }
 }
 
-export function searxngSearchUrl(baseUrl: string, query: string): string {
+export function searxngSearchUrl(baseUrl: string, query: string, recencyDays?: number): string {
   let parsed: URL
   try {
     parsed = new URL(baseUrl)
@@ -276,6 +314,10 @@ export function searxngSearchUrl(baseUrl: string, query: string): string {
   parsed.searchParams.set('q', query)
   parsed.searchParams.set('format', 'json')
   parsed.searchParams.set('safesearch', '1')
+  const recency = recencyBucket(recencyDays)
+  if (recency) {
+    parsed.searchParams.set('time_range', recency)
+  }
   return parsed.toString()
 }
 
@@ -283,7 +325,7 @@ function createSearxngProvider(baseUrl: string, fetchImpl: SearchFetch): SearchP
   return {
     provider: 'searxng',
     async search(query, options = {}) {
-      const url = searxngSearchUrl(baseUrl, query)
+      const url = searxngSearchUrl(baseUrl, query, options.recencyDays)
       const payload = await request({ fetchImpl, signal: options.signal }, url, {
         method: 'GET',
         headers: { accept: 'application/json' }
