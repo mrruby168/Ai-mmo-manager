@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { RendererApi } from '@shared/types'
 import App from './App'
+import { ErrorBoundary } from './common/ErrorBoundary'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
@@ -19,6 +20,8 @@ if (!container) {
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>
 )

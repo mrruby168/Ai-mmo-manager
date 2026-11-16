@@ -1,3 +1,11 @@
+## WI-22 — FIX UPDATE v0.1.3 (2026-11-16)
+- Branch `fix/updater-v0.1.3`. Nguyên nhân màn hình trắng đã xác minh: `UpdateBanner.tsx` đặt `useCallback` sau các `return` sớm, nên khi phase chuyển sang `available` số hook thay đổi → React gỡ cả cây, cửa sổ tối trống.
+- Gỡ `UpdateBanner.tsx`, `UpdatePanel.tsx`, tab Settings "Cập nhật ứng dụng" và IPC `update:check` (shared type/preload/main); thêm `UpdateContext` (một listener duy nhất), `UpdateDialog` và `ErrorBoundary` bọc `<App/>` trong `main.tsx`.
+- Sidebar luôn hiện `v{currentVersion}`, thêm nút vàng `Update v{latestVersion}` + nhãn `New`/`Đang tải… x%`; hộp thoại tự mở một lần mỗi phiên bản, tự cài sau khi tải, portable mở trang Release, chặn cài khi AI đang chạy hoặc người dùng đang sửa dữ liệu kèm lý do.
+- Dò tự động 10 giây sau khi cửa sổ chính sẵn sàng, chỉ bản đóng gói; lỗi mạng/hết giờ chỉ ghi log và về `idle`; thêm `updater.on('error')`; `quitAndInstall(true, true)`; bỏ `closeDatabase()` thủ công (đóng ở `will-quit`).
+- Thêm log main process `render-process-gone`, `console-message` (chỉ mức error), `did-fail-load`; thêm `tests/updateFlow.test.ts`, cập nhật `tests/updateService.test.ts` (10 giây, chặn cài, error listener) và `tests/uiLayoutV4.test.ts` (Settings còn 5 tab).
+- Kiểm chứng: `npm run typecheck` 0; `npm test` 67 file / 724 test PASS; `npm run build` 0. GUI trên bản đóng gói thật CHƯA kiểm chứng (xem checklist T2 trong báo cáo).
+
 ## WI-21 — RELEASE v0.1.2 (2026-11-13)
 - Merge vào main: PR #8 `0be87e6` (News UI lưới 2×2 cố định, badge deadline tiếng Việt, Activity Log vào lưới) và PR #9 `686222f` (Scan dùng Web Search của app khi model thiếu Native Search; thêm dự án chưa xác minh). PRs UI V4 (#7) và scan-extract (#6) đã nằm trong main trước đó.
 - Main sau merge: typecheck 0; 65 file / 689 test PASS; build 0. Bump `package.json` 0.1.1 → 0.1.2; tag annotated `v0.1.2`; không kèm binary/installer; release notes Vietnamese.

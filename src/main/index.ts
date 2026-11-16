@@ -99,10 +99,24 @@ function createWindow(updateService: { scheduleStartupCheck(): void } | null): v
 
   window.once('ready-to-show', () => {
     window.show()
-    // Chỉ dò cập nhật SAU khi cửa sổ chính đã tải xong, sau 1 phút.
+    // Chỉ dò cập nhật SAU khi cửa sổ chính đã tải xong (xem UPDATE_CHECK_DELAY_MS).
     if (updateService) {
       updateService.scheduleStartupCheck()
     }
+  })
+
+  window.webContents.on('render-process-gone', (_event, details) => {
+    logError(`Renderer process gone: ${details.reason} (exitCode ${details.exitCode})`)
+  })
+
+  window.webContents.on('console-message', (details) => {
+    if (details.level === 'error') {
+      logError(`Renderer console: ${details.message} (${details.sourceId}:${details.lineNumber})`)
+    }
+  })
+
+  window.webContents.on('did-fail-load', (_event, code, description, url) => {
+    logError(`Renderer load failed: ${description} (${code}) ${url}`)
   })
 
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -161,7 +175,6 @@ function bootstrap(): void {
     getUserEditing: () => getLockState().userEditing,
     getDataDir: () => getDataFolderToOpen(),
     getInstallDir: () => process.env.PORTABLE_EXECUTABLE_DIR ?? dirname(app.getPath('exe')),
-    closeDatabase,
     broadcast: (state) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send('update:state', state)

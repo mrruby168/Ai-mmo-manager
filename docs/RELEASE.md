@@ -14,7 +14,9 @@ Tính năng "thông báo và cập nhật app" được bắt đầu từ bản 
 ## Lưu ý
 
 - Bản chưa ký số có thể hiện cảnh báo Windows SmartScreen khi cài lần đầu.
-- Bản đã cài trước khi có tính năng này (v0.1.0 và trước) phải **cài tay một lần** bản mới có tính năng cập nhật; từ bản đó trở về sau, app sẽ tự dò và thông báo bản mới sau 1 phút khởi động.
+- Bản đã cài trước khi có tính năng này (v0.1.0 và trước) phải **cài tay một lần** bản mới có tính năng cập nhật; từ bản đó trở về sau, app sẽ tự dò và thông báo bản mới sau 10 giây khởi động (chỉ bản đóng gói, không dò ở chế độ dev).
 - Bản NSIS (setup) hỗ trợ tải và cài đè tự động; bản portable chỉ hiện thông báo và mở trang Release.
+- Luồng cập nhật mới: app tự dò sau 10 giây (chỉ bản đóng gói), hiện nút vàng ở cuối sidebar và hộp thoại "Có phiên bản mới!" tự mở một lần mỗi phiên bản. App chặn khởi động lại để cài khi AI đang chạy hoặc người dùng đang chỉnh sửa dữ liệu và hiện lý do trong hộp thoại.
+- Cùng một số phiên bản sẽ không tự cập nhật: máy đang chạy bản lỗi phải cài tay bản mới (hoặc phát hành phiên bản cao hơn, ví dụ 0.1.4).
 - Bảo vệ tài khoản GitHub bằng xác thực hai lớp trước khi đẩy tag.
 - Trước lần cập nhật đầu tiên trên máy sản xuất, hãy sao lưu thư mục dữ liệu người dùng.

@@ -95,7 +95,6 @@ const api: RendererApi = {
   },
   update: {
     getState: () => invoke(IPC.updateGetState),
-    check: () => invoke(IPC.updateCheck),
     download: () => invoke(IPC.updateDownload),
     install: () => invoke(IPC.updateInstall),
     openRelease: () => invoke(IPC.updateOpenRelease)

@@ -65,7 +65,6 @@ export const IPC = {
   appOpenExternal: 'app:openExternal',
 
   updateGetState: 'update:getState',
-  updateCheck: 'update:check',
   updateDownload: 'update:download',
   updateInstall: 'update:install',
   updateOpenRelease: 'update:openRelease'

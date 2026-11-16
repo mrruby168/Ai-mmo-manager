@@ -1,5 +1,10 @@
 import type { UpdateState } from '@shared/types'
-import { computeDataInsideInstall, UPDATE_CHECK_DELAY_MS, UPDATE_CHECK_TIMEOUT_MS } from '@shared/constants'
+import {
+  computeDataInsideInstall,
+  UPDATE_CHECK_DELAY_MS,
+  UPDATE_CHECK_TIMEOUT_MS,
+  UPDATE_RELEASE_URL_BASE
+} from '@shared/constants'
 
 type Updater = {
   autoDownload: boolean
@@ -8,7 +13,7 @@ type Updater = {
   allowDowngrade: boolean
   checkForUpdates(): Promise<{ updateInfo?: { version: string; releaseUrl?: string } } | null>
   downloadUpdate(): Promise<string[]>
-  quitAndInstall(): void
+  quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
   on(event: string, listener: (...args: unknown[]) => void): void
 }
 
@@ -21,7 +26,6 @@ export interface UpdateServiceDeps {
   currentVersion: string
   hasActiveAiTask: () => boolean
   getUserEditing: () => boolean
-  closeDatabase: () => void
   getDataDir: () => string | null
   getInstallDir: () => string | null
   broadcast: (state: UpdateState) => void
@@ -32,7 +36,6 @@ export interface UpdateServiceDeps {
 
 export interface UpdateService {
   scheduleStartupCheck(): void
-  checkForUpdates(): Promise<UpdateState>
   downloadUpdate(): Promise<{ downloaded: boolean }>
   installUpdate(): Promise<{ installed: boolean } | { error: string }>
   openRelease(): string | undefined
@@ -89,7 +92,6 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     currentVersion,
     hasActiveAiTask,
     getUserEditing,
-    closeDatabase,
     getDataDir,
     getInstallDir,
     broadcast,
@@ -109,6 +111,14 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     if (percent !== undefined) {
       setState({ phase: 'downloading', percent })
     }
+  })
+
+  // electron-updater phát 'error' trên EventEmitter; không có listener sẽ ném lỗi
+  // và có thể làm sập tiến trình main. Chỉ ghi log, không ném tiếp.
+  updater.on('error', (...args) => {
+    const error = args[0]
+    const message = error instanceof Error ? error.message : String(error)
+    log.error(`Update: ${message}`)
   })
 
   let state: UpdateState = {
@@ -138,9 +148,9 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     ;(u as unknown as { allowDowngrade: boolean }).allowDowngrade = false
   }
 
-  function performCheck(auto: boolean): UpdateState {
+  function performCheck(): void {
     if (checking) {
-      return state
+      return
     }
     checking = true
     setState({ phase: 'checking' })
@@ -154,7 +164,8 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
           setState({
             phase: 'available',
             latestVersion: info.version,
-            releaseUrl: info.releaseUrl
+            // GitHub provider có thể không trả releaseUrl; dựng URL từ tag phiên bản.
+            releaseUrl: info.releaseUrl ?? `${UPDATE_RELEASE_URL_BASE}/tag/v${info.version}`
           })
         } else {
           log.info('Update: đã là bản mới nhất')
@@ -165,16 +176,9 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
         checking = false
         const message = error instanceof Error ? error.message : String(error)
         log.error(`Update: ${message}`)
-        if (auto) {
-          // Lần dò tự động: chỉ log, không hiện lỗi cho người dùng, về idle.
-          setState({ phase: 'idle' })
-        } else {
-          // Lần dò thủ công: báo lỗi cho người dùng.
-          setState({ phase: 'error', message })
-        }
+        // Lần dò tự động: chỉ log, không hiện lỗi cho người dùng, về idle.
+        setState({ phase: 'idle' })
       })
-
-    return state
   }
 
   return {
@@ -187,9 +191,9 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
         // Đã đặt timer, không đặt lần hai.
         return
       }
-      log.info('Update: sẽ kiểm tra sau 60 giây')
+      log.info(`Update: sẽ kiểm tra sau ${UPDATE_CHECK_DELAY_MS / 1000} giây`)
       timer = setTimer(() => {
-        performCheck(true)
+        performCheck()
       }, UPDATE_CHECK_DELAY_MS)
       try {
         ;(timer as unknown as { unref?: () => void }).unref?.()
@@ -198,14 +202,11 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
       }
     },
 
-    async checkForUpdates(): Promise<UpdateState> {
-      // Lần dò thủ công: báo lỗi cho người dùng khi thất bại (auto = false).
-      performCheck(false)
-      return this.getState()
-    },
-
     async downloadUpdate(): Promise<{ downloaded: boolean }> {
-      if (state.phase !== 'available' || isPortable) {
+      if (isPortable || !state.latestVersion) {
+        return { downloaded: false }
+      }
+      if (state.phase === 'downloading' || state.phase === 'downloaded') {
         return { downloaded: false }
       }
       setState({ phase: 'downloading', percent: 0 })
@@ -231,8 +232,8 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
       if (getUserEditing()) {
         return { error: 'Không thể khởi động lại khi bạn đang chỉnh sửa dữ liệu. Hãy hoàn tất trước.' } as { installed: boolean } | { error: string }
       }
-      closeDatabase()
-      updater.quitAndInstall()
+      // will-quit trong main/index.ts đóng database; không đóng thủ công ở đây.
+      updater.quitAndInstall(true, true)
       return { installed: true } as { installed: boolean } | { error: string }
     },
 
