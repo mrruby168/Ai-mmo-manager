@@ -542,9 +542,8 @@ export interface RendererApi {
   }
   update: {
     getState(): Promise<IpcResult<UpdateState>>
-    check(): Promise<IpcResult<UpdateState>>
     download(): Promise<IpcResult<{ downloaded: boolean }>>
-    install(): Promise<IpcResult<{ installed: boolean }>>
+    install(): Promise<IpcResult<{ installed: boolean } | { error: string }>>
     openRelease(): Promise<IpcResult<{ opened: boolean }>>
   }
   events: {

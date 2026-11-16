@@ -116,9 +116,10 @@ describe('U6: Settings tab một hàng và nội dung 2 cột', () => {
   const page = readSource(SETTINGS_PAGE)
   const mode = readSource(AI_MODE_PANEL)
 
-  it('giữ đủ 6 tab, không đổi tên', () => {
-    expect(page.match(/id: '/g)?.length).toBe(6)
+  it('giữ đúng 5 tab, không còn tab cập nhật', () => {
+    expect(page.match(/id: '/g)?.length).toBe(5)
     expect(page).toContain("label: 'Model Configuration'")
+    expect(page).not.toContain('Cập nhật ứng dụng')
   })
 
   it('tab không xuống hàng, cuộn ngang khi hẹp', () => {

@@ -3,8 +3,8 @@ import { useApp } from '../state/AppContext'
 import { useLock } from '../state/LockContext'
 import { useToast } from '../state/ToastContext'
 import { LockBanner } from './LockBanner'
-import { UpdateBanner } from './UpdateBanner'
 import { Sidebar } from './Sidebar'
+import { UpdateDialog } from './UpdateDialog'
 
 export function AppShell({ children }: { children: ReactNode }): React.JSX.Element {
   const { isAiBusy } = useLock()
@@ -22,11 +22,11 @@ export function AppShell({ children }: { children: ReactNode }): React.JSX.Eleme
       <Sidebar />
       <div className="app-main">
         <LockBanner />
-        <UpdateBanner />
         <main className="app-content">
           <div className="app-content__inner">{children}</div>
         </main>
       </div>
+      <UpdateDialog />
       <div className="toast-stack" aria-live="polite">
         {toasts.map((toast) => (
           <div key={toast.id} className={`toast toast--${toast.tone}`} role="status" onClick={() => dismissToast(toast.id)}>

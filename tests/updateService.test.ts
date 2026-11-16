@@ -1,9 +1,15 @@
+import { readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import type { UpdateServiceDeps } from '../src/main/services/updateService'
 import { createUpdateService } from '../src/main/services/updateService'
-import { computeDataInsideInstall } from '@shared/constants'
+import { computeDataInsideInstall, UPDATE_CHECK_DELAY_MS } from '@shared/constants'
 import { isPathInside } from '@shared/constants'
+
+const ROOT = resolve(__dirname, '..')
+const SERVICE_SOURCE = join(ROOT, 'src', 'main', 'services', 'updateService.ts')
+const readSource = (path: string): string => readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
 
 interface UpdaterMock {
   emitter: EventEmitter
@@ -25,7 +31,6 @@ interface DepsMock {
   broadcastStates: any[]
   logInfo: (message: string) => void
   logError: (message: string) => void
-  closeDatabase: () => void
   hasActiveAiTask: () => boolean
   getUserEditing: () => boolean
   getDataDir: () => string | null
@@ -41,7 +46,7 @@ function makeUpdater(): UpdaterMock {
   return {
     emitter,
     checkForUpdates,
-    downloadUpdate: vi.fn(() => Promise.resolve()),
+    downloadUpdate: vi.fn(() => Promise.resolve([])),
     quitAndInstall: vi.fn(),
     on,
     setCheckForUpdates: (next: () => Promise<{ updateInfo?: { version: string; releaseUrl?: string } }>) => {
@@ -65,7 +70,6 @@ function makeDeps(): DepsMock {
     broadcastStates,
     logInfo: vi.fn() as unknown as (message: string) => void,
     logError: vi.fn() as unknown as (message: string) => void,
-    closeDatabase: vi.fn() as unknown as () => void,
     hasActiveAiTask: vi.fn(() => false) as unknown as () => boolean,
     getUserEditing: vi.fn(() => false) as unknown as () => boolean,
     getDataDir: vi.fn(() => null) as unknown as () => string | null,
@@ -85,7 +89,6 @@ function buildService(overrides: Partial<UpdateServiceDeps> = {}) {
     getUserEditing: deps.getUserEditing,
     getDataDir: deps.getDataDir,
     getInstallDir: deps.getInstallDir,
-    closeDatabase: deps.closeDatabase,
     broadcast: (state: any) => deps.broadcastStates.push(state),
     log: { info: deps.logInfo, error: deps.logError },
     setTimer: setTimeout,
@@ -93,6 +96,13 @@ function buildService(overrides: Partial<UpdateServiceDeps> = {}) {
   }
   const service = createUpdateService({ ...base, ...overrides })
   return { service, updater, deps }
+}
+
+/** Chạy hết microtask/promise đang chờ mà không cần timer thật. */
+async function flush(): Promise<void> {
+  await Promise.resolve()
+  await Promise.resolve()
+  await new Promise((resolve) => process.nextTick(resolve))
 }
 
 describe('updateService', () => {
@@ -104,12 +114,16 @@ describe('updateService', () => {
     vi.useRealTimers()
   })
 
-  it('không dò trước 60 giây và dò đúng 1 lần khi tới 60 giây', () => {
+  it('dùng đúng hằng số 10 giây', () => {
+    expect(UPDATE_CHECK_DELAY_MS).toBe(10_000)
+  })
+
+  it('không dò trước 10 giây và dò đúng 1 lần khi tới 10 giây', () => {
     const { service, updater } = buildService()
     service.scheduleStartupCheck()
     expect(updater.checkForUpdates).not.toHaveBeenCalled()
 
-    vi.advanceTimersByTime(59_999)
+    vi.advanceTimersByTime(9_999)
     expect(updater.checkForUpdates).not.toHaveBeenCalled()
 
     vi.advanceTimersByTime(1)
@@ -121,14 +135,14 @@ describe('updateService', () => {
     service.scheduleStartupCheck()
     service.scheduleStartupCheck()
     service.scheduleStartupCheck()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
     expect(updater.checkForUpdates).toHaveBeenCalledTimes(1)
   })
 
   it('isPackaged = false thì không bao giờ dò', () => {
     const { service, updater } = buildService({ isPackaged: false })
     service.scheduleStartupCheck()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
     expect(updater.checkForUpdates).not.toHaveBeenCalled()
     expect(service.getState().phase).toBe('idle')
   })
@@ -137,84 +151,141 @@ describe('updateService', () => {
     const { service, updater, deps } = buildService()
     updater.setCheckForUpdates(() => Promise.reject(new Error('Mất mạng')))
     service.scheduleStartupCheck()
-    vi.advanceTimersByTime(60_000)
-    // Chờ microtask của Promise.race / catch chạy
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
     vi.advanceTimersByTime(0)
-    await new Promise((resolve) => process.nextTick(resolve))
+    await flush()
     expect(deps.logError).toHaveBeenCalled()
     expect(service.getState().phase).toBe('idle')
+    expect(service.getState().message).toBeUndefined()
   })
 
-  it('lần dò thủ công gặp lỗi thì phase error có message', async () => {
-    const { service, updater } = buildService()
-    updater.setCheckForUpdates(() => Promise.reject(new Error('GitHub lỗi')))
-    await service.checkForUpdates()
-    vi.advanceTimersByTime(0)
-    await new Promise((resolve) => process.nextTick(resolve))
-    expect(service.getState().phase).toBe('error')
-    expect(service.getState().message).toBe('GitHub lỗi')
+  it('không còn lần dò thủ công nào (update:check đã bị gỡ)', () => {
+    const source = readSource(SERVICE_SOURCE)
+    expect(source).not.toContain('checkForUpdates(): Promise<UpdateState>')
+    expect(source).not.toMatch(/performCheck\(false\)/)
   })
 
   it('có bản mới thì phase available với đúng latestVersion', async () => {
     const { service, updater } = buildService()
-    updater.setCheckForUpdates(() => Promise.resolve({ updateInfo: { version: '2.0.0', releaseUrl: 'https://github.com/mrruby168/Ai-mmo-manager/releases/tag/v2.0.0' } }))
+    updater.setCheckForUpdates(() =>
+      Promise.resolve({
+        updateInfo: { version: '2.0.0', releaseUrl: 'https://github.com/mrruby168/Ai-mmo-manager/releases/tag/v2.0.0' }
+      })
+    )
     service.scheduleStartupCheck()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
     vi.advanceTimersByTime(0)
-    await new Promise((resolve) => process.nextTick(resolve))
+    await flush()
     expect(service.getState().phase).toBe('available')
     expect(service.getState().latestVersion).toBe('2.0.0')
+  })
+
+  it('thiếu releaseUrl thì tự dựng URL theo tag phiên bản', async () => {
+    const { service, updater } = buildService()
+    updater.setCheckForUpdates(() => Promise.resolve({ updateInfo: { version: '2.0.0' } }))
+    service.scheduleStartupCheck()
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
+    vi.advanceTimersByTime(0)
+    await flush()
+    expect(service.getState().releaseUrl).toContain('/tag/v2.0.0')
   })
 
   it('cùng bản hoặc bản thấp hơn thì idle', async () => {
     const { service, updater } = buildService()
     updater.setCheckForUpdates(() => Promise.resolve({ updateInfo: { version: '1.0.0' } }))
     service.scheduleStartupCheck()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
     vi.advanceTimersByTime(0)
-    await new Promise((resolve) => process.nextTick(resolve))
+    await flush()
     expect(service.getState().phase).toBe('idle')
 
     updater.setCheckForUpdates(() => Promise.resolve({ updateInfo: { version: '0.9.0' } }))
     service.scheduleStartupCheck()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
     vi.advanceTimersByTime(0)
-    await new Promise((resolve) => process.nextTick(resolve))
+    await flush()
     expect(service.getState().phase).toBe('idle')
   })
 
-  it('downloadUpdate bị từ chối khi phase khác available hoặc khi portable', async () => {
+  it('downloadUpdate bị từ chối khi chưa có bản mới hoặc khi portable', async () => {
     const { service } = buildService()
     expect((await service.downloadUpdate()).downloaded).toBe(false)
 
     const { service: portableService } = buildService({ isPortable: true })
     portableService.scheduleStartupCheck()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
     vi.advanceTimersByTime(0)
-    await new Promise((resolve) => process.nextTick(resolve))
+    await flush()
     expect((await portableService.downloadUpdate()).downloaded).toBe(false)
   })
 
-  it('installUpdate bị từ chối khi AI đang chạy hoặc đang sửa dữ liệu; hợp lệ gọi closeDatabase trước quitAndInstall', async () => {
+  it('downloadUpdate lỗi thì phase error kèm message, không ném ra ngoài', async () => {
+    const { service, updater } = buildService()
+    updater.setCheckForUpdates(() => Promise.resolve({ updateInfo: { version: '2.0.0' } }))
+    service.scheduleStartupCheck()
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
+    vi.advanceTimersByTime(0)
+    await flush()
+
+    updater.downloadUpdate.mockImplementation(() => Promise.reject(new Error('Mất kết nối')))
+    const result = await service.downloadUpdate()
+    expect(result.downloaded).toBe(false)
+    expect(service.getState().phase).toBe('error')
+    expect(service.getState().message).toBe('Mất kết nối')
+  })
+
+  it('downloadUpdate thành công thì phase downloaded', async () => {
+    const { service, updater } = buildService()
+    updater.setCheckForUpdates(() => Promise.resolve({ updateInfo: { version: '2.0.0' } }))
+    service.scheduleStartupCheck()
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
+    vi.advanceTimersByTime(0)
+    await flush()
+
+    const result = await service.downloadUpdate()
+    expect(result.downloaded).toBe(true)
+    expect(service.getState().phase).toBe('downloaded')
+  })
+
+  it('installUpdate bị chặn khi AI đang chạy, trả lý do rõ ràng và không thoát app', async () => {
     const { service, updater, deps } = buildService()
-
     ;(deps.hasActiveAiTask as ReturnType<typeof vi.fn>).mockReturnValue(true)
-    const r1 = await service.installUpdate()
-    expect('error' in r1).toBe(true)
-    expect(deps.closeDatabase).not.toHaveBeenCalled()
+    const result = await service.installUpdate()
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error.length).toBeGreaterThan(0)
+      expect(result.error).toContain('Check News')
+    }
     expect(updater.quitAndInstall).not.toHaveBeenCalled()
+  })
 
-    ;(deps.hasActiveAiTask as ReturnType<typeof vi.fn>).mockReturnValue(false)
+  it('installUpdate bị chặn khi người dùng đang chỉnh sửa dữ liệu', async () => {
+    const { service, updater, deps } = buildService()
     ;(deps.getUserEditing as ReturnType<typeof vi.fn>).mockReturnValue(true)
-    const r2 = await service.installUpdate()
-    expect('error' in r2).toBe(true)
-    expect(deps.closeDatabase).not.toHaveBeenCalled()
+    const result = await service.installUpdate()
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('chỉnh sửa')
+    }
+    expect(updater.quitAndInstall).not.toHaveBeenCalled()
+  })
 
-    ;(deps.getUserEditing as ReturnType<typeof vi.fn>).mockReturnValue(false)
-    const r3 = await service.installUpdate()
-    expect('installed' in r3).toBe(true)
-    expect(deps.closeDatabase).toHaveBeenCalledTimes(1)
+  it('installUpdate hợp lệ gọi quitAndInstall(true, true) và không tự đóng database', async () => {
+    const { service, updater } = buildService()
+    const result = await service.installUpdate()
+    expect('installed' in result).toBe(true)
     expect(updater.quitAndInstall).toHaveBeenCalledTimes(1)
+    expect(updater.quitAndInstall).toHaveBeenCalledWith(true, true)
+
+    const source = readSource(SERVICE_SOURCE)
+    expect(source).not.toContain('closeDatabase')
+  })
+
+  it('đăng ký listener cho sự kiện error của electron-updater để không ném lỗi', () => {
+    const { updater, deps } = buildService()
+    expect(updater.emitter.listenerCount('error')).toBeGreaterThan(0)
+    expect(() => updater.emitter.emit('error', new Error('boom'))).not.toThrow()
+    expect(deps.logError).toHaveBeenCalledWith(expect.stringContaining('boom'))
   })
 
   it('không chạy hai lần dò đồng thời', async () => {
@@ -226,16 +297,16 @@ describe('updateService', () => {
     updater.setCheckForUpdates(() => first)
 
     service.scheduleStartupCheck()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
     expect(service.getState().phase).toBe('checking')
 
-    // Lần dò thứ hai gọi ngay sau -> kiểm tra qua checkForUpdates (manual)
-    await service.checkForUpdates()
+    // Lần dò thứ hai không được gọi checkForUpdates thêm lần nữa.
+    service.scheduleStartupCheck()
     expect(updater.checkForUpdates).toHaveBeenCalledTimes(1)
 
     resolveFirst({ updateInfo: { version: '2.0.0' } })
     vi.advanceTimersByTime(0)
-    await new Promise((resolve) => process.nextTick(resolve))
+    await flush()
     expect(service.getState().phase).toBe('available')
   })
 
@@ -292,8 +363,8 @@ describe('updateService', () => {
         getInstallDir: () => 'C:\\App' as string | null
       })
       s1.service.scheduleStartupCheck()
-      vi.advanceTimersByTime(60_000)
-      await new Promise((resolve) => process.nextTick(resolve))
+      vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
+      await flush()
       expect(s1.service.getState().dataInsideInstallDir).toBe(true)
 
       // false
@@ -302,8 +373,8 @@ describe('updateService', () => {
         getInstallDir: () => 'C:\\App' as string | null
       })
       s2.service.scheduleStartupCheck()
-      vi.advanceTimersByTime(60_000)
-      await new Promise((resolve) => process.nextTick(resolve))
+      vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
+      await flush()
       expect(s2.service.getState().dataInsideInstallDir).toBe(false)
 
       // null
@@ -312,8 +383,8 @@ describe('updateService', () => {
         getInstallDir: () => 'C:\\App'
       })
       s3.service.scheduleStartupCheck()
-      vi.advanceTimersByTime(60_000)
-      await new Promise((resolve) => process.nextTick(resolve))
+      vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
+      await flush()
       expect(s3.service.getState().dataInsideInstallDir).toBe(null)
     })
 
@@ -323,8 +394,8 @@ describe('updateService', () => {
         throw new Error('Lỗi lấy data dir')
       })
       service.scheduleStartupCheck()
-      vi.advanceTimersByTime(60_000)
-      await new Promise((resolve) => process.nextTick(resolve))
+      vi.advanceTimersByTime(UPDATE_CHECK_DELAY_MS)
+      await flush()
       expect(service.getState().dataInsideInstallDir).toBe(null)
     })
   })

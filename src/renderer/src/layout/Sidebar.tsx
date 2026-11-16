@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../state/AppContext'
 import type { TabId } from '../state/AppContext'
+import { useUpdate } from '../state/UpdateContext'
 import appIcon from '../assets/new-icon.svg'
 
 interface TabDefinition {
@@ -25,6 +26,16 @@ function RefreshIcon(): React.JSX.Element {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
       <path d="M20 11a8 8 0 1 0-2.3 5.7" strokeLinecap="round" />
       <path d="M20 5v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function DownloadIcon(): React.JSX.Element {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <path d="M12 4v10" strokeLinecap="round" />
+      <path d="M8 10l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 19h14" strokeLinecap="round" />
     </svg>
   )
 }
@@ -65,6 +76,7 @@ const settingsTab: TabDefinition = {
 
 export function Sidebar(): React.JSX.Element {
   const { route, navigateTab, refreshData } = useApp()
+  const { state: updateState, openDialog } = useUpdate()
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
@@ -101,6 +113,15 @@ export function Sidebar(): React.JSX.Element {
     )
   }
 
+  const hasUpdate =
+    updateState !== null &&
+    (updateState.phase === 'available' || updateState.phase === 'downloading' || updateState.phase === 'downloaded') &&
+    Boolean(updateState.latestVersion)
+  const updateLabel =
+    updateState?.phase === 'downloading'
+      ? `Đang tải… ${Math.round(updateState.percent ?? 0)}%`
+      : `Update v${updateState?.latestVersion ?? ''}`
+
   return (
     <nav className="sidebar" aria-label="Điều hướng chính">
       <div className="sidebar__brand">
@@ -124,6 +145,23 @@ export function Sidebar(): React.JSX.Element {
         <span className="sidebar__label">Làm mới</span>
       </button>
       {renderItem(settingsTab)}
+      <div className="sidebar__footer">
+        {hasUpdate ? (
+          <button
+            type="button"
+            className="sidebar__update"
+            onClick={openDialog}
+            aria-label={`Cập nhật lên v${updateState?.latestVersion ?? ''}`}
+          >
+            <span className="sidebar__update-icon" aria-hidden="true">
+              <DownloadIcon />
+            </span>
+            <span className="sidebar__update-label">{updateLabel}</span>
+            <span className="sidebar__update-badge">New</span>
+          </button>
+        ) : null}
+        <div className="sidebar__version">{updateState ? `v${updateState.currentVersion}` : ''}</div>
+      </div>
     </nav>
   )
 }

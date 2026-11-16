@@ -15,14 +15,6 @@ export function registerUpdateIpc(updateService: UpdateService): void {
   })
 
   registerHandler({
-    channel: IPC.updateCheck,
-    handler: async () => {
-      await updateService.checkForUpdates()
-      return updateService.getState()
-    }
-  })
-
-  registerHandler({
     channel: IPC.updateDownload,
     handler: async () => updateService.downloadUpdate()
   })

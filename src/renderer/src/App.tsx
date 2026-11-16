@@ -12,6 +12,7 @@ import { AppProvider, useApp } from './state/AppContext'
 import { AppearanceProvider } from './state/AppearanceProvider'
 import { LockProvider } from './state/LockContext'
 import { ToastProvider } from './state/ToastContext'
+import { UpdateProvider } from './state/UpdateContext'
 
 function Router(): React.JSX.Element {
   const { route } = useApp()
@@ -68,11 +69,13 @@ export default function App(): React.JSX.Element {
     <AppearanceProvider>
       <ToastProvider>
         <LockProvider>
-          <AppProvider>
-            <AppShell>
-              <Router />
-            </AppShell>
-          </AppProvider>
+          <UpdateProvider>
+            <AppProvider>
+              <AppShell>
+                <Router />
+              </AppShell>
+            </AppProvider>
+          </UpdateProvider>
         </LockProvider>
       </ToastProvider>
     </AppearanceProvider>
