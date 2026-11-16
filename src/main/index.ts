@@ -9,7 +9,6 @@ import { registerAllIpc } from './ipc'
 import { initializeDataDirectory, getCurrentLayout, getDataFolderToOpen } from './services/dataPathService'
 import { getLockState } from './services/lockManager'
 import { createUpdateService } from './services/updateService'
-import { applyFakeUpdater, resolveUpdateFeed } from './services/updateFeed'
 import { logError, logInfo } from './services/logger'
 import { logoMimeForPath, resolveLogoAbsolutePath } from './services/logoService'
 import { parseLogoProjectId } from './services/logoUrl'
@@ -160,25 +159,16 @@ function bootstrap(): void {
   updater.autoInstallOnAppQuit = false
   updater.allowPrerelease = false
   updater.allowDowngrade = false
-  // TEST-ONLY (PROMPT-TEST-UPDATER-V0.1.3): cho phép trỏ feed về server cục bộ.
-  const testFeed = process.env.MMO_TEST_UPDATE_URL
-  const feed = resolveUpdateFeed(testFeed)
-  if (feed.provider === 'generic') {
-    logInfo(`Update (TEST): dùng nguồn cục bộ ${feed.url}`)
-  }
-  updater.setFeedURL(feed)
-  // TEST-ONLY: giả lập trạng thái cập nhật ở chế độ dev, không tải/cài thật.
-  const fakeUpdate = applyFakeUpdater(
-    updater as unknown as Parameters<typeof applyFakeUpdater>[0],
-    process.env.MMO_FAKE_UPDATE,
-    isDev,
-    logInfo
-  )
+  updater.setFeedURL({
+    provider: 'github',
+    owner: 'mrruby168',
+    repo: 'Ai-mmo-manager',
+    releaseType: 'release'
+  })
 
   const updateService = createUpdateService({
     updater,
-    // TEST-ONLY: fake dev phải đi qua nhánh kiểm tra như bản đóng gói.
-    isPackaged: !isDev || fakeUpdate,
+    isPackaged: !isDev,
     isPortable: Boolean(process.env.PORTABLE_EXECUTABLE_FILE),
     currentVersion: app.getVersion(),
     hasActiveAiTask: () => hasActiveAiTask(),
