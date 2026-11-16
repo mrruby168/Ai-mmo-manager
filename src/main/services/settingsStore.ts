@@ -9,7 +9,13 @@ import {
   WEB_SEARCH_PROVIDERS
 } from '@shared/constants'
 import type { AiMode, WebSearchProvider } from '@shared/constants'
-import { DEFAULT_NEWS_CACHE_TTL_MS, NEWS_CACHE_TTL_OPTIONS_MS } from '@shared/types'
+import {
+  DEFAULT_NEWS_CACHE_TTL_MS,
+  DEFAULT_NEWS_SCAN_SETTINGS,
+  NEWS_CACHE_TTL_OPTIONS_MS,
+  NEWS_SCAN_INTERVAL_HOURS,
+  NEWS_SCAN_WINDOW_DAYS
+} from '@shared/types'
 import type {
   AiSettings,
   AiTask,
@@ -18,6 +24,7 @@ import type {
   ModelChain,
   ModelSelection,
   ModelTask,
+  NewsScanSettings,
   ProviderConfig,
   TaskModels,
   WebSearchSettings
@@ -59,12 +66,41 @@ function buildDefaults(): AppSettings {
     appearance: defaultAppearance(),
     ai: defaultAiSettings(),
     aiMode: 'ai',
-    webSearch: defaultWebSearch()
+    webSearch: defaultWebSearch(),
+    newsScan: defaultNewsScan()
   }
 }
 
 export function defaultWebSearch(): WebSearchSettings {
   return { provider: 'none', baseUrl: null }
+}
+
+/** v0.1.4: Daily/Full mode mặc định là Full để người dùng cũ không đổi hành vi. */
+export function defaultNewsScan(): NewsScanSettings {
+  return { ...DEFAULT_NEWS_SCAN_SETTINGS }
+}
+
+function isNewsScanInterval(value: unknown): value is NewsScanSettings['dailyMinIntervalHours'] {
+  return typeof value === 'number' && (NEWS_SCAN_INTERVAL_HOURS as readonly number[]).includes(value)
+}
+
+function isNewsScanWindow(value: unknown): value is NewsScanSettings['dailyWindowDays'] {
+  return typeof value === 'number' && (NEWS_SCAN_WINDOW_DAYS as readonly number[]).includes(value)
+}
+
+/** File cũ không có `newsScan` phải chạy y như trước: Full, 12 giờ, 3 ngày. */
+function normalizeNewsScan(value: Partial<NewsScanSettings> | undefined): NewsScanSettings {
+  const fallback = defaultNewsScan()
+  if (!value) {
+    return fallback
+  }
+  return {
+    defaultMode: value.defaultMode === 'daily' ? 'daily' : 'full',
+    dailyMinIntervalHours: isNewsScanInterval(value.dailyMinIntervalHours)
+      ? value.dailyMinIntervalHours
+      : fallback.dailyMinIntervalHours,
+    dailyWindowDays: isNewsScanWindow(value.dailyWindowDays) ? value.dailyWindowDays : fallback.dailyWindowDays
+  }
 }
 
 function isWebSearchProvider(value: unknown): value is WebSearchProvider {
@@ -214,7 +250,8 @@ export function normalizeSettings(value: Partial<AppSettings>): AppSettings {
     // Files written before AI modes existed have no field; they must keep
     // behaving exactly as before, i.e. AI enabled.
     aiMode: value.aiMode === 'noai' ? 'noai' : 'ai',
-    webSearch: normalizeWebSearch(value.webSearch)
+    webSearch: normalizeWebSearch(value.webSearch),
+    newsScan: normalizeNewsScan(value.newsScan)
   }
 }
 
@@ -296,4 +333,9 @@ export function saveAiMode(aiMode: AiMode): AppSettings {
 
 export function saveWebSearchSettings(webSearch: WebSearchSettings): AppSettings {
   return updateSettings({ webSearch: normalizeWebSearch(webSearch) })
+}
+
+/** v0.1.4: lưu mode Daily/Full và tham số Daily, chỉ ghi settings.json. */
+export function saveNewsScanSettings(newsScan: NewsScanSettings): AppSettings {
+  return updateSettings({ newsScan: normalizeNewsScan(newsScan) })
 }

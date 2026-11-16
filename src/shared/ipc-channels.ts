@@ -51,6 +51,7 @@ export const IPC = {
   settingsGetWebSearch: 'settings:getWebSearch',
   settingsSaveWebSearch: 'settings:saveWebSearch',
   settingsTestWebSearch: 'settings:testWebSearch',
+  settingsSaveNewsScan: 'settings:saveNewsScan',
   providersList: 'providers:list',
   providersSave: 'providers:save',
   providersDelete: 'providers:delete',

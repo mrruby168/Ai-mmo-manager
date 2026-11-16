@@ -40,7 +40,7 @@ const api: RendererApi = {
     list: () => invoke(IPC.newsList),
     deadlines: () => invoke(IPC.newsDeadlines),
     toggleTodo: (id, isDone) => invoke(IPC.newsToggleTodo, { id, isDone }),
-    check: () => invoke(IPC.newsCheck),
+    check: (mode) => invoke(IPC.newsCheck, mode ? { mode } : undefined),
     buildPrompt: () => invoke(IPC.newsBuildPrompt),
     importPreview: () => invoke(IPC.newsImportPreview),
     importConfirm: (token) => invoke(IPC.newsImportConfirm, { token }),
@@ -83,7 +83,8 @@ const api: RendererApi = {
     exportConfig: () => invoke(IPC.providersExportConfig),
     webSearch: () => invoke(IPC.settingsGetWebSearch),
     saveWebSearch: (input) => invoke(IPC.settingsSaveWebSearch, input),
-    testWebSearch: (input) => invoke(IPC.settingsTestWebSearch, input ?? {})
+    testWebSearch: (input) => invoke(IPC.settingsTestWebSearch, input ?? {}),
+    saveNewsScan: (newsScan) => invoke(IPC.settingsSaveNewsScan, { newsScan })
   },
   lock: {
     get: () => invoke(IPC.lockGet),

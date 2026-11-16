@@ -10,9 +10,20 @@ import type { Project } from './types'
 
 export const PROJECT_QUERY_SUFFIX = 'airdrop news'
 
+/** v0.1.4: Daily chỉ cần tin 2–3 ngày nên truy vấn ngắn, ít kết quả hơn. */
+export const PROJECT_DAILY_SUFFIX = 'airdrop'
+
+/** v0.1.4: truy vấn sâu của vòng 2, chỉ chạy cho dự án chưa có tin ở vòng 1. */
+export const PROJECT_DEEP_SUFFIX = 'snapshot OR TGE OR claim OR "airdrop ends" OR "season ends"'
+
 /** Bài trên X thường ít nhưng cần phủ rộng hơn tên dự án. */
 export const PROJECT_X_QUERY_MAX_RESULTS = 8
 export const PROJECT_NAME_QUERY_MAX_RESULTS = 6
+
+export const PROJECT_DAILY_X_QUERY_MAX_RESULTS = 6
+export const PROJECT_DAILY_NAME_QUERY_MAX_RESULTS = 4
+export const PROJECT_DEEP_X_QUERY_MAX_RESULTS = 6
+export const PROJECT_DEEP_NAME_QUERY_MAX_RESULTS = 6
 
 export type ProjectQueryKind = 'x' | 'name'
 
@@ -44,19 +55,21 @@ function cleanName(name: string): string {
   return name.replace(/["()]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/**
- * Truy vấn của một dự án: X trước (nếu có handle), tên sau.
- * Không dùng `site:`/`from:` hay bộ lọc thời gian (D24).
- */
-export function buildProjectQueries(project: ProjectQueryTarget): ProjectQuery[] {
+function buildQueries(
+  project: ProjectQueryTarget,
+  xSuffix: string,
+  nameSuffix: string,
+  xMaxResults: number,
+  nameMaxResults: number
+): ProjectQuery[] {
   const queries: ProjectQuery[] = []
   const handle = extractXHandle(project.socials?.x)
   if (handle) {
     queries.push({
       projectId: project.id,
       kind: 'x',
-      query: `@${handle} airdrop`,
-      maxResults: PROJECT_X_QUERY_MAX_RESULTS
+      query: `@${handle} ${xSuffix}`,
+      maxResults: xMaxResults
     })
   }
   const name = cleanName(project.name)
@@ -64,25 +77,67 @@ export function buildProjectQueries(project: ProjectQueryTarget): ProjectQuery[]
     queries.push({
       projectId: project.id,
       kind: 'name',
-      query: `"${name}" ${PROJECT_QUERY_SUFFIX}`,
-      maxResults: PROJECT_NAME_QUERY_MAX_RESULTS
+      query: `"${name}" ${nameSuffix}`,
+      maxResults: nameMaxResults
     })
   }
   return queries
+}
+
+/** Handle X luôn đi với "airdrop" ngắn để không làm loãng kết quả. */
+export const PROJECT_X_QUERY_SUFFIX = 'airdrop'
+
+/**
+ * Truy vấn của một dự án: X trước (nếu có handle), tên sau.
+ * Không dùng `site:`/`from:` hay bộ lọc thời gian (D24).
+ */
+export function buildProjectQueries(project: ProjectQueryTarget): ProjectQuery[] {
+  return buildQueries(
+    project,
+    PROJECT_X_QUERY_SUFFIX,
+    PROJECT_QUERY_SUFFIX,
+    PROJECT_X_QUERY_MAX_RESULTS,
+    PROJECT_NAME_QUERY_MAX_RESULTS
+  )
+}
+
+/** v0.1.4: truy vấn gọn cho Daily Scan (cửa sổ 2–3 ngày). */
+export function buildProjectDailyQueries(project: ProjectQueryTarget): ProjectQuery[] {
+  return buildQueries(
+    project,
+    PROJECT_DAILY_SUFFIX,
+    PROJECT_DAILY_SUFFIX,
+    PROJECT_DAILY_X_QUERY_MAX_RESULTS,
+    PROJECT_DAILY_NAME_QUERY_MAX_RESULTS
+  )
+}
+
+/** v0.1.4: truy vấn sâu cho vòng 2 của dự án chưa có tin. */
+export function buildProjectDeepQueries(project: ProjectQueryTarget): ProjectQuery[] {
+  return buildQueries(
+    project,
+    PROJECT_DEEP_SUFFIX,
+    PROJECT_DEEP_SUFFIX,
+    PROJECT_DEEP_X_QUERY_MAX_RESULTS,
+    PROJECT_DEEP_NAME_QUERY_MAX_RESULTS
+  )
 }
 
 /**
  * Gộp tên các dự án KHÔNG có handle X thành từng truy vấn 3 tên.
  * Trả kèm `projectIds` để biết kết quả thuộc nhóm nào.
  */
-export function buildGroupedProjectNameQueries(projects: readonly ProjectQueryTarget[]): ProjectQueryGroup[] {
+export function buildGroupedProjectNameQueries(
+  projects: readonly ProjectQueryTarget[],
+  suffix: string = PROJECT_QUERY_SUFFIX
+): ProjectQueryGroup[] {
   const result: ProjectQueryGroup[] = []
   const candidates = projects.filter((project) => cleanName(project.name).length > 0 && !extractXHandle(project.socials?.x))
   for (let index = 0; index < candidates.length; index += 3) {
     const slice = candidates.slice(index, index + 3)
     const queries = buildGroupedSearchQueries(
       slice.map((project) => project.name),
-      PROJECT_QUERY_SUFFIX,
+      suffix,
       { maxNamesPerQuery: 3, maxLength: 300 }
     )
     for (const query of queries) {

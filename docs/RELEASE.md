@@ -20,3 +20,19 @@ Tính năng "thông báo và cập nhật app" được bắt đầu từ bản 
 - Cùng một số phiên bản sẽ không tự cập nhật: máy đang chạy bản lỗi phải cài tay bản mới (hoặc phát hành phiên bản cao hơn, ví dụ 0.1.4).
 - Bảo vệ tài khoản GitHub bằng xác thực hai lớp trước khi đẩy tag.
 - Trước lần cập nhật đầu tiên trên máy sản xuất, hãy sao lưu thư mục dữ liệu người dùng.
+
+## Ghi chú phát hành
+
+### v0.1.4 — Daily Scan / Full Scan cho Check News
+
+- Check News có hai chế độ (chỉ ở AI Mode):
+  - **Daily Scan**: quét nhanh tin trong 2–3 ngày gần nhất, bỏ qua dự án vừa quét trong 3/12/24 giờ nếu link dự án không đổi.
+  - **Full Scan**: quét sâu 7 ngày như các bản trước, kiểm tra lại mọi dự án chưa có trong cache.
+- Trang News có hai nút **Daily Scan** và **Full Scan**; nút của chế độ mặc định được tô nổi. Tab News ở sidebar hiện chấm đỏ khi có tin mới, nút Daily hiện `+N` tin vừa thêm.
+- Settings → Web Search có thêm khối **Chế độ Check News**: chọn chế độ mặc định, khoảng nghỉ của Daily (3/12/24 giờ) và cửa sổ tin của Daily (2/3 ngày).
+- Vòng 2 tìm sâu (`snapshot / TGE / claim / "airdrop ends" / "season ends"`) chỉ chạy cho dự án chưa có tin quan trọng ở vòng 1 và bị giới hạn ngân sách riêng.
+- Giới hạn chi phí mỗi lần chạy: ngân sách lượt tìm kiếm (Full 30–80, Daily 12–40) và trần lượt mở bài (Full 150, Daily 60).
+- Cache Daily dùng khóa riêng `ai_cache:newsd:<projectId>` trong bảng `meta`, không đổi schema SQLite và không đổi `news_items`. `settings.json` cũ tự nhận mặc định Full / 12 giờ / 3 ngày nên hành vi của người dùng cũ không đổi.
+- Tin trong bảng News có nhãn nhanh: **Mới**, **Cần làm**, **Mốc**, **Chưa xác minh**.
+- Không thay đổi: schema/migration, `news_items`, danh sách `NEWS_KINDS`/`MILESTONE_KINDS`, nguyên tắc "không bịa tin", PendingAction, Scan Project, Chat và luồng cập nhật của v0.1.3.
+- Đã kiểm chứng: `npm run typecheck`, `npm test` (768 test), `npm run build`. Kiểm thử tay với provider thật + Web Search thật được ghi trong báo cáo của PR.

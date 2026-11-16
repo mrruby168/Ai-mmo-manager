@@ -7,12 +7,15 @@ import { getDatabase, getDatabasePath, withTransaction } from './connection'
  * Cost-control cache. Stored in the existing `meta` key/value table so no
  * schema migration is needed:
  *   ai_cache:news:<projectId> -> { fingerprint, checkedAt }
+ *   ai_cache:newsd:<projectId> -> { fingerprint, checkedAt }  (v0.1.4, Daily)
  *   ai_cache:scan:<cacheKey>  -> { item, createdAt }
  * News results themselves already live in `news_items`; the cache only records
  * that a project was searched, so it does not need to copy them.
  */
 
 const NEWS_PREFIX = 'ai_cache:news:'
+/** v0.1.4: cache riêng của Daily Scan, tách khỏi cache Full. */
+const DAILY_NEWS_PREFIX = 'ai_cache:newsd:'
 const SCAN_PREFIX = 'ai_cache:scan:'
 
 export interface NewsCheckEntry {
@@ -62,18 +65,19 @@ function parseJson<T>(raw: string): T | null {
   }
 }
 
-export function getNewsCheckEntries(): Map<string, NewsCheckEntry> {
+function readNewsEntries(prefix: string): Map<string, NewsCheckEntry> {
   const result = new Map<string, NewsCheckEntry>()
-  for (const row of readAll(NEWS_PREFIX)) {
+  for (const row of readAll(prefix)) {
     const entry = parseJson<NewsCheckEntry>(row.value)
     if (entry && typeof entry.fingerprint === 'string' && typeof entry.checkedAt === 'string') {
-      result.set(row.key.slice(NEWS_PREFIX.length), entry)
+      result.set(row.key.slice(prefix.length), entry)
     }
   }
   return result
 }
 
-export function markNewsChecked(
+function writeNewsEntries(
+  prefix: string,
   entries: ReadonlyArray<{ projectId: string; fingerprint: string }>,
   checkedAt: string,
   outcome?: NewsCheckOutcome
@@ -87,9 +91,34 @@ export function markNewsChecked(
       if (outcome !== undefined) {
         value.outcome = outcome
       }
-      upsert(`${NEWS_PREFIX}${entry.projectId}`, JSON.stringify(value))
+      upsert(`${prefix}${entry.projectId}`, JSON.stringify(value))
     }
   })
+}
+
+export function getNewsCheckEntries(): Map<string, NewsCheckEntry> {
+  return readNewsEntries(NEWS_PREFIX)
+}
+
+export function markNewsChecked(
+  entries: ReadonlyArray<{ projectId: string; fingerprint: string }>,
+  checkedAt: string,
+  outcome?: NewsCheckOutcome
+): void {
+  writeNewsEntries(NEWS_PREFIX, entries, checkedAt, outcome)
+}
+
+/** v0.1.4: entry của Daily Scan (`ai_cache:newsd:<projectId>`). */
+export function getDailyCheckEntries(): Map<string, NewsCheckEntry> {
+  return readNewsEntries(DAILY_NEWS_PREFIX)
+}
+
+export function markDailyChecked(
+  entries: ReadonlyArray<{ projectId: string; fingerprint: string }>,
+  checkedAt: string,
+  outcome?: NewsCheckOutcome
+): void {
+  writeNewsEntries(DAILY_NEWS_PREFIX, entries, checkedAt, outcome)
 }
 
 export function getScanCacheEntries(keys: readonly string[]): Map<string, ScanCacheEntry> {
@@ -119,8 +148,17 @@ export function putScanCacheEntries(entries: ReadonlyArray<{ key: string; item: 
   })
 }
 
-/** Removes expired entries and news entries of projects that no longer exist. */
-export function purgeAiCache(nowMs: number, newsTtlMs: number, scanTtlMs: number): number {
+/**
+ * Removes expired entries and news entries of projects that no longer exist.
+ * `dailyMinIntervalMs` (v0.1.4) is the Daily TTL; mặc định bằng TTL Full để
+ * lời gọi 3 tham số cũ giữ nguyên hành vi.
+ */
+export function purgeAiCache(
+  nowMs: number,
+  newsTtlMs: number,
+  scanTtlMs: number,
+  dailyMinIntervalMs: number = newsTtlMs
+): number {
   if (!isDatabaseOpen()) {
     return 0
   }
@@ -130,15 +168,25 @@ export function purgeAiCache(nowMs: number, newsTtlMs: number, scanTtlMs: number
   )
   const doomed: string[] = []
 
-  for (const row of readAll(NEWS_PREFIX)) {
-    const entry = parseJson<NewsCheckEntry>(row.value)
-    const projectId = row.key.slice(NEWS_PREFIX.length)
-    const checkedAt = entry ? Date.parse(entry.checkedAt) : Number.NaN
-    const ttlMs = entry ? newsCacheTtlForOutcome(entry.outcome, newsTtlMs) : newsTtlMs
-    if (!entry || Number.isNaN(checkedAt) || nowMs - checkedAt > ttlMs || !projectIds.has(projectId)) {
-      doomed.push(row.key)
+  const purgeNewsPrefix = (
+    prefix: string,
+    ttlFor: (entry: NewsCheckEntry) => number,
+    fallbackTtlMs: number
+  ): void => {
+    for (const row of readAll(prefix)) {
+      const entry = parseJson<NewsCheckEntry>(row.value)
+      const projectId = row.key.slice(prefix.length)
+      const checkedAt = entry ? Date.parse(entry.checkedAt) : Number.NaN
+      const ttlMs = entry ? ttlFor(entry) : fallbackTtlMs
+      if (!entry || Number.isNaN(checkedAt) || nowMs - checkedAt > ttlMs || !projectIds.has(projectId)) {
+        doomed.push(row.key)
+      }
     }
   }
+
+  purgeNewsPrefix(NEWS_PREFIX, (entry) => newsCacheTtlForOutcome(entry.outcome, newsTtlMs), newsTtlMs)
+  purgeNewsPrefix(DAILY_NEWS_PREFIX, () => Math.max(0, dailyMinIntervalMs), Math.max(0, dailyMinIntervalMs))
+
   for (const row of readAll(SCAN_PREFIX)) {
     const entry = parseJson<ScanCacheEntry>(row.value)
     const createdAt = entry ? Date.parse(entry.createdAt) : Number.NaN

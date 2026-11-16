@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useApp } from '../state/AppContext'
 import type { TabId } from '../state/AppContext'
 import { useUpdate } from '../state/UpdateContext'
+import { clearUnseen, useNewsBadge } from '../state/newsBadgeStore'
 import appIcon from '../assets/new-icon.svg'
 
 interface TabDefinition {
@@ -78,6 +79,7 @@ export function Sidebar(): React.JSX.Element {
   const { route, navigateTab, refreshData } = useApp()
   const { state: updateState, openDialog } = useUpdate()
   const [refreshing, setRefreshing] = useState(false)
+  const { unseen } = useNewsBadge()
 
   useEffect(() => {
     if (!refreshing) {
@@ -98,16 +100,25 @@ export function Sidebar(): React.JSX.Element {
 
   function renderItem(tab: TabDefinition): React.JSX.Element {
     const active = route.tab === tab.id
+    const showDot = tab.id === 'news' && unseen && !active
     return (
       <button
         key={tab.id}
         type="button"
         className={`sidebar__item${active ? ' sidebar__item--active' : ''}`}
         aria-current={active ? 'page' : undefined}
-        title={tab.label}
-        onClick={() => navigateTab(tab.id)}
+        title={showDot ? `${tab.label} · có tin mới` : tab.label}
+        onClick={() => {
+          if (tab.id === 'news') {
+            clearUnseen()
+          }
+          navigateTab(tab.id)
+        }}
       >
-        <span className="sidebar__icon">{tab.icon}</span>
+        <span className="sidebar__icon">
+          {tab.icon}
+          {showDot ? <span className="sidebar__dot" aria-label="Có tin mới" /> : null}
+        </span>
         <span className="sidebar__label">{tab.label}</span>
       </button>
     )

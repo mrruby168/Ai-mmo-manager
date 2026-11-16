@@ -8,6 +8,7 @@ import { EVENTS, IPC } from '@shared/ipc-channels'
 import type { NewsImportPreview } from '@shared/types'
 import { registerHandler, broadcastToRenderers } from './guard'
 import {
+  newsCheckPayload,
   newsCreatePayload,
   newsDeletePayload,
   newsImportConfirmPayload,
@@ -93,7 +94,8 @@ export function registerNewsIpc(): void {
 
   registerHandler({
     channel: IPC.newsCheck,
-    handler: async () => runCheckNews()
+    parse: (raw) => newsCheckPayload.parse(raw ?? {}),
+    handler: async (input) => runCheckNews({ mode: input.mode })
   })
 
   // No AI Mode: build the prompt locally, never call a provider.

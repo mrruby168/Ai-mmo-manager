@@ -20,6 +20,7 @@ import {
   saveAppearance,
   saveLastSelection,
   saveModelConfig,
+  saveNewsScanSettings,
   saveTaskSelection
 } from '../services/settingsStore'
 import { getWebSearchView, saveWebSearch, testWebSearch } from '../services/webSearchService'
@@ -30,6 +31,7 @@ import {
   dataPathPayload,
   lastSelectionPayload,
   modelConfigPayload,
+  newsScanSavePayload,
   providerDeletePayload,
   providerParseJsonPayload,
   providerSavePayload,
@@ -186,6 +188,18 @@ export function registerSettingsIpc(): void {
     channel: IPC.settingsTestWebSearch,
     parse: (raw) => webSearchTestPayload.parse(raw ?? {}),
     handler: (input) => testWebSearch(input)
+  })
+
+  // v0.1.4: mode Check News nằm cùng nhóm Settings → Web Search.
+  registerHandler({
+    channel: IPC.settingsSaveNewsScan,
+    mutating: true,
+    parse: (raw) => newsScanSavePayload.parse(raw),
+    handler: (input) => {
+      const settings = saveNewsScanSettings(input.newsScan)
+      broadcastToRenderers(EVENTS.dataChanged, { entity: 'settings' })
+      return settings
+    }
   })
 
   registerHandler({
