@@ -207,16 +207,16 @@ export interface NewsScanSettings {
   defaultMode: NewsScanMode
   /** Daily bỏ qua dự án đã quét trong khoảng này (3 / 12 / 24 giờ). */
   dailyMinIntervalHours: 3 | 12 | 24
-  /** Cửa sổ tin của Daily: 2 ngày (≈48 giờ) hoặc 3 ngày (≈72 giờ). */
-  dailyWindowDays: 2 | 3
+  /** Cửa sổ tin của Daily: hôm nay (1) hoặc 2–3 ngày (≈48–72 giờ). */
+  dailyWindowDays: 1 | 2 | 3
 }
 
 export const NEWS_SCAN_INTERVAL_HOURS = [3, 12, 24] as const
-export const NEWS_SCAN_WINDOW_DAYS = [2, 3] as const
+export const NEWS_SCAN_WINDOW_DAYS = [1, 2, 3] as const
 export const DEFAULT_NEWS_SCAN_SETTINGS: NewsScanSettings = {
   defaultMode: 'full',
   dailyMinIntervalHours: 12,
-  dailyWindowDays: 3
+  dailyWindowDays: 1
 }
 
 export interface AiSettings {

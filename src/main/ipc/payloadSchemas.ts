@@ -229,7 +229,7 @@ export const newsScanSavePayload = z.object({
   newsScan: z.object({
     defaultMode: z.enum(['daily', 'full']),
     dailyMinIntervalHours: z.union([z.literal(3), z.literal(12), z.literal(24)]),
-    dailyWindowDays: z.union([z.literal(2), z.literal(3)])
+    dailyWindowDays: z.union([z.literal(1), z.literal(2), z.literal(3)])
   })
 })
 

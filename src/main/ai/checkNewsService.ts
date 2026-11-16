@@ -77,6 +77,8 @@ import { logInfo } from '../services/logger'
 import { getSettings } from '../services/settingsStore'
 import { appendAiLog, beginAiLog, finishAiLog } from './aiActivityLog'
 import { normalizeXHandle } from '@shared/xLinks'
+import { pickLatestPosts, startOfDayUtc7Ms } from '@shared/xPosts'
+import type { XPost } from '@shared/xPosts'
 
 // Batch size comes from `pickNewsBatchSize`: Anthropic's built-in web search
 // allows only 5 uses per request, so it keeps 3 projects per batch there and
@@ -228,6 +230,12 @@ function buildBatchMessage(
   if (prefetched) {
     lines.push('', 'Kết quả tìm kiếm gộp đã chạy sẵn (chỉ là gợi ý, vẫn phải mở bài gốc để xác minh ngày):', prefetched)
   }
+  if (profile.mode === 'daily' && round === 1) {
+    lines.push(
+      '',
+      'Daily: ưu tiên đọc các mục "Bài mới nhất của @handle" ở trên (tối đa 3 bài/dự án trong ngày). Chỉ nộp tin dựa trên bài có thật; bài ghim (pinned) chưa đọc được nên KHÔNG được bịa.'
+    )
+  }
   lines.push(
     '',
     'Khi tìm, gộp tối đa 3 dự án mỗi truy vấn bằng (A OR B OR C) kèm từ khóa; chỉ tìm riêng lẻ khi kết quả gộp thiếu một dự án.',
@@ -242,6 +250,71 @@ function projectQueriesFor(profile: NewsScanProfile, project: Project) {
   return profile.mode === 'daily' ? buildProjectDailyQueries(project) : buildProjectQueries(project)
 }
 
+const DAILY_X_POST_LIMIT = 3
+
+/**
+ * Daily: với mỗi dự án có handle X, tìm bài đăng của CHÍNH handle đó trong cửa sổ Daily
+ * và giữ tối đa 3 bài mới nhất. Lọc đúng tài khoản + đúng ngày bằng code, không tin model.
+ * Bài ghim (pinned) chưa đọc được trong bản này, nên chỉ ghi log trung thực.
+ */
+async function prefetchDailyXPosts(
+  search: SearchProvider,
+  batch: Project[],
+  budget: SearchBudget,
+  evidence: ReturnType<typeof createNewsEvidence>,
+  signal: AbortSignal,
+  profile: NewsScanProfile,
+  now: Date
+): Promise<{ text: string | null; covered: Set<string> }> {
+  const covered = new Set<string>()
+  const sections: string[] = []
+  const windowStartMs = startOfDayUtc7Ms(now.getTime(), profile.windowDays - 1)
+
+  for (const project of batch) {
+    if (signal.aborted) {
+      break
+    }
+    const handle = normalizeXHandle(project.socials?.x)
+    if (!handle) {
+      continue
+    }
+    let posts: XPost[] = []
+    // Thử lần lượt tối đa 2 truy vấn; dừng ngay khi đã có bài. Mỗi truy vấn trừ ngân sách.
+    for (const query of [`site:x.com/${handle}`, `@${handle} airdrop`]) {
+      if (signal.aborted || posts.length > 0 || !budget.tryConsume()) {
+        continue
+      }
+      try {
+        const list = await search.search(query, { signal, maxResults: 10, recencyDays: profile.windowDays })
+        noteSearchSuccess(
+          evidence,
+          list.map((item) => item.url)
+        )
+        appendAiLog('news', 'step', `Quét X "${query}" · ${list.length} kết quả`)
+        posts = pickLatestPosts(list, handle, windowStartMs, DAILY_X_POST_LIMIT)
+      } catch (error) {
+        const reason = describeSearchError(error)
+        logInfo(`Prefetch X thất bại: ${reason}`)
+        appendAiLog('news', 'warn', `Quét X "${query}" lỗi: ${reason}`)
+      }
+    }
+    appendAiLog(
+      'news',
+      'step',
+      `@${handle}: đọc ${posts.length} bài trong ngày · bài ghim: chưa đọc được (chưa có nguồn)`
+    )
+    if (posts.length === 0) {
+      continue
+    }
+    covered.add(project.id)
+    const body = posts
+      .map((item, index) => `${index + 1}. ${item.url}\n(đăng: ${item.postedAt})\n${item.snippet.slice(0, PREFETCH_SNIPPET_MAX)}`)
+      .join('\n\n')
+    sections.push(wrapUntrustedWebContent(`x_posts:@${handle}`, `Bài mới nhất của @${handle} (app đã lọc đúng tài khoản và ngày):\n${body}`))
+  }
+  return { text: sections.length > 0 ? sections.join('\n\n') : null, covered }
+}
+
 /**
  * 9b: mỗi dự án được tìm theo handle X trước, rồi tên dự án. Dự án không có
  * handle X được gộp 3 tên một truy vấn; dự án chưa có gợi ý nào được tìm riêng
@@ -253,10 +326,11 @@ async function prefetchProjectSearch(
   budget: SearchBudget,
   evidence: ReturnType<typeof createNewsEvidence>,
   signal: AbortSignal,
-  profile: NewsScanProfile
+  profile: NewsScanProfile,
+  covered: ReadonlySet<string> = new Set<string>()
 ): Promise<string | null> {
   const byId = new Map(batch.map((project) => [project.id, project]))
-  const hits = new Set<string>()
+  const hits = new Set<string>(covered)
   const ran = new Set<string>()
   const sections: string[] = []
   let queries = 0
@@ -309,7 +383,7 @@ async function prefetchProjectSearch(
   // 1) Bài trên X của từng dự án có handle.
   for (const project of batch) {
     const xQuery = projectQueriesFor(profile, project).find((query) => query.kind === 'x')
-    if (xQuery) {
+    if (xQuery && !hits.has(project.id)) {
       await runQuery(xQuery.query, xQuery.maxResults, [project.id])
     }
   }
@@ -649,11 +723,26 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       const now = new Date()
       // D25: có Web Search riêng của app thì luôn chạy prefetch, kể cả model A1 có
       // Web Search gốc; kết quả gộp chỉ là gợi ý, model vẫn phải mở bài gốc.
-      const prefetched = selection.search
-        ? round === 2
-          ? await prefetchDeepSearch(selection.search, batch, batchBudget, evidence, signal, profile)
-          : await prefetchProjectSearch(selection.search, batch, batchBudget, evidence, signal, profile)
-        : null
+      let prefetched: string | null = null
+      if (selection.search) {
+        if (round === 2) {
+          prefetched = await prefetchDeepSearch(selection.search, batch, batchBudget, evidence, signal, profile)
+        } else if (profile.mode === 'daily') {
+          const xPosts = await prefetchDailyXPosts(selection.search, batch, batchBudget, evidence, signal, profile, now)
+          const rest = await prefetchProjectSearch(
+            selection.search,
+            batch,
+            batchBudget,
+            evidence,
+            signal,
+            profile,
+            xPosts.covered
+          )
+          prefetched = [xPosts.text, rest].filter((part): part is string => Boolean(part)).join('\n\n') || null
+        } else {
+          prefetched = await prefetchProjectSearch(selection.search, batch, batchBudget, evidence, signal, profile)
+        }
+      }
       const messages: AiMessage[] = [
         { role: 'user', content: buildBatchMessage(batch, milestones, now, prefetched, profile, round) }
       ]

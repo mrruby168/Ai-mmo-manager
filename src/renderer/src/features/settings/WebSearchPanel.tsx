@@ -316,6 +316,7 @@ export function WebSearchPanel({ webSearch, onChanged }: WebSearchPanelProps): R
                     })
                   }
                 >
+                  <option value="1">Hôm nay</option>
                   <option value="2">48 giờ (2 ngày)</option>
                   <option value="3">72 giờ (3 ngày)</option>
                 </Select>

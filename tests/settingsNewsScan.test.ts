@@ -10,7 +10,7 @@ import { DEFAULT_NEWS_SCAN_SETTINGS } from '../src/shared/types'
 import { newsCheckPayload, newsScanSavePayload } from '../src/main/ipc/payloadSchemas'
 
 describe('newsScan settings normalisation (v0.1.4)', () => {
-  it('settings.json cũ không có newsScan chạy y như trước: Full / 12 giờ / 3 ngày', () => {
+  it('settings.json cũ không có newsScan chạy y như trước: Full / 12 giờ / 1 ngày', () => {
     expect(normalizeSettings({ schemaVersion: 1 }).newsScan).toEqual(DEFAULT_NEWS_SCAN_SETTINGS)
     expect(normalizeSettings({ schemaVersion: 1 }).newsScan.defaultMode).toBe('full')
   })
@@ -37,6 +37,13 @@ describe('newsScan settings normalisation (v0.1.4)', () => {
     const settings = normalizeSettings({ schemaVersion: 1, aiMode: 'noai' })
     expect(settings.aiMode).toBe('noai')
     expect(settings.webSearch.provider).toBe('none')
+  })
+
+  it('Daily 1 ngày là giá trị hợp lệ và là mặc định', () => {
+    expect(DEFAULT_NEWS_SCAN_SETTINGS.dailyWindowDays).toBe(1)
+    const newsScan: NewsScanSettings = { defaultMode: 'daily', dailyMinIntervalHours: 12, dailyWindowDays: 1 }
+    expect(normalizeSettings({ schemaVersion: 1, newsScan }).newsScan).toEqual(newsScan)
+    expect(newsScanSavePayload.parse({ newsScan }).newsScan.dailyWindowDays).toBe(1)
   })
 })
 
