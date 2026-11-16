@@ -13,8 +13,14 @@ export const PROJECT_QUERY_SUFFIX = 'airdrop news'
 /** v0.1.4: Daily chỉ cần tin 2–3 ngày nên truy vấn ngắn, ít kết quả hơn. */
 export const PROJECT_DAILY_SUFFIX = 'airdrop'
 
+/**
+ * v0.1.4: truy vấn theo tên dự án ở Daily, dùng bộ từ khóa Daily của bản kế hoạch
+ * (gộp trong ngoặc để OR không làm loãng điều kiện tên).
+ */
+export const PROJECT_DAILY_NAME_SUFFIX = '(airdrop OR snapshot OR TGE OR claim OR deadline OR ended OR season)'
+
 /** v0.1.4: truy vấn sâu của vòng 2, chỉ chạy cho dự án chưa có tin ở vòng 1. */
-export const PROJECT_DEEP_SUFFIX = 'snapshot OR TGE OR claim OR "airdrop ends" OR "season ends"'
+export const PROJECT_DEEP_SUFFIX = '(snapshot OR TGE OR claim OR "airdrop ends" OR "season ends")'
 
 /** Bài trên X thường ít nhưng cần phủ rộng hơn tên dự án. */
 export const PROJECT_X_QUERY_MAX_RESULTS = 8
@@ -106,7 +112,7 @@ export function buildProjectDailyQueries(project: ProjectQueryTarget): ProjectQu
   return buildQueries(
     project,
     PROJECT_DAILY_SUFFIX,
-    PROJECT_DAILY_SUFFIX,
+    PROJECT_DAILY_NAME_SUFFIX,
     PROJECT_DAILY_X_QUERY_MAX_RESULTS,
     PROJECT_DAILY_NAME_QUERY_MAX_RESULTS
   )

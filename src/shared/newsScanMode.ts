@@ -7,7 +7,7 @@
  */
 
 import type { NewsCheckOutcome } from './costControl'
-import { COST_LIMITS, isCacheFresh, newsCacheTtlForOutcome } from './costControl'
+import { isCacheFresh, newsCacheTtlForOutcome } from './costControl'
 import type { NewsScanMode, NewsScanSettings } from './types'
 import { DEFAULT_NEWS_SCAN_SETTINGS } from './types'
 
@@ -20,8 +20,10 @@ export interface NewsScanProfile {
   maxSearches: number
   /** Cap `web_search` của app trong một lô. */
   maxSearchesPerBatch: number
-  /** Cap `web_fetch` trong một lô. */
-  maxFetchesPerBatch: number
+  /** Daily 3, Full 6: số bài mở tối đa cho mỗi dự án của lô. */
+  fetchesPerProject: number
+  /** Trần cứng số bài mở mỗi lô (Daily: vô hạn, Full: 30). */
+  fetchBatchHardCap: number
   /** Cap `web_fetch` của cả lần chạy (chống mở bài vô hạn). */
   maxFetchesPerRun: number
   /** Số bước agent tối đa mỗi lô. */
@@ -33,6 +35,7 @@ export interface NewsScanProfile {
 }
 
 const HOUR_MS = 3_600_000
+const NO_BATCH_CAP = Number.POSITIVE_INFINITY
 
 function hoursToMs(hours: number): number {
   return Math.max(1, Math.round(hours)) * HOUR_MS
@@ -53,13 +56,14 @@ export function profileFor(
     return {
       mode: 'daily',
       windowDays: resolved.dailyWindowDays ?? DEFAULT_NEWS_SCAN_SETTINGS.dailyWindowDays,
-      minSearches: 12,
-      maxSearches: 40,
+      minSearches: 5,
+      maxSearches: 20,
       maxSearchesPerBatch: 4,
-      maxFetchesPerBatch: 4,
+      fetchesPerProject: 3,
+      fetchBatchHardCap: NO_BATCH_CAP,
       maxFetchesPerRun: 60,
-      maxSteps: 12,
-      round2BudgetShare: 0.25,
+      maxSteps: 10,
+      round2BudgetShare: 0,
       dailyMinIntervalMs
     }
   }
@@ -67,27 +71,35 @@ export function profileFor(
   return {
     mode: 'full',
     windowDays: 7,
-    minSearches: COST_LIMITS.newsMaxSearchesPerRun,
-    maxSearches: 80,
-    maxSearchesPerBatch: COST_LIMITS.newsMaxSearchesPerBatch,
-    maxFetchesPerBatch: COST_LIMITS.newsMaxFetchesPerBatch,
+    minSearches: 40,
+    maxSearches: 120,
+    maxSearchesPerBatch: 10,
+    fetchesPerProject: 6,
+    fetchBatchHardCap: 30,
     maxFetchesPerRun: 150,
-    maxSteps: COST_LIMITS.agentMaxSteps,
+    maxSteps: 24,
     round2BudgetShare: 0.3,
     dailyMinIntervalMs
   }
 }
 
-/** Ngân sách tìm kiếm của lần chạy: 2 lượt/dự án, kẹp trong sàn/trần của mode. */
+/** Ngân sách tìm kiếm của lần chạy: Daily clamp(ceil(1.25n), 5, 20), Full clamp(3n, 40, 120). */
 export function searchBudgetFor(profile: NewsScanProfile, projectCount: number): number {
   const count = Number.isFinite(projectCount) ? Math.max(0, Math.floor(projectCount)) : 0
-  return Math.min(profile.maxSearches, Math.max(profile.minSearches, 2 * count))
+  const raw = profile.mode === 'daily' ? Math.ceil(1.25 * count) : 3 * count
+  return Math.min(profile.maxSearches, Math.max(profile.minSearches, raw))
 }
 
-/** Số lượt `web_fetch` còn được cấp cho lô tiếp theo, theo cap của cả lần chạy. */
-export function fetchCapForBatch(profile: NewsScanProfile, fetchesUsed: number): number {
+/**
+ * Số lượt `web_fetch` còn được cấp cho lô tiếp theo.
+ * Daily: 3 bài/dự án trong lô. Full: tối đa 6 bài/dự án và không quá 30/lô;
+ * cả hai đều chặn ở cap của cả lần chạy.
+ */
+export function fetchCapForBatch(profile: NewsScanProfile, fetchesUsed: number, batchSize = 1): number {
   const used = Number.isFinite(fetchesUsed) ? Math.max(0, Math.floor(fetchesUsed)) : 0
-  return Math.max(0, Math.min(profile.maxFetchesPerBatch, profile.maxFetchesPerRun - used))
+  const size = Number.isFinite(batchSize) ? Math.max(1, Math.floor(batchSize)) : 1
+  const cap = Math.min(profile.fetchesPerProject * size, profile.fetchBatchHardCap)
+  return Math.max(0, Math.min(cap, profile.maxFetchesPerRun - used))
 }
 
 /** Entry cache tối thiểu mà `selectNewsScope` cần; khớp với `NewsCheckEntry` của main. */
@@ -211,23 +223,4 @@ export interface SearchBudgetLike {
   exhausted(): boolean
   tryConsume(count?: number): boolean
   record(count: number): void
-}
-
-/**
- * Daily chỉ giữ todo có hạn trong cửa sổ (hoặc đã quá hạn); todo xa hơn để
- * Full Scan lo, tránh Daily kéo về một danh sách việc quá dài.
- */
-export function keepDailyTodo(todoDeadline: string | null, windowDays: number, today: string): boolean {
-  if (!todoDeadline) {
-    return false
-  }
-  const [year, month, day] = todoDeadline.slice(0, 10).split('-').map(Number)
-  const [todayYear, todayMonth, todayDay] = today.slice(0, 10).split('-').map(Number)
-  if (![year, month, day, todayYear, todayMonth, todayDay].every((value) => Number.isFinite(value))) {
-    return false
-  }
-  const left = Math.round(
-    (Date.UTC(year, month - 1, day) - Date.UTC(todayYear, todayMonth - 1, todayDay)) / 86_400_000
-  )
-  return left <= Math.max(0, Math.floor(windowDays))
 }

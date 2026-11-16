@@ -66,7 +66,6 @@ import type { SearchBudget } from './searchBudget'
 import {
   createSubBudget,
   fetchCapForBatch,
-  keepDailyTodo,
   profileFor,
   searchBudgetFor,
   selectNewsScope
@@ -78,7 +77,6 @@ import { logInfo } from '../services/logger'
 import { getSettings } from '../services/settingsStore'
 import { appendAiLog, beginAiLog, finishAiLog } from './aiActivityLog'
 import { normalizeXHandle } from '@shared/xLinks'
-import { todayDateOnly } from '@shared/date-utils'
 
 // Batch size comes from `pickNewsBatchSize`: Anthropic's built-in web search
 // allows only 5 uses per request, so it keeps 3 projects per batch there and
@@ -419,7 +417,8 @@ function pickTools(
   batchEvidence: ReturnType<typeof createNewsEvidence>,
   budget: SearchBudget,
   profile: NewsScanProfile,
-  fetchState: FetchState
+  fetchState: FetchState,
+  batchSize: number
 ): AgentTool[] {
   return getNewsTools({
     search: selection.search,
@@ -427,7 +426,7 @@ function pickTools(
     costControl: {
       budget,
       maxSearches: profile.maxSearchesPerBatch,
-      maxFetches: fetchCapForBatch(profile, fetchState.used)
+      maxFetches: fetchCapForBatch(profile, fetchState.used, batchSize)
     },
     onLog: (level, text) => {
       // `web_fetch` logs one "Mở bài:" line per successful page; that is the
@@ -579,7 +578,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
     appendAiLog(
       'news',
       'step',
-      `${mode === 'daily' ? 'Daily' : 'Full'} · kiểm tra ${scope.length} dự án trong ${profile.windowDays} ngày` +
+      `${mode === 'daily' ? 'Daily Scan' : 'Full Scan'}: kiểm tra ${scope.length} dự án trong ${profile.windowDays} ngày` +
         `${cachedCount > 0 ? ` (${cachedCount} dùng cache)` : ''}`
     )
 
@@ -658,7 +657,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       const messages: AiMessage[] = [
         { role: 'user', content: buildBatchMessage(batch, milestones, now, prefetched, profile, round) }
       ]
-      const tools = pickTools(selection, evidence, batchBudget, profile, fetchState)
+      const tools = pickTools(selection, evidence, batchBudget, profile, fetchState, batch.length)
 
       let result = await runBatchAgent(tools, messages)
       if (!result) {
@@ -770,16 +769,12 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
         }
       }
 
-      // v0.1.4: Daily chỉ giữ todo có hạn trong cửa sổ; todo xa hơn để Full lo.
-      if (profile.mode === 'daily' && submission.items.length > 0) {
-        const today = todayDateOnly(windowNow)
-        const kept = submission.items.filter(
-          (item) => item.kind !== 'todo' || keepDailyTodo(item.todoDeadline, profile.windowDays, today)
-        )
+      // v0.1.4: Daily chỉ nhận tin quan trọng thật sự; todo để Full Scan xử lý.
+      // Tin bị lọc cũng được đếm riêng (`todoDropped`), không tính vào lý do loại.
+      if (profile.mode === 'daily' && submission.items.some((item) => item.kind === 'todo')) {
+        const kept = submission.items.filter((item) => item.kind !== 'todo')
         stats.todoDropped += submission.items.length - kept.length
-        if (kept.length !== submission.items.length) {
-          submission = { ...submission, items: kept }
-        }
+        submission = { ...submission, items: kept }
       }
 
       // F.2: không có bất kỳ bằng chứng tìm kiếm nào thì bỏ cả lô.
@@ -864,10 +859,11 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       await runBatch(batches[batchIndex], batchIndex, total, budget, 1)
     }
 
-    // v0.1.4: vòng 2 chỉ chạy khi có dự án chưa có tin quan trọng VÀ lần chạy
-    // đủ lớn để không phá vỡ hành vi 1 lô của người dùng ít dự án.
+    // v0.1.4: vòng 2 (Full) chỉ chạy khi có dự án chưa có tin quan trọng VÀ lần
+    // chạy đủ lớn để không phá vỡ hành vi 1 lô của người dùng ít dự án.
     if (
       !signal.aborted &&
+      profile.round2BudgetShare > 0 &&
       stats.round2Candidates.size > 0 &&
       (total >= 2 || stats.round2Candidates.size >= 2) &&
       budget.remaining() > 0
@@ -875,13 +871,13 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       const candidates = ordered.filter((project) => stats.round2Candidates.has(project.id))
       const share = Math.max(2, Math.floor(budget.max * profile.round2BudgetShare))
       const round2Budget = createSubBudget(budget, share)
-      const round2Batches = chunk(candidates, batchSize)
+      const round2Batches = chunk(candidates, 3)
       round2Count = candidates.length
       round2Total = round2Batches.length
       appendAiLog(
         'news',
         'step',
-        `Vòng 2: tìm sâu ${candidates.length} dự án chưa có tin (${round2Batches.length} lô, tối đa ${share} lượt tìm)`
+        `Vòng 2: quét lại ${candidates.length} dự án chưa có tin (${round2Batches.length} lô, tối đa ${share} lượt tìm)`
       )
       for (let batchIndex = 0; batchIndex < round2Batches.length; batchIndex += 1) {
         if (signal.aborted || round2Budget.exhausted()) {
@@ -896,7 +892,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
     }
 
     logInfo(
-      `Check News (${mode}): ${stats.checkedProjects}/${scope.length} dự án, ${cachedCount} từ cache, ` +
+      `${mode === 'daily' ? 'Daily Scan' : 'Full Scan'}: ${stats.checkedProjects}/${scope.length} dự án, ${cachedCount} từ cache, ` +
         `${usageTotal.calls} lượt gọi model, input=${usageTotal.inputTokens} output=${usageTotal.outputTokens} token, ` +
         `tìm kiếm=${budget.used()}/${budget.max}, mở bài=${fetchState.used}/${profile.maxFetchesPerRun}`
     )
@@ -904,8 +900,9 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
     reporter.report('Tổng hợp', ordered.length, ordered.length, `Đã thêm ${stats.added} tin`)
     broadcastToRenderers(EVENTS.dataChanged, { entity: 'news' })
 
+    const modeLabel = mode === 'daily' ? 'Daily Scan' : 'Full Scan'
     const extras: string[] = []
-    extras.push(mode === 'daily' ? `Daily · cửa sổ ${profile.windowDays} ngày` : `Full · cửa sổ ${profile.windowDays} ngày`)
+    extras.push(`${modeLabel} · cửa sổ ${profile.windowDays} ngày`)
     if (cachedCount > 0) {
       extras.push(`${cachedCount} dự án dùng cache (đã kiểm tra < ${cacheLabel}, link không đổi)`)
     }
@@ -918,7 +915,7 @@ export async function runCheckNews(options: CheckNewsOptions = {}): Promise<News
       extras.push(`vòng 2 đã tìm sâu ${round2Count} dự án chưa có tin`)
     }
     if (stats.todoDropped > 0) {
-      extras.push(`bỏ ${stats.todoDropped} việc cần làm ngoài cửa sổ Daily, Full Scan sẽ kiểm lại`)
+      extras.push(`bỏ ${stats.todoDropped} việc cần làm (Daily chỉ giữ tin quan trọng; Full Scan sẽ lo)`)
     }
     const base = signal.aborted
       ? `Đã dừng kiểm tra tin giữa chừng: thêm ${stats.added} tin, bỏ ${stats.rejected} tin`

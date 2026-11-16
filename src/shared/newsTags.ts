@@ -1,61 +1,65 @@
 /**
  * v0.1.4: nhãn hiển thị nhanh cho một tin trong bảng News.
+ * Nhãn được suy ra từ `milestoneKind` / ngày, không lưu thêm cột nào vào DB.
  * Thuần dữ liệu, không phụ thuộc React/Electron nên test được trực tiếp.
  */
 
-import type { MilestoneKind, VerificationState } from './constants'
+import type { MilestoneKind } from './constants'
 import { daysRemaining, todayDateOnly } from './date-utils'
 
-export type NewsTag = 'new' | 'deadline' | 'milestone' | 'unverified'
+export type NewsTag = 'deadline_soon' | 'claim_open' | 'ended'
 
 export const NEWS_TAG_LABEL: Record<NewsTag, string> = {
-  new: 'Mới',
-  deadline: 'Cần làm',
-  milestone: 'Mốc',
-  unverified: 'Chưa xác minh'
+  deadline_soon: 'Sắp đến hạn',
+  claim_open: 'Claim mở',
+  ended: 'Đã kết thúc'
 }
 
-/** Tin được coi là "mới" trong khoảng này (hôm nay và hôm qua). */
-export const NEWS_NEW_TAG_DAYS = 1
-
-/** Todo có hạn trong khoảng này (hoặc đã quá hạn) được gắn "Cần làm". */
-export const NEWS_DEADLINE_TAG_DAYS = 7
+/** Mốc có hạn trong khoảng này (0–3 ngày tới) được gắn "Sắp đến hạn". */
+export const NEWS_DEADLINE_TAG_DAYS = 3
 
 export interface NewsTagInput {
-  publishedAt: string
+  /** Hạn của việc cần làm (todo); null nếu không phải todo. */
   todoDeadline: string | null
   milestoneKind: MilestoneKind | null
-  verification: VerificationState
+  milestoneDate: string | null
+}
+
+function isoDay(value: string | null | undefined): string | null {
+  const day = value?.slice(0, 10)
+  return day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null
 }
 
 /**
- * Trả các nhãn theo thứ tự ưu tiên: mới → cần làm → mốc → chưa xác minh.
+ * Trả các nhãn theo thứ tự ưu tiên: sắp đến hạn → claim mở → đã kết thúc.
  * Ngày không hợp lệ thì bỏ qua nhãn tương ứng, không ném lỗi.
  */
 export function deriveNewsTags(input: NewsTagInput, today: string = todayDateOnly()): NewsTag[] {
   const tags: NewsTag[] = []
+  const todayDay = isoDay(today) ?? today.slice(0, 10)
 
-  const publishedDay = typeof input.publishedAt === 'string' ? input.publishedAt.slice(0, 10) : ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(publishedDay)) {
-    const age = daysRemaining(today, publishedDay)
-    if (age >= 0 && age <= NEWS_NEW_TAG_DAYS) {
-      tags.push('new')
+  const milestoneDate = isoDay(input.milestoneDate)
+  const todoDeadline = isoDay(input.todoDeadline)
+
+  // deadline_soon: milestoneDate hoặc todoDeadline trong 0–3 ngày tới.
+  for (const day of [milestoneDate, todoDeadline]) {
+    if (day) {
+      const left = daysRemaining(day, todayDay)
+      if (Number.isFinite(left) && left >= 0 && left <= NEWS_DEADLINE_TAG_DAYS) {
+        tags.push('deadline_soon')
+        break
+      }
     }
   }
 
-  if (input.todoDeadline && /^\d{4}-\d{2}-\d{2}$/.test(input.todoDeadline)) {
-    const left = daysRemaining(input.todoDeadline, today)
-    if (left <= NEWS_DEADLINE_TAG_DAYS) {
-      tags.push('deadline')
-    }
+  // claim_open: mốc claim còn mở (không có ngày, hoặc ngày từ hôm nay trở đi).
+  if (input.milestoneKind === 'claim' && (!milestoneDate || milestoneDate >= todayDay)) {
+    tags.push('claim_open')
   }
 
-  if (input.milestoneKind !== null) {
-    tags.push('milestone')
-  }
-
-  if (input.verification !== 'verified') {
-    tags.push('unverified')
+  // ended: mốc end đã tới hoặc đã qua.
+  if (input.milestoneKind === 'end' && milestoneDate && milestoneDate <= todayDay) {
+    tags.push('ended')
   }
 
   return tags

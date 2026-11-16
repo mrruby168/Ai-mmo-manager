@@ -71,6 +71,12 @@ vi.mock('../src/main/ai/aiActivityLog', () => ({
   finishAiLog: vi.fn(),
   setAiLogProgress: vi.fn()
 }))
+vi.mock('../src/main/services/safeFetch', () => ({
+  safeFetch: vi.fn(async () => ({ status: 200, text: 'Alpha airdrop deadline' })),
+  SafeFetchError: class SafeFetchError extends Error {
+    code = 'HTTP_ERROR'
+  }
+}))
 
 import { runCheckNews } from '../src/main/ai/checkNewsService'
 import type { TaskChain } from '../src/main/ai/providerService'
@@ -128,9 +134,9 @@ const DEFAULT_SETTINGS = {
   newsScan: { defaultMode: 'full' as const, dailyMinIntervalHours: 12 as const, dailyWindowDays: 3 as const }
 }
 
-/** Search giả: trả rỗng nhưng vẫn ghi nhận bằng chứng và cửa sổ được truyền. */
-function searchMock() {
-  return vi.fn(async (_query: string, _options?: { recencyDays?: number }): Promise<SearchResultItem[]> => [])
+/** Search giả: trả `results` (mặc định rỗng) nhưng vẫn ghi nhận bằng chứng và cửa sổ được truyền. */
+function searchMock(results: SearchResultItem[] = []) {
+  return vi.fn(async (_query: string, _options?: { recencyDays?: number }): Promise<SearchResultItem[]> => results)
 }
 
 beforeEach(() => {
@@ -166,7 +172,7 @@ describe('Check News modes (v0.1.4)', () => {
     expect(getNewsCheckEntries).toHaveBeenCalled()
 
     const request = runAgent.mock.calls[0][0] as { system: string; maxSteps: number }
-    expect(request.maxSteps).toBe(16)
+    expect(request.maxSteps).toBe(24)
     expect(request.system).toContain('Chế độ Full')
     expect(request.system).toContain('7 ngày')
   })
@@ -187,7 +193,7 @@ describe('Check News modes (v0.1.4)', () => {
     expect(getNewsCheckEntries).toHaveBeenCalled()
 
     const request = runAgent.mock.calls[0][0] as { system: string; maxSteps: number; messages: Array<{ content: string }> }
-    expect(request.maxSteps).toBe(12)
+    expect(request.maxSteps).toBe(10)
     expect(request.system).toContain('Chế độ Daily')
     expect(request.system).toContain('3 ngày')
     expect(request.messages[0].content).toContain('3 ngày')
@@ -269,6 +275,62 @@ describe('Check News modes (v0.1.4)', () => {
     }
   })
 
+  it('Daily lọc toàn bộ todo AI nộp, đếm riêng và không lưu vào Full flow', async () => {
+    const newsUrl = 'https://alpha.example.com/airdrop-2026'
+    const search = searchMock([{ title: 'Jingle Alpha', url: newsUrl, snippet: 'airdrop season', publishedAt: null }])
+    loadSearchProvider.mockReturnValue({ provider: 'tavily', search })
+    getSettings.mockReturnValue({
+      ai: { newsCacheTtlMs: 3 * HOUR },
+      newsScan: { defaultMode: 'daily', dailyMinIntervalHours: 12, dailyWindowDays: 3 }
+    })
+    runAgent.mockResolvedValue({
+      outcome: 'submit',
+      payload: {
+        kind: 'news',
+        data: {
+          items: [
+            {
+              projectId: 'PRJ-1',
+              kind: 'todo',
+              summary: 'Làm nhiệm vụ ngày "Lễ hội"',
+              verification: 'verified',
+              sourceUrl: newsUrl,
+              sourceName: 'Alpha',
+              publishedAt: new Date().toISOString(),
+              todoDeadline: '2026-11-20',
+              milestoneKind: null,
+              milestoneDate: null
+            }
+          ],
+          notes: ''
+        }
+      },
+      messages: [],
+      webSearch: []
+    })
+    saveNewsBatch.mockReturnValue({ added: 0, rejected: 0, duplicates: 0 })
+
+    const result = await runCheckNews({ mode: 'daily' })
+
+    expect(saveNewsBatch).toHaveBeenCalledTimes(1)
+    const savedItems = saveNewsBatch.mock.calls[0][0] as Array<{ kind: string }>
+    expect(savedItems).toHaveLength(0)
+    expect(result.rejected).toBe(0)
+    expect(result.message).toContain('việc cần làm')
+  })
+
+  it('Full Scan chạy vòng 2, Daily Scan không chạy vòng 2 dù có dự án trống', async () => {
+    listProjects.mockReturnValue([1, 2, 3, 4, 5, 6].map(project))
+    const search = searchMock()
+    loadSearchProvider.mockReturnValue({ provider: 'tavily', search })
+
+    await runCheckNews({ mode: 'daily' })
+
+    expect(search.mock.calls.some((call) => String(call[0]).includes('season ends'))).toBe(false)
+    expect(markDailyChecked).toHaveBeenCalled()
+    expect(markNewsChecked).not.toHaveBeenCalled()
+  })
+
   it('vòng 2 chỉ chạy khi có nhiều lô và dùng truy vấn sâu snapshot/TGE', async () => {
     listProjects.mockReturnValue([1, 2, 3, 4, 5, 6].map(project))
     const search = searchMock()
@@ -276,7 +338,7 @@ describe('Check News modes (v0.1.4)', () => {
 
     const result = await runCheckNews({ mode: 'full' })
 
-    expect(search.mock.calls.some((call) => String(call[0]).includes('snapshot OR TGE'))).toBe(true)
+    expect(search.mock.calls.some((call) => String(call[0]).includes('season ends'))).toBe(true)
     expect(result.message).toContain('vòng 2')
     // 2 lô vòng 1 + 2 lô vòng 2, mỗi lô có thể thử lại một lần.
     expect(runAgent.mock.calls.length).toBeGreaterThanOrEqual(4)
@@ -289,6 +351,6 @@ describe('Check News modes (v0.1.4)', () => {
 
     await runCheckNews({ mode: 'full' })
 
-    expect(search.mock.calls.some((call) => String(call[0]).includes('snapshot OR TGE'))).toBe(false)
+    expect(search.mock.calls.some((call) => String(call[0]).includes('season ends'))).toBe(false)
   })
 })

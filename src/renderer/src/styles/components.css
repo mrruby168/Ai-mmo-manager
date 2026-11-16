@@ -3455,23 +3455,17 @@ select.field__control {
   background: var(--color-surface-raised);
 }
 
-.news-tag--new {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
+.news-tag--deadline-soon {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
 }
 
-.news-tag--deadline {
-  color: var(--color-warning, #b7791f);
-  border-color: var(--color-warning, #b7791f);
+.news-tag--claim-open {
+  color: var(--color-success);
+  border-color: var(--color-success);
 }
 
-.news-tag--milestone {
-  color: var(--color-info, #2b6cb0);
-  border-color: var(--color-info, #2b6cb0);
-}
-
-.news-tag--unverified {
+.news-tag--ended {
   color: var(--color-muted);
   border-style: dashed;
 }

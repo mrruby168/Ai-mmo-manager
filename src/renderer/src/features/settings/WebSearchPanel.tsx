@@ -4,6 +4,7 @@ import type { WebSearchProvider } from '@shared/constants'
 import type { NewsScanSettings, WebSearchSettings, WebSearchTestResult } from '@shared/types'
 import { Button } from '../../common/Button'
 import { Field, Select, TextInput } from '../../common/Field'
+import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { useToast } from '../../state/ToastContext'
 
@@ -16,6 +17,11 @@ const PROVIDER_LABEL: Record<WebSearchProvider, string> = {
 
 const NEEDS_KEY: ReadonlySet<WebSearchProvider> = new Set(['tavily', 'brave'])
 
+const MODE_HINT: Record<NewsScanSettings['defaultMode'], string> = {
+  daily: 'Nhanh, ít tốn, chỉ tin quan trọng 48–72 giờ gần nhất. Phù hợp bấm nhiều lần trong ngày.',
+  full: 'Sâu, 7 ngày, tốn hơn. Quét lại mọi dự án chưa có trong cache, kể cả tin đã bỏ qua.'
+}
+
 interface WebSearchPanelProps {
   webSearch: WebSearchSettings
   onChanged: () => void
@@ -24,9 +30,14 @@ interface WebSearchPanelProps {
 /**
  * FIX 3 / D2: cấu hình Web Search do app cung cấp. API key chỉ gửi xuống main,
  * chưa bao giờ được trả ngược về renderer — nên UI chỉ biết `hasApiKey`.
+ *
+ * v0.1.4: khối "Chế độ quét Check News" nằm dưới phần chọn Provider, chỉ hiện
+ * ở AI Mode. Hai tham số Daily chỉ hiện khi mode mặc định là Daily. SettingsPage
+ * không truyền prop cho khối này nên panel tự đọc settings (chỉ đọc).
  */
 export function WebSearchPanel({ webSearch, onChanged }: WebSearchPanelProps): React.JSX.Element {
   const { isAiBusy } = useLock()
+  const { isAiEnabled } = useApp()
   const { pushToast } = useToast()
   const [provider, setProvider] = useState<WebSearchProvider>(webSearch.provider)
   const [baseUrl, setBaseUrl] = useState(webSearch.baseUrl ?? '')
@@ -36,25 +47,24 @@ export function WebSearchPanel({ webSearch, onChanged }: WebSearchPanelProps): R
   const [testing, setTesting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<WebSearchTestResult | null>(null)
-  // v0.1.4: mode Check News nằm cùng nhóm Web Search. SettingsPage không truyền
-  // prop này nên panel tự đọc settings (chỉ đọc, không sửa SettingsPage).
   const [scanSettings, setScanSettings] = useState<NewsScanSettings | null>(null)
   const [scanSaving, setScanSaving] = useState(false)
-  const [aiModeOn, setAiModeOn] = useState(true)
 
   useEffect(() => {
+    if (!isAiEnabled) {
+      return
+    }
     let active = true
     void window.api.settings.get().then((result) => {
       if (!active || !result.ok) {
         return
       }
       setScanSettings(result.data.newsScan)
-      setAiModeOn(result.data.aiMode === 'ai')
     })
     return () => {
       active = false
     }
-  }, [])
+  }, [isAiEnabled])
 
   useEffect(() => {
     setProvider(webSearch.provider)
@@ -131,88 +141,12 @@ export function WebSearchPanel({ webSearch, onChanged }: WebSearchPanelProps): R
       return
     }
     setScanSettings(result.data.newsScan)
-    pushToast('Đã lưu chế độ Check News', 'success')
+    pushToast('Đã lưu chế độ quét Check News', 'success')
     onChanged()
   }
 
   return (
     <div className="stack">
-      {aiModeOn && scanSettings ? (
-        <section className="card stack">
-          <div className="section-title">
-            <h2>Chế độ Check News</h2>
-            <span className="muted">{scanSettings.defaultMode === 'daily' ? 'Daily Scan' : 'Full Scan'}</span>
-          </div>
-          <p className="muted">
-            Daily Scan quét nhanh tin trong 2–3 ngày và bỏ qua dự án vừa quét, phù hợp bấm nhiều lần trong ngày. Full Scan
-            quét sâu 7 ngày và kiểm tra lại mọi dự án chưa có trong cache. Cả hai đều chỉ dùng được ở AI Mode.
-          </p>
-
-          <Field label="Chế độ mặc định" htmlFor="news-scan-mode" hint="Nút chính trên trang News dùng chế độ này.">
-            <Select
-              id="news-scan-mode"
-              value={scanSettings.defaultMode}
-              disabled={isAiBusy || scanSaving}
-              onChange={(event) =>
-                setScanSettings({ ...scanSettings, defaultMode: event.target.value === 'daily' ? 'daily' : 'full' })
-              }
-            >
-              <option value="full">Full Scan (7 ngày)</option>
-              <option value="daily">Daily Scan (2–3 ngày)</option>
-            </Select>
-          </Field>
-
-          <Field
-            label="Daily bỏ qua dự án đã quét trong"
-            htmlFor="news-scan-interval"
-            hint="Dự án vừa quét trong khoảng này sẽ được bỏ qua nếu link không đổi."
-          >
-            <Select
-              id="news-scan-interval"
-              value={String(scanSettings.dailyMinIntervalHours)}
-              disabled={isAiBusy || scanSaving}
-              onChange={(event) =>
-                setScanSettings({
-                  ...scanSettings,
-                  dailyMinIntervalHours: Number(event.target.value) as NewsScanSettings['dailyMinIntervalHours']
-                })
-              }
-            >
-              <option value="3">3 giờ</option>
-              <option value="12">12 giờ</option>
-              <option value="24">24 giờ</option>
-            </Select>
-          </Field>
-
-          <Field
-            label="Cửa sổ tin của Daily"
-            htmlFor="news-scan-window"
-            hint="Chỉ nhận tin có ngày đăng trong khoảng này (tính cả hôm nay)."
-          >
-            <Select
-              id="news-scan-window"
-              value={String(scanSettings.dailyWindowDays)}
-              disabled={isAiBusy || scanSaving}
-              onChange={(event) =>
-                setScanSettings({
-                  ...scanSettings,
-                  dailyWindowDays: Number(event.target.value) as NewsScanSettings['dailyWindowDays']
-                })
-              }
-            >
-              <option value="2">2 ngày</option>
-              <option value="3">3 ngày</option>
-            </Select>
-          </Field>
-
-          <div className="row">
-            <Button variant="primary" loading={scanSaving} disabled={isAiBusy || scanSaving} onClick={() => void handleSaveScan()}>
-              Lưu chế độ
-            </Button>
-          </div>
-        </section>
-      ) : null}
-
       <section className="card stack">
         <div className="section-title">
           <h2>Web Search</h2>
@@ -311,6 +245,91 @@ export function WebSearchPanel({ webSearch, onChanged }: WebSearchPanelProps): R
           </div>
         ) : null}
       </section>
+
+      {isAiEnabled && scanSettings ? (
+        <section className="card stack">
+          <div className="section-title">
+            <h2>Chế độ quét Check News</h2>
+            <span className="muted">{scanSettings.defaultMode === 'daily' ? 'Daily Scan' : 'Full Scan'}</span>
+          </div>
+          <p className="muted">
+            Daily = nhanh, ít tốn, chỉ tin quan trọng 48–72 giờ gần nhất. Full = sâu, 7 ngày, tốn hơn. Nút chính ở trang News
+            dùng chế độ mặc định được chọn ở đây. Chỉ dùng ở AI Mode.
+          </p>
+
+          <Field
+            label="Chế độ mặc định"
+            htmlFor="news-scan-mode"
+            hint="Hai nút Daily Scan / Full Scan trên trang News luôn chạy được cả hai; chế độ mặc định chỉ quyết định nút nào là primary."
+          >
+            <Select
+              id="news-scan-mode"
+              value={scanSettings.defaultMode}
+              disabled={isAiBusy || scanSaving}
+              onChange={(event) =>
+                setScanSettings({ ...scanSettings, defaultMode: event.target.value === 'daily' ? 'daily' : 'full' })
+              }
+            >
+              <option value="full">Full Scan (7 ngày)</option>
+              <option value="daily">Daily Scan (2–3 ngày)</option>
+            </Select>
+          </Field>
+          <p className="muted">{MODE_HINT[scanSettings.defaultMode]}</p>
+
+          {scanSettings.defaultMode === 'daily' ? (
+            <>
+              <Field
+                label="Bỏ qua dự án đã quét trong"
+                htmlFor="news-scan-interval"
+                hint="Dự án vừa quét trong khoảng này và link không đổi thì Daily bỏ qua, không gọi AI."
+              >
+                <Select
+                  id="news-scan-interval"
+                  value={String(scanSettings.dailyMinIntervalHours)}
+                  disabled={isAiBusy || scanSaving}
+                  onChange={(event) =>
+                    setScanSettings({
+                      ...scanSettings,
+                      dailyMinIntervalHours: Number(event.target.value) as NewsScanSettings['dailyMinIntervalHours']
+                    })
+                  }
+                >
+                  <option value="3">3 giờ</option>
+                  <option value="12">12 giờ</option>
+                  <option value="24">24 giờ</option>
+                </Select>
+              </Field>
+
+              <Field
+                label="Chỉ lấy tin trong"
+                htmlFor="news-scan-window"
+                hint="Chỉ nhận tin có ngày đăng trong khoảng này (tính cả hôm nay)."
+              >
+                <Select
+                  id="news-scan-window"
+                  value={String(scanSettings.dailyWindowDays)}
+                  disabled={isAiBusy || scanSaving}
+                  onChange={(event) =>
+                    setScanSettings({
+                      ...scanSettings,
+                      dailyWindowDays: Number(event.target.value) as NewsScanSettings['dailyWindowDays']
+                    })
+                  }
+                >
+                  <option value="2">48 giờ (2 ngày)</option>
+                  <option value="3">72 giờ (3 ngày)</option>
+                </Select>
+              </Field>
+            </>
+          ) : null}
+
+          <div className="row">
+            <Button variant="primary" loading={scanSaving} disabled={isAiBusy || scanSaving} onClick={() => void handleSaveScan()}>
+              Lưu chế độ quét
+            </Button>
+          </div>
+        </section>
+      ) : null}
     </div>
   )
 }

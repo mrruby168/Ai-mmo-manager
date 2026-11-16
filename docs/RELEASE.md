@@ -25,14 +25,16 @@ Tính năng "thông báo và cập nhật app" được bắt đầu từ bản 
 
 ### v0.1.4 — Daily Scan / Full Scan cho Check News
 
+- **Lưu ý cập nhật quan trọng:** v0.1.4 là bản đầu tiên có luồng cập nhật đã sửa. Bản 0.1.2 và 0.1.3 đã phát hành chứa lỗi trắng màn hình khi thấy bản cập nhật, nên người dùng các bản đó **phải tải và cài tay v0.1.4 một lần**; từ v0.1.4 trở đi app mới tự cập nhật đúng.
 - Check News có hai chế độ (chỉ ở AI Mode):
   - **Daily Scan**: quét nhanh tin trong 2–3 ngày gần nhất, bỏ qua dự án vừa quét trong 3/12/24 giờ nếu link dự án không đổi.
   - **Full Scan**: quét sâu 7 ngày như các bản trước, kiểm tra lại mọi dự án chưa có trong cache.
 - Trang News có hai nút **Daily Scan** và **Full Scan**; nút của chế độ mặc định được tô nổi. Tab News ở sidebar hiện chấm đỏ khi có tin mới, nút Daily hiện `+N` tin vừa thêm.
-- Settings → Web Search có thêm khối **Chế độ Check News**: chọn chế độ mặc định, khoảng nghỉ của Daily (3/12/24 giờ) và cửa sổ tin của Daily (2/3 ngày).
-- Vòng 2 tìm sâu (`snapshot / TGE / claim / "airdrop ends" / "season ends"`) chỉ chạy cho dự án chưa có tin quan trọng ở vòng 1 và bị giới hạn ngân sách riêng.
-- Giới hạn chi phí mỗi lần chạy: ngân sách lượt tìm kiếm (Full 30–80, Daily 12–40) và trần lượt mở bài (Full 150, Daily 60).
+- Settings → Web Search có khối **Chế độ quét Check News** bên dưới phần chọn Provider (chỉ ở AI Mode): chọn chế độ mặc định, và khi chọn Daily hiện hai ô đặt khoảng nghỉ Daily (3/12/24 giờ) và cửa sổ tin (48/72 giờ).
+- Vòng 2 tìm sâu (`snapshot / TGE / claim / "airdrop ends" / "season ends"`, lô 3 dự án) chỉ chạy ở Full Scan, chỉ cho dự án chưa có tin quan trọng ở vòng 1, tiêu tối đa 30% ngân sách tìm kiếm của lần chạy.
+- Giới hạn chi phí mỗi lần chạy: ngân sách lượt tìm kiếm (Full `clamp(3×n, 40, 120)`, Daily `clamp(ceil(1.25n), 5, 20)`), trần lượt mở bài (Full 6/dự án, tối đa 30/lô, 150/lần chạy; Daily 3/dự án, 60/lần chạy), `agentMaxSteps` (Full 24, Daily 10).
+- Daily chỉ nhận tin `important`; mọi `todo` do AI nộp đều bị lọc và đếm riêng (`todoDropped`), không tính là lỗi.
 - Cache Daily dùng khóa riêng `ai_cache:newsd:<projectId>` trong bảng `meta`, không đổi schema SQLite và không đổi `news_items`. `settings.json` cũ tự nhận mặc định Full / 12 giờ / 3 ngày nên hành vi của người dùng cũ không đổi.
-- Tin trong bảng News có nhãn nhanh: **Mới**, **Cần làm**, **Mốc**, **Chưa xác minh**.
+- Tin trong bảng News có nhãn nhanh suy ra từ `milestoneKind`/ngày (không lưu thêm): **Sắp đến hạn** (mốc/todo trong 0–3 ngày), **Claim mở** (mốc claim còn mở), **Đã kết thúc** (mốc end đã tới).
 - Không thay đổi: schema/migration, `news_items`, danh sách `NEWS_KINDS`/`MILESTONE_KINDS`, nguyên tắc "không bịa tin", PendingAction, Scan Project, Chat và luồng cập nhật của v0.1.3.
-- Đã kiểm chứng: `npm run typecheck`, `npm test` (768 test), `npm run build`. Kiểm thử tay với provider thật + Web Search thật được ghi trong báo cáo của PR.
+- Đã kiểm chứng: `npm run typecheck`, `npm test`, `npm run build`. Kiểm thử tay với provider thật + Web Search thật được ghi trong báo cáo của PR.

@@ -4,7 +4,6 @@ import type { NewsScanSettings } from '../src/shared/types'
 import {
   createSubBudget,
   fetchCapForBatch,
-  keepDailyTodo,
   profileFor,
   searchBudgetFor,
   selectNewsScope
@@ -29,22 +28,27 @@ function entry(overrides: Partial<NewsScopeEntry> = {}): NewsScopeEntry {
 const NOW = Date.parse('2026-11-16T06:00:00.000Z')
 
 describe('profileFor', () => {
-  it('Full giữ nguyên hành vi cũ: 7 ngày, 150 lượt mở bài, 16 bước', () => {
+  it('Full sâu 7 ngày, 24 bước, trần 10 lượt tìm / lô', () => {
     const profile = profileFor('full')
     expect(profile.mode).toBe('full')
     expect(profile.windowDays).toBe(7)
     expect(profile.maxFetchesPerRun).toBe(150)
-    expect(profile.maxSteps).toBe(16)
-    expect(profile.maxSearchesPerBatch).toBe(6)
+    expect(profile.maxSteps).toBe(24)
+    expect(profile.maxSearchesPerBatch).toBe(10)
+    expect(profile.fetchesPerProject).toBe(6)
+    expect(profile.round2BudgetShare).toBeCloseTo(0.3, 5)
   })
 
-  it('Daily đọc cửa sổ và khoảng nghỉ từ settings', () => {
+  it('Daily đọc cửa sổ và khoảng nghỉ từ settings, 10 bước, không vòng 2', () => {
     const profile = profileFor('daily', DAILY)
     expect(profile.mode).toBe('daily')
     expect(profile.windowDays).toBe(2)
     expect(profile.dailyMinIntervalMs).toBe(3 * 3_600_000)
     expect(profile.maxFetchesPerRun).toBe(60)
-    expect(profile.maxSteps).toBeLessThan(16)
+    expect(profile.maxSteps).toBe(10)
+    expect(profile.maxSearchesPerBatch).toBe(4)
+    expect(profile.fetchesPerProject).toBe(3)
+    expect(profile.round2BudgetShare).toBe(0)
   })
 
   it('settings thiếu hoặc rỗng vẫn trả hồ sơ hợp lệ (settings.json cũ)', () => {
@@ -55,40 +59,46 @@ describe('profileFor', () => {
 })
 
 describe('searchBudgetFor', () => {
-  it('Full: 2 lượt/dự án, sàn 30, trần 80', () => {
+  it('Full: clamp(3n, 40, 120)', () => {
     const full = profileFor('full')
-    expect(searchBudgetFor(full, 5)).toBe(30)
-    expect(searchBudgetFor(full, 11)).toBe(30)
-    expect(searchBudgetFor(full, 25)).toBe(50)
-    expect(searchBudgetFor(full, 100)).toBe(80)
+    expect(searchBudgetFor(full, 1)).toBe(40)
+    expect(searchBudgetFor(full, 5)).toBe(40)
+    expect(searchBudgetFor(full, 15)).toBe(45)
+    expect(searchBudgetFor(full, 50)).toBe(120)
+    expect(searchBudgetFor(full, 100)).toBe(120)
   })
 
-  it('Daily rẻ hơn: sàn 12, trần 40', () => {
+  it('Daily rẻ hơn: clamp(ceil(1.25n), 5, 20)', () => {
     const daily = profileFor('daily', DAILY)
-    expect(searchBudgetFor(daily, 2)).toBe(12)
-    expect(searchBudgetFor(daily, 10)).toBe(20)
-    expect(searchBudgetFor(daily, 100)).toBe(40)
+    expect(searchBudgetFor(daily, 1)).toBe(5)
+    expect(searchBudgetFor(daily, 2)).toBe(5)
+    expect(searchBudgetFor(daily, 10)).toBe(13)
+    expect(searchBudgetFor(daily, 40)).toBe(20)
+    expect(searchBudgetFor(daily, 100)).toBe(20)
   })
 
   it('số dự án không hợp lệ coi như 0', () => {
-    expect(searchBudgetFor(profileFor('full'), Number.NaN)).toBe(30)
-    expect(searchBudgetFor(profileFor('daily', DAILY), -5)).toBe(12)
+    expect(searchBudgetFor(profileFor('full'), Number.NaN)).toBe(40)
+    expect(searchBudgetFor(profileFor('daily', DAILY), -5)).toBe(5)
   })
 })
 
 describe('fetchCapForBatch', () => {
-  it('giảm dần theo số lượt mở bài đã dùng và dừng ở 0', () => {
+  it('Full: 6 bài/dự án, tối đa 30/lô và chặn bởi cap lần chạy', () => {
     const full = profileFor('full')
-    expect(fetchCapForBatch(full, 0)).toBe(6)
-    expect(fetchCapForBatch(full, 148)).toBe(2)
-    expect(fetchCapForBatch(full, 150)).toBe(0)
-    expect(fetchCapForBatch(full, 999)).toBe(0)
+    expect(fetchCapForBatch(full, 0, 5)).toBe(30)
+    expect(fetchCapForBatch(full, 0, 2)).toBe(12)
+    expect(fetchCapForBatch(full, 148, 5)).toBe(2)
+    expect(fetchCapForBatch(full, 150, 5)).toBe(0)
+    expect(fetchCapForBatch(full, 999, 5)).toBe(0)
   })
 
-  it('Daily có cap thấp hơn', () => {
+  it('Daily: 3 bài/dự án, chặn bởi cap lần chạy', () => {
     const daily = profileFor('daily', DAILY)
-    expect(fetchCapForBatch(daily, 0)).toBe(4)
-    expect(fetchCapForBatch(daily, 59)).toBe(1)
+    expect(fetchCapForBatch(daily, 0, 5)).toBe(15)
+    expect(fetchCapForBatch(daily, 0, 1)).toBe(3)
+    expect(fetchCapForBatch(daily, 59, 5)).toBe(1)
+    expect(fetchCapForBatch(daily, 60, 5)).toBe(0)
   })
 })
 
@@ -180,22 +190,6 @@ describe('createSubBudget', () => {
     sub.record(2)
     expect(sub.used()).toBe(2)
     expect(parent.used()).toBe(2)
-  })
-})
-
-describe('keepDailyTodo', () => {
-  const today = '2026-11-16'
-
-  it('giữ todo có hạn trong cửa sổ hoặc đã quá hạn', () => {
-    expect(keepDailyTodo('2026-11-18', 2, today)).toBe(true)
-    expect(keepDailyTodo('2026-11-16', 2, today)).toBe(true)
-    expect(keepDailyTodo('2026-11-10', 2, today)).toBe(true)
-  })
-
-  it('bỏ todo không có hạn hoặc hạn xa hơn cửa sổ', () => {
-    expect(keepDailyTodo(null, 3, today)).toBe(false)
-    expect(keepDailyTodo('2026-11-20', 3, today)).toBe(false)
-    expect(keepDailyTodo('không phải ngày', 3, today)).toBe(false)
   })
 })
 
