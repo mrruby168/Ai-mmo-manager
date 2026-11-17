@@ -3,6 +3,7 @@ import { FONT_SIZE_RANGE, FONT_WEIGHT_RANGE, SAFE_FONT_FAMILIES } from '@shared/
 import type { AppearanceSettings } from '@shared/types'
 import { Button } from '../../common/Button'
 import { Field, Select } from '../../common/Field'
+import { ThemeToggle } from '../../common/ThemeToggle'
 import { defaultAppearance, useAppearance } from '../../state/AppearanceProvider'
 import { useToast } from '../../state/ToastContext'
 
@@ -86,6 +87,12 @@ export function AppearancePanel(): React.JSX.Element {
         <div className="section-title">
           <h2>Giao diện</h2>
           <span className="muted">Preview trực tiếp, chỉ lưu khi bấm Apply</span>
+        </div>
+
+        <div>
+          <span className="field__label">Chủ đề</span>
+          <ThemeToggle />
+          <p className="muted">Áp dụng ngay, không cần bấm Apply.</p>
         </div>
 
         <Field label="Font Family">

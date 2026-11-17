@@ -62,7 +62,7 @@ p {
 }
 
 a {
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   text-decoration: none;
 }
 
@@ -291,4 +291,18 @@ ol {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Theme sáng: bảng màu đã nằm ở tokens.css; chỉ cần báo cho trình duyệt. */
+:root[data-theme='light'] select option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+body,
+.sidebar,
+.card,
+.btn,
+.modal {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }

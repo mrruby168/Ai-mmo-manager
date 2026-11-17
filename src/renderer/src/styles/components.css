@@ -48,7 +48,7 @@
 
 .sidebar__item--active {
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   border-left: 3px solid var(--color-primary);
   font-weight: 600;
 }
@@ -196,8 +196,12 @@
 }
 
 .btn--secondary {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-border-control);
   background: transparent;
+}
+
+.btn--secondary:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
 }
 
 .btn--ghost {
@@ -266,10 +270,14 @@
   height: 2.5rem;
   padding: 0 var(--space-3);
   background: var(--color-background);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-border-control);
   border-radius: var(--radius-sm);
   color: var(--color-text);
   width: 100%;
+}
+
+.field__control:hover {
+  border-color: var(--color-border-strong);
 }
 
 textarea.field__control {
@@ -368,7 +376,7 @@ select.field__control {
 
 .badge--free {
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .badge--paid {
@@ -881,7 +889,7 @@ select.field__control {
   place-items: center;
   width: 2rem;
   height: 2rem;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .chat-panel__title {
@@ -985,7 +993,7 @@ select.field__control {
   border-color: var(--chat-panel-border);
   border-radius: 7px;
   background: var(--chat-surface);
-  color: #d6deea;
+  color: var(--chat-quick-text);
   font-size: 0.875rem;
 }
 
@@ -998,7 +1006,7 @@ select.field__control {
 .chat-quick__icon {
   display: inline-flex;
   flex: 0 0 auto;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .chat-quick__label {
@@ -1016,7 +1024,7 @@ select.field__control {
 .chat-quick--danger {
   border-color: var(--chat-panel-border);
   background: var(--chat-surface);
-  color: #d6deea;
+  color: var(--chat-quick-text);
 }
 
 .chat-quick--danger .chat-quick__icon {
@@ -1052,7 +1060,7 @@ select.field__control {
 
 .chat-empty__icon {
   display: inline-flex;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .chat-empty__title {
@@ -1096,7 +1104,7 @@ select.field__control {
 
 .chat-avatar--assistant {
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .chat-message-stack {
@@ -1668,7 +1676,7 @@ select.field__control {
 
 .news-item__link {
   flex: 0 0 auto;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-weight: 600;
   border-radius: 8px;
 }
@@ -2062,7 +2070,7 @@ select.field__control {
 .ai-log-actions__button {
   border: 0;
   background: transparent;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   cursor: pointer;
   font-size: 0.8125rem;
   padding: 0;
@@ -2260,7 +2268,7 @@ select.field__control {
 .link-button {
   border: 0;
   background: transparent;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   cursor: pointer;
   font-size: 0.875rem;
   padding: 0;
@@ -2670,7 +2678,7 @@ select.field__control {
 }
 
 .listbox__label {
-  color: #7f8da3;
+  color: var(--chat-text-muted);
   font-size: 0.75rem;
   font-weight: 500;
 }
@@ -2780,7 +2788,7 @@ select.field__control {
 
 .listbox__check {
   flex: 0 0 14px;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-weight: 700;
   line-height: 1;
 }
@@ -3359,7 +3367,7 @@ select.field__control {
   height: 2rem;
   border-radius: 999px;
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .update-progress {
@@ -3431,7 +3439,7 @@ select.field__control {
   padding: 0 0.4rem;
   border-radius: 999px;
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.5;
@@ -3468,4 +3476,48 @@ select.field__control {
 .news-tag--ended {
   color: var(--color-muted);
   border-style: dashed;
+}
+
+/* ---------- v0.1.5: Theme toggle ---------- */
+.theme-toggle {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+}
+
+.theme-toggle__item {
+  display: grid;
+  place-items: center;
+  height: 2rem;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 3px);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.theme-toggle__item:hover {
+  color: var(--color-text);
+}
+
+.theme-toggle__item--active {
+  background: var(--color-surface-raised);
+  color: var(--color-primary-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.sidebar__footer .theme-toggle {
+  margin-bottom: var(--space-2);
+}
+
+@media (max-width: 1024px) {
+  /* Sidebar thu gọn: xếp dọc cho vừa 4.5rem. */
+  .theme-toggle {
+    grid-template-columns: 1fr;
+  }
 }

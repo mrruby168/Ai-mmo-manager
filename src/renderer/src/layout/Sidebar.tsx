@@ -3,6 +3,7 @@ import { useApp } from '../state/AppContext'
 import type { TabId } from '../state/AppContext'
 import { useUpdate } from '../state/UpdateContext'
 import { clearUnseen, useNewsBadge } from '../state/newsBadgeStore'
+import { ThemeToggle } from '../common/ThemeToggle'
 import appIcon from '../assets/new-icon.svg'
 
 interface TabDefinition {
@@ -171,6 +172,7 @@ export function Sidebar(): React.JSX.Element {
             <span className="sidebar__update-badge">New</span>
           </button>
         ) : null}
+        <ThemeToggle />
         <div className="sidebar__version">{updateState ? `v${updateState.currentVersion}` : ''}</div>
       </div>
     </nav>

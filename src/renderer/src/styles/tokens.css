@@ -24,6 +24,9 @@
   --color-primary-soft: rgba(91, 141, 239, 0.16);
   --color-primary-ring: rgba(91, 141, 239, 0.18);
   --color-primary-ring-strong: rgba(91, 141, 239, 0.35);
+  --color-primary-text: #5b8def; /* chữ/icon màu primary trên nền tối; theme sáng đậm hơn để đủ tương phản */
+  --color-border-control: #3a4d73; /* viền nút phụ + ô nhập: dịu hơn border-strong */
+  --chat-quick-text: #d6deea;
 
   /* Popup Listbox: nền đặc, không dùng độ trong suốt. */
   --color-popup-bg: #172235;
@@ -108,4 +111,70 @@
   :root {
     --sidebar-width: var(--sidebar-collapsed-width);
   }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-secondary: #eef2f9;
+  --color-secondary-hover: #e3e9f5;
+  --color-background: #f4f6fb;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f0f4fb;
+  --color-text: #0f1b33;
+  --color-muted: #5a6b88;
+  --color-border: #dbe2ef;
+  --color-border-strong: #b6c3dc;
+  --color-border-control: #c4cfe3;
+  --color-focus: #3b6fd8;
+  --color-primary-text: #2c5fd0;
+  --color-success: #0e9f6e;
+  --color-warning: #b7791f;
+  --color-error: #d64545;
+  --color-info: #2f6fd6;
+  --color-overlay: rgba(15, 27, 51, 0.4);
+
+  --color-primary-soft: rgba(91, 141, 239, 0.14);
+
+  --color-popup-bg: #ffffff;
+  --color-popup-border: #cfd8ea;
+  --color-popup-text: #0f1b33;
+  --color-popup-hover: #eaf0fb;
+
+  --chat-panel-bg: #ffffff;
+  --chat-panel-border: #dbe2ef;
+  --chat-surface: #f4f7fc;
+  --chat-surface-secondary: #eaf0fa;
+  --chat-input-bg: #ffffff;
+  --chat-border-strong: #b6c3dc;
+  --chat-text: #0f1b33;
+  --chat-text-secondary: #3d4f6e;
+  --chat-text-muted: #6b7b96;
+  --chat-text-disabled: #9aa8bf;
+  --chat-user-bg: #dce8ff;
+  --chat-ai-bg: #f1f5fb;
+  --chat-pending-bg: #fff6e0;
+  --chat-danger-bg: #fdecec;
+  --chat-danger-text: #b42318;
+  --chat-quick-text: #223457;
+  --chat-shadow: 0 16px 40px rgba(15, 27, 51, 0.12);
+  --color-warning-soft: rgba(183, 121, 31, 0.14);
+  --color-error-soft: rgba(214, 69, 69, 0.12);
+  --color-success-soft: rgba(14, 159, 110, 0.12);
+  --color-info-soft: rgba(47, 111, 214, 0.12);
+
+  --gradient-app-bg:
+    radial-gradient(1100px 560px at 8% -12%, rgba(91, 141, 239, 0.1), transparent 62%),
+    linear-gradient(180deg, #f7f9fd 0%, #f1f4fa 100%);
+  --gradient-sidebar: linear-gradient(180deg, rgba(91, 141, 239, 0.06), transparent 60%);
+  --gradient-surface: none;
+  --gradient-news-card: linear-gradient(180deg, #ffffff, #fbfcfe);
+  --gradient-news-logo: linear-gradient(145deg, #eef3fb, #e0e8f6);
+  --gradient-news-badge:
+    linear-gradient(180deg, rgba(214, 69, 69, 0.12), rgba(214, 69, 69, 0.04)),
+    linear-gradient(180deg, #fff5f5, #ffecec);
+  --color-news-card-border: rgba(15, 27, 51, 0.1);
+  --color-news-card-border-strong: rgba(15, 27, 51, 0.18);
+
+  --shadow-raised: 0 8px 24px rgba(15, 27, 51, 0.1);
 }
