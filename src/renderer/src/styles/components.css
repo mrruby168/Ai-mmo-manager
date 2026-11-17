@@ -3515,6 +3515,32 @@ select.field__control {
   margin-bottom: var(--space-2);
 }
 
+.sidebar__brand-sub {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--color-muted);
+  letter-spacing: 0;
+}
+
+@media (max-width: 1024px) {
+  .sidebar__brand-sub {
+    display: none;
+  }
+}
+
+.news-card__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-right: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  vertical-align: middle;
+}
+
 @media (max-width: 1024px) {
   /* Sidebar thu gọn: xếp dọc cho vừa 4.5rem. */
   .theme-toggle {

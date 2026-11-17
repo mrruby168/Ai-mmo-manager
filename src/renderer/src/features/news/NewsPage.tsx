@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AlarmClock, Bell, Target, Trash2 } from 'lucide-react'
 import type {
   AppSettings,
   DeadlineItem,
@@ -409,7 +410,7 @@ export function NewsPage(): React.JSX.Element {
         <section className="news-card news-panel news-panel--important" aria-label="Tin quan trọng mới">
           <header className="news-card__head">
             <h2>
-              <span aria-hidden="true">🔔</span> Tin quan trọng mới
+              <span className="news-card__icon" aria-hidden="true"><Bell size={16} strokeWidth={1.75} /></span> Tin quan trọng mới
             </h2>
             <div className="news-card__head-end">
               <span className="muted">{topImportant.length} dự án</span>
@@ -446,7 +447,7 @@ export function NewsPage(): React.JSX.Element {
         <section className="news-card news-panel" aria-label="Deadline sắp hết">
           <header className="news-card__head">
             <h2>
-              <span aria-hidden="true">⏰</span> Deadline sắp hết
+              <span className="news-card__icon" aria-hidden="true"><AlarmClock size={16} strokeWidth={1.75} /></span> Deadline sắp hết
             </h2>
             <div className="news-card__head-end">
               <span className="muted">{urgent.length + soon.length} mốc</span>
@@ -529,7 +530,7 @@ export function NewsPage(): React.JSX.Element {
         <section className="news-card news-panel" aria-label="Việc cần làm ngay">
           <header className="news-card__head">
             <h2>
-              <span aria-hidden="true">🎯</span> Việc cần làm ngay
+              <span className="news-card__icon" aria-hidden="true"><Target size={16} strokeWidth={1.75} /></span> Việc cần làm ngay
             </h2>
             <div className="news-card__head-end">
               <span className="muted">{todos.filter((item) => !item.isDone).length} chưa xử lý</span>
@@ -735,7 +736,7 @@ function CardActions({
           title="Xóa"
           onClick={onDelete}
         >
-          🗑
+          <Trash2 size={16} aria-hidden="true" />
         </Button>
       ) : null}
     </span>

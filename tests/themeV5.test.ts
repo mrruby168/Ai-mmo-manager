@@ -57,4 +57,17 @@ describe('v0.1.5: theme sáng/tối', () => {
     const base = readFileSync(join(STYLES, 'base.css'), 'utf8')
     expect(base).toMatch(/:root\s*\{[^}]*color-scheme:\s*dark/)
   })
+
+  it('không còn emoji ở sidebar, Scan, News, Chat', () => {
+    const root = resolve(__dirname, '..')
+    const files = [
+      join(root, 'src', 'renderer', 'src', 'layout', 'Sidebar.tsx'),
+      join(root, 'src', 'renderer', 'src', 'features', 'scan', 'ScanPage.tsx'),
+      join(root, 'src', 'renderer', 'src', 'features', 'news', 'NewsPage.tsx'),
+      join(root, 'src', 'renderer', 'src', 'features', 'chat', 'ChatPanel.tsx')
+    ]
+    for (const file of files) {
+      expect(readFileSync(file, 'utf8'), file).not.toMatch(/📰|🏆|🎁|🔍|📊|📎|🗑/u)
+    }
+  })
 })

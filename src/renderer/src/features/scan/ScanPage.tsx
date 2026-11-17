@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Paperclip } from 'lucide-react'
 import type { AiLogProgress, AppSettings, ScanItem, WebSearchView } from '@shared/types'
 import { progressPercent } from '@shared/aiLog'
 import {
@@ -470,7 +471,7 @@ export function ScanPage(): React.JSX.Element {
 
           <div className="scan-page__foot">
             <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={scanning}>
-              📎 Đính kèm TXT/MD/JSON
+              <Paperclip size={16} aria-hidden="true" /> Đính kèm TXT/MD/JSON
             </Button>
             <input
               ref={fileInputRef}

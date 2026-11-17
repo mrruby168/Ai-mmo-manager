@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Paperclip } from 'lucide-react'
 import type { AppSettings, ChatChoice, ModelSelection, PendingAction } from '@shared/types'
 import { chatRoleLabel, formatChatTime } from '@shared/chatView'
 import type { ChatRole } from '@shared/chatView'
@@ -375,7 +376,7 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
   function handleQuick(action: (typeof QUICK_ACTIONS)[number]): void {
     if (action === 'Thêm dự án') {
       setInput('Thêm dự án: ')
-      setQuickHint('Dán JSON vào ô hoặc bấm 📎 để tải tệp .json lên — app sẽ hiện thẻ xác nhận trước khi thêm.')
+      setQuickHint('Dán JSON vào ô hoặc bấm đính kèm để tải tệp .json lên — app sẽ hiện thẻ xác nhận trước khi thêm.')
     } else if (action === 'Sửa dự án') {
       setInput('Tôi muốn sửa dự án: ')
       setQuickHint(null)
@@ -604,7 +605,7 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
                 disabled={!canChat}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <PaperclipIcon />
+                <Paperclip size={18} />
               </Button>
               {sending ? (
                 <Button
@@ -633,7 +634,7 @@ export function ChatPanel({ hidden = false }: ChatPanelProps = {}): React.JSX.El
               )}
             </div>
             <div className="chat-composer__meta">
-              <span className="chat-composer__hint">Ctrl+Enter để gửi · 📎 đính kèm .json/.txt/.md ≤ 1 MB</span>
+              <span className="chat-composer__hint">Ctrl+Enter để gửi · đính kèm .json/.txt/.md ≤ 1 MB</span>
               {sendBlockedReason ? <span className="chat-composer__reason">{sendBlockedReason}</span> : null}
             </div>
           </div>

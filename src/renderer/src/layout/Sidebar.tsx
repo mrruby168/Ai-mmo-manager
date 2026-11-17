@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BarChart3, Download, Gift, Newspaper, RefreshCw, ScanSearch, Settings, Trophy } from 'lucide-react'
 import { useApp } from '../state/AppContext'
 import type { TabId } from '../state/AppContext'
 import { useUpdate } from '../state/UpdateContext'
@@ -12,68 +13,38 @@ interface TabDefinition {
   icon: React.JSX.Element
 }
 
-function Icon({ path, emoji }: { path?: string; emoji?: string }): React.JSX.Element {
-  if (emoji) {
-    return <span style={{ fontSize: 20, lineHeight: 1 }}>{emoji}</span>
-  }
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-      <path d={path} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function RefreshIcon(): React.JSX.Element {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-      <path d="M20 11a8 8 0 1 0-2.3 5.7" strokeLinecap="round" />
-      <path d="M20 5v6h-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function DownloadIcon(): React.JSX.Element {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-      <path d="M12 4v10" strokeLinecap="round" />
-      <path d="M8 10l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M5 19h14" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 const TABS: TabDefinition[] = [
   {
     id: 'news',
     label: 'News',
-    icon: <Icon emoji="📰" />
+    icon: <Newspaper size={20} strokeWidth={1.75} />
   },
   {
     id: 'event_mmo',
     label: 'Event MMO',
-    icon: <Icon emoji="🏆" />
+    icon: <Trophy size={20} strokeWidth={1.75} />
   },
   {
     id: 'airdrop',
     label: 'Airdrop',
-    icon: <Icon emoji="🎁" />
+    icon: <Gift size={20} strokeWidth={1.75} />
   },
   {
     id: 'scan',
     label: 'Scan Project',
-    icon: <Icon emoji="🔍" />
+    icon: <ScanSearch size={20} strokeWidth={1.75} />
   },
   {
     id: 'revenue',
     label: 'Doanh thu',
-    icon: <Icon emoji="📊" />
+    icon: <BarChart3 size={20} strokeWidth={1.75} />
   }
 ]
 
 const settingsTab: TabDefinition = {
   id: 'settings',
   label: 'Settings',
-  icon: <Icon path="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.4 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4L5.1 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h5l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z" />
+  icon: <Settings size={20} strokeWidth={1.75} />
 }
 
 export function Sidebar(): React.JSX.Element {
@@ -140,7 +111,10 @@ export function Sidebar(): React.JSX.Element {
         <span className="sidebar__brand-mark" aria-hidden="true">
           <img src={appIcon} width={28} height={28} alt="" aria-hidden="true" />
         </span>
-        <span className="sidebar__brand-text">MMO Manager</span>
+        <span className="sidebar__brand-text">
+          MMO Manager
+          <span className="sidebar__brand-sub">Event · Airdrop · Doanh thu</span>
+        </span>
       </div>
       {TABS.map(renderItem)}
       <div className="spacer" />
@@ -152,7 +126,7 @@ export function Sidebar(): React.JSX.Element {
         onClick={(event) => handleRefresh(event.shiftKey)}
       >
         <span className="sidebar__icon" aria-hidden="true">
-          {refreshing ? <span className="sidebar__spinner" /> : <RefreshIcon />}
+          {refreshing ? <span className="sidebar__spinner" /> : <RefreshCw size={20} strokeWidth={1.75} />}
         </span>
         <span className="sidebar__label">Làm mới</span>
       </button>
@@ -166,7 +140,7 @@ export function Sidebar(): React.JSX.Element {
             aria-label={`Cập nhật lên v${updateState?.latestVersion ?? ''}`}
           >
             <span className="sidebar__update-icon" aria-hidden="true">
-              <DownloadIcon />
+              <Download size={20} strokeWidth={1.75} />
             </span>
             <span className="sidebar__update-label">{updateLabel}</span>
             <span className="sidebar__update-badge">New</span>

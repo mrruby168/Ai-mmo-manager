@@ -13,10 +13,14 @@ describe('News UI — tiêu đề emoji và panel cuộn (FIX 1)', () => {
   const source = readFileSync(NEWS_PAGE, 'utf8')
   const css = readFileSync(COMPONENTS, 'utf8')
 
-  it('ba tiêu đề có emoji và aria-hidden', () => {
-    expect(source).toContain('<span aria-hidden="true">🔔</span> Tin quan trọng mới')
-    expect(source).toContain('<span aria-hidden="true">⏰</span> Deadline sắp hết')
-    expect(source).toContain('<span aria-hidden="true">🎯</span> Việc cần làm ngay')
+  it('ba tiêu đề card có icon SVG (aria-hidden), không còn emoji', () => {
+    expect(source).toContain('<Bell size={16} strokeWidth={1.75} />')
+    expect(source).toContain('<AlarmClock size={16} strokeWidth={1.75} />')
+    expect(source).toContain('<Target size={16} strokeWidth={1.75} />')
+    expect(source).toContain('Tin quan trọng mới')
+    expect(source).toContain('Deadline sắp hết')
+    expect(source).toContain('Việc cần làm ngay')
+    expect(source).not.toMatch(/🔔|⏰|🎯/u)
   })
 
   it('khung card 2×2: đầu card 48px, thân cuộn bên trong', () => {
