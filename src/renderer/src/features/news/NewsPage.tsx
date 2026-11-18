@@ -330,6 +330,12 @@ export function NewsPage(): React.JSX.Element {
         ? 'Daily · hôm nay'
         : `Daily · ${scanSettings.dailyWindowDays} ngày gần nhất`
       : 'Full · 7 ngày gần nhất'
+  const windowDays = defaultMode === 'daily' ? scanSettings.dailyWindowDays : 7
+  const deadlineSoonCount = deadlineRows.filter(
+    (item) => item.daysRemaining >= 0 && item.daysRemaining <= 7
+  ).length
+  const openTodoCount = todos.filter((item) => !item.isDone).length
+  const airdropCount = projects.filter((project) => project.category === 'airdrop').length
   const newsChain = effectiveChain(
     'news',
     settings?.ai.taskModels.news ?? [],
@@ -405,6 +411,29 @@ export function NewsPage(): React.JSX.Element {
       ) : null}
 
       {error ? <ErrorBlock message={error} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
+
+      <div className="revenue-summary">
+        <div className="summary-card">
+          <span className="summary-card__label">Tin quan trọng mới</span>
+          <span className="summary-card__value">{important.length}</span>
+          <span className="summary-card__hint">Trong {windowDays} ngày gần nhất</span>
+        </div>
+        <div className="summary-card">
+          <span className="summary-card__label">Deadline sắp hết</span>
+          <span className="summary-card__value summary-card__value--warning">{deadlineSoonCount}</span>
+          <span className="summary-card__hint">Còn tối đa 7 ngày</span>
+        </div>
+        <div className="summary-card">
+          <span className="summary-card__label">Việc cần làm</span>
+          <span className="summary-card__value">{openTodoCount}</span>
+          <span className="summary-card__hint">Chưa xử lý</span>
+        </div>
+        <div className="summary-card">
+          <span className="summary-card__label">Đang theo dõi</span>
+          <span className="summary-card__value">{airdropCount}</span>
+          <span className="summary-card__hint">Dự án Airdrop</span>
+        </div>
+      </div>
 
       <div className="news-board">
         <section className="news-card news-panel news-panel--important" aria-label="Tin quan trọng mới">
