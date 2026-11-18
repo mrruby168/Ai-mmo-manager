@@ -88,6 +88,7 @@ function createWindow(updateService: { scheduleStartupCheck(): void } | null): v
     minHeight: 640,
     show: false,
     backgroundColor: '#0B1220',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
