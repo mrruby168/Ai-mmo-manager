@@ -3547,3 +3547,152 @@ select.field__control {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== v0.1.5: bố cục từng màn ===== */
+
+/* 1. Danh sách dự án: cột ổn định ở màn rộng để tên/mô tả không bị bóp. */
+@media (min-width: 1101px) {
+  .project-row {
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 2.2fr) 8.5rem 9.5rem 7rem;
+  }
+}
+
+.project-row__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.project-row--expired {
+  opacity: 0.8;
+}
+
+/* 2. Toolbar lọc: xếp lưới đều, không còn ô lẻ rơi xuống hàng một mình. */
+@media (min-width: 1101px) {
+  .toolbar--revenue {
+    display: grid;
+    grid-template-columns: minmax(0, 2.2fr) repeat(2, minmax(0, 1fr)) repeat(2, minmax(0, 0.85fr));
+    align-items: end;
+  }
+
+  .toolbar--revenue .revenue-search,
+  .toolbar--revenue .field,
+  .toolbar--revenue .field__control {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .toolbar--revenue .toolbar__spacer {
+    display: none;
+  }
+
+  .toolbar--revenue > .muted:last-child {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .toolbar--projects {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .toolbar--projects .search-input,
+  .toolbar--projects .field,
+  .toolbar--projects .field__control {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (min-width: 701px) and (max-width: 1100px) {
+  .toolbar--revenue {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .toolbar--revenue .revenue-search {
+    grid-column: 1 / -1;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .toolbar--revenue .field,
+  .toolbar--revenue .field__control {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .toolbar--revenue .toolbar__spacer {
+    display: none;
+  }
+
+  .toolbar--revenue > .muted:last-child {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+
+/* 3. Settings: card đơn độc chiếm cả hàng; segmented không kéo dài hết card. */
+@media (min-width: 1100px) {
+  .settings-panel > .stack > .card:only-of-type {
+    grid-column: 1 / -1;
+  }
+}
+
+.ai-mode-bar > .segmented {
+  align-self: flex-start;
+}
+
+/* 4. Model Configuration: cố định cột để A3 không bị cắt; TTL tách khỏi bảng. */
+.model-config {
+  table-layout: fixed;
+}
+
+.model-config thead th:first-child {
+  width: 11rem;
+}
+
+.model-config td {
+  min-width: 0;
+}
+
+.model-config__ttl-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.model-config__ttl-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 9.5rem;
+}
+
+.model-config__ttl-title {
+  font-weight: 600;
+}
+
+.model-config__ttl-body {
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+
+.model-config__ttl-body .segmented {
+  align-self: flex-start;
+}
+
+/* 6. Nút chính: nhấc nhẹ khi hover. */
+.btn--primary:hover:not(:disabled) {
+  box-shadow: 0 6px 16px rgba(91, 141, 239, 0.28);
+}
+
+/* 7. Light theme: card tách khỏi nền bằng bóng rất nhẹ. */
+:root[data-theme='light'] .card {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}

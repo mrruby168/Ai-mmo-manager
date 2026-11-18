@@ -144,7 +144,6 @@ export function ModelConfigPanel({ ai, providers, onChanged }: ModelConfigPanelP
                     {label}
                   </th>
                 ))}
-                <th scope="col">Cache TTL</th>
               </tr>
             </thead>
             <tbody>
@@ -172,36 +171,9 @@ export function ModelConfigPanel({ ai, providers, onChanged }: ModelConfigPanelP
                           />
                         </td>
                       ))}
-                      <td className="model-config__ttl">
-                        {row.task === 'news' ? (
-                          <div className="stack model-config__ttl-body">
-                            <div className="segmented" role="group" aria-label="Cache TTL của Check News">
-                              {NEWS_CACHE_TTL_OPTIONS_MS.map((value) => (
-                                <button
-                                  key={value}
-                                  type="button"
-                                  className={`segmented__item${ttl === value ? ' segmented__item--active' : ''}`}
-                                  aria-pressed={ttl === value}
-                                  disabled={disabled}
-                                  onClick={() => handleTtlChange(value)}
-                                >
-                                  {formatNewsCacheTtl(value)}
-                                </button>
-                              ))}
-                            </div>
-                            <span className="muted model-config__note">
-                              {ttl === NEWS_CACHE_TTL_OPTIONS_MS[0]
-                                ? '1 phút: dùng để test đầu ra.'
-                                : 'Dự án đã kiểm tra trong thời gian này và link không đổi sẽ không gọi lại AI/Search.'}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
                     </tr>
                     <tr>
-                      <td colSpan={SLOT_LABELS.length + 2} className="model-config__issues">
+                      <td colSpan={SLOT_LABELS.length + 1} className="model-config__issues">
                         {chain.length === 0 ? (
                           <p className="muted">
                             {row.task === 'chat'
@@ -228,6 +200,34 @@ export function ModelConfigPanel({ ai, providers, onChanged }: ModelConfigPanelP
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="model-config__ttl-row">
+          <div className="model-config__ttl-head">
+            <span className="model-config__ttl-title">Cache TTL</span>
+            <span className="muted">Check News</span>
+          </div>
+          <div className="stack model-config__ttl-body">
+            <div className="segmented" role="group" aria-label="Cache TTL của Check News">
+              {NEWS_CACHE_TTL_OPTIONS_MS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`segmented__item${ttl === value ? ' segmented__item--active' : ''}`}
+                  aria-pressed={ttl === value}
+                  disabled={disabled}
+                  onClick={() => handleTtlChange(value)}
+                >
+                  {formatNewsCacheTtl(value)}
+                </button>
+              ))}
+            </div>
+            <span className="muted model-config__note">
+              {ttl === NEWS_CACHE_TTL_OPTIONS_MS[0]
+                ? '1 phút: dùng để test đầu ra.'
+                : 'Dự án đã kiểm tra trong thời gian này và link không đổi sẽ không gọi lại AI/Search.'}
+            </span>
+          </div>
         </div>
       </section>
     </div>

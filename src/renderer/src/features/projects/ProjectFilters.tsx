@@ -124,7 +124,7 @@ export function ProjectFilters({
   disabled?: boolean
 }): React.JSX.Element {
   return (
-    <div className="toolbar">
+    <div className="toolbar toolbar--projects">
       <SearchInput
         value={filters.search}
         onChange={(search) => onChange({ ...filters, search })}

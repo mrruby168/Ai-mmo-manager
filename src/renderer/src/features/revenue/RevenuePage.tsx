@@ -143,7 +143,7 @@ export function RevenuePage(): React.JSX.Element {
         </p>
       ) : null}
 
-      <div className="toolbar">
+      <div className="toolbar toolbar--revenue">
         <TextInput
           className="field__control revenue-search"
           value={query}
