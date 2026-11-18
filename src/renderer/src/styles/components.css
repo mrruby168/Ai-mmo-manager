@@ -3687,6 +3687,12 @@ select.field__control {
   align-self: flex-start;
 }
 
+/* 5. Scan: khung dán nội dung không cao quá nửa màn hình. */
+.scan-drop {
+  min-height: 16rem;
+  max-height: 45vh;
+}
+
 /* 6. Nút chính: nhấc nhẹ khi hover. */
 .btn--primary:hover:not(:disabled) {
   box-shadow: 0 6px 16px rgba(91, 141, 239, 0.28);
