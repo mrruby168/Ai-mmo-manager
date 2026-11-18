@@ -128,10 +128,10 @@
   --color-border-control: #c4cfe3;
   --color-focus: #3b6fd8;
   --color-primary-text: #2c5fd0;
-  --color-success: #0e9f6e;
-  --color-warning: #b7791f;
-  --color-error: #d64545;
-  --color-info: #2f6fd6;
+  --color-success: #0b7d57;
+  --color-warning: #8f5d0c;
+  --color-error: #b83232;
+  --color-info: #2a63c9;
   --color-overlay: rgba(15, 27, 51, 0.4);
 
   --color-primary-soft: rgba(91, 141, 239, 0.14);
@@ -149,7 +149,7 @@
   --chat-border-strong: #b6c3dc;
   --chat-text: #0f1b33;
   --chat-text-secondary: #3d4f6e;
-  --chat-text-muted: #6b7b96;
+  --chat-text-muted: #5a6b88;
   --chat-text-disabled: #9aa8bf;
   --chat-user-bg: #dce8ff;
   --chat-ai-bg: #f1f5fb;
