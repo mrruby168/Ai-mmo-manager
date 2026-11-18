@@ -1,3 +1,11 @@
+## WI-23 — RELEASE v0.1.5 (2026-11-18)
+- Branch `feat/ui-v0.1.5` (10 commit từ `v0.1.4` / `ee64b95`): theme Tối/Sáng/Hệ thống + token light, icon lucide thay emoji, tinh chỉnh bố cục Project/Revenue/Settings/Model Config/News/Scan, 4 thẻ số liệu News, `autoHideMenuBar`, bump 0.1.5.
+- Merge fast-forward vào `main` `ee64b95 → 6056ede`; tag annotated `v0.1.5`; push `main` + tag. CI run #11 (`44228532118`) PASS sau 4m35s; GitHub Release không draft/pre-release với `mmo-manager-setup-0.1.5.exe`, `mmo-manager-portable-0.1.5.exe`, `latest.yml`, `.blockmap`.
+- Verify: `npm run typecheck` PASS; `npm test` 75 file / 798 test PASS (baseline 793); `npm run build` PASS; GUI audit 1360×820, 1150×820, 1101×820, 1024×700 cả 2 theme; theme lưu qua reload.
+- Không đổi schema DB/IPC/zod/settings schema/logic; dependency mới duy nhất `lucide-react`; `tests/newsBoardLayout.test.ts` không sửa.
+- Next: theo dõi phản hồi người dùng bản 0.1.5; chưa kiểm chứng Windows scaling 125%/150% và cài installer 0.1.5 trên máy sạch.
+- Open: none.
+
 ## WI-22 — FIX UPDATE v0.1.3 (2026-11-16)
 - Branch `fix/updater-v0.1.3`. Nguyên nhân màn hình trắng đã xác minh: `UpdateBanner.tsx` đặt `useCallback` sau các `return` sớm, nên khi phase chuyển sang `available` số hook thay đổi → React gỡ cả cây, cửa sổ tối trống.
 - Gỡ `UpdateBanner.tsx`, `UpdatePanel.tsx`, tab Settings "Cập nhật ứng dụng" và IPC `update:check` (shared type/preload/main); thêm `UpdateContext` (một listener duy nhất), `UpdateDialog` và `ErrorBoundary` bọc `<App/>` trong `main.tsx`.

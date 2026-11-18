@@ -38,3 +38,15 @@ Tính năng "thông báo và cập nhật app" được bắt đầu từ bản 
 - Tin trong bảng News có nhãn nhanh suy ra từ `milestoneKind`/ngày (không lưu thêm): **Sắp đến hạn** (mốc/todo trong 0–3 ngày), **Claim mở** (mốc claim còn mở), **Đã kết thúc** (mốc end đã tới).
 - Không thay đổi: schema/migration, `news_items`, danh sách `NEWS_KINDS`/`MILESTONE_KINDS`, nguyên tắc "không bịa tin", PendingAction, Scan Project, Chat và luồng cập nhật của v0.1.3.
 - Đã kiểm chứng: `npm run typecheck`, `npm test`, `npm run build`. Kiểm thử tay với provider thật + Web Search thật được ghi trong báo cáo của PR.
+
+### v0.1.5 — Giao diện sáng/tối + tinh chỉnh bố cục
+
+- Thêm chế độ giao diện **Tối / Sáng / Theo hệ thống** ở cuối sidebar và Settings → Appearance; lưu lựa chọn trong `localStorage` khóa `mmo-theme`, mặc định Tối. Đổi theme không reload, không đổi dữ liệu.
+- Bảng màu light theme nằm trong `tokens.css` (`:root[data-theme='light']`), giữ primary `#5b8def`; các màu trạng thái đạt tương phản ≥ 4.5:1 trên nền sáng.
+- Thay emoji bằng icon `lucide-react` ở Sidebar, News, Scan, Chat; thêm phụ đề thương hiệu “Event · Airdrop · Doanh thu”.
+- News: 4 thẻ số liệu đầu trang (Tin quan trọng mới, Deadline sắp hết, Việc cần làm, Đang theo dõi); giữ đúng **một** nút Check News, bỏ chip Daily/Full và Ctrl-K search.
+- Bố cục: cột danh sách dự án ổn định, toolbar lọc Doanh thu/Dự án gọn một hàng, Settings card 46rem, Model Configuration đủ A1/A2/A3 với TTL dưới bảng, nút mở rộng log Scan vào header, dropzone thấp hơn.
+- Ẩn menu bar mặc định (`autoHideMenuBar`), chỉ hiện khi nhấn Alt.
+- Phạm vi: chỉ UI + theme; không đổi schema SQLite, IPC, zod payload, settings schema hay logic nghiệp vụ. Dependency mới duy nhất: `lucide-react`.
+- Đã kiểm chứng: `npm run typecheck`, `npm test` (75 file / 798 test), `npm run build`; kiểm tra giao diện 1360×820, 1150×820, 1101×820 và 1024×700 ở cả hai theme. CI `Build Windows Exe` PASS, tag khớp `package.json`.
+- Người dùng v0.1.4 trở lên tự cập nhật qua app; bản 0.1.2/0.1.3 vẫn cần cài tay v0.1.4 một lần trước (như ghi chú v0.1.4).
