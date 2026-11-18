@@ -3614,6 +3614,13 @@ select.field__control {
   }
 }
 
+/* 1101–1199px: chưa đủ chỗ cho 6 cột tối thiểu, co giãn để không tràn ngang. */
+@media (min-width: 1101px) and (max-width: 1199px) {
+  .toolbar--revenue {
+    grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1.15fr)) repeat(2, minmax(0, 0.8fr)) auto;
+  }
+}
+
 @media (min-width: 701px) and (max-width: 1100px) {
   .toolbar--revenue {
     display: grid;
