@@ -156,7 +156,7 @@ export function ModelConfigPanel({ ai, providers, onChanged }: ModelConfigPanelP
                       <th scope="row" className="model-config__role-cell">
                         <span className="model-config__role">
                           <span>{row.label}</span>
-                          <span className="muted">{row.hint}</span>
+                          <span className="muted" title={row.hint}>{row.hint}</span>
                         </span>
                       </th>
                       {SLOT_LABELS.map((slotLabel, index) => (
