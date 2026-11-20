@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest'
-import { closeDatabase, openDatabase, withTransaction } from '../src/main/db/connection'
+import { closeDatabase, getDatabase, openDatabase, withTransaction } from '../src/main/db/connection'
 import { allocateProjectId, deleteProject, getProject, insertProject, listProjects, updateProject } from '../src/main/db/projectsRepo'
 import type { ProjectRecord } from '../src/main/db/projectsRepo'
 import { deleteRevenue, insertRevenue, listRevenue } from '../src/main/db/revenueRepo'
@@ -205,5 +205,44 @@ describe('scan repo', () => {
     )
 
     expect(getScanLatest()?.items).toHaveLength(1)
+  })
+})
+
+const setMeta = (key: string, value: string): void => {
+  getDatabase().prepare('INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)').run(key, value)
+}
+
+const getMeta = (key: string): string | null => {
+  const row = getDatabase().prepare('SELECT value FROM meta WHERE key = ?').get(key)
+  return row ? String(row.value) : null
+}
+
+describe('withTransaction lồng nhau', () => {
+  it('lỗi bên trong chỉ rollback phần bên trong', () => {
+    withTransaction(() => {
+      setMeta('t_outer', '1')
+      try {
+        withTransaction(() => {
+          setMeta('t_inner', '1')
+          throw new Error('boom')
+        })
+      } catch {
+        // bỏ qua
+      }
+    })
+    expect(getMeta('t_outer')).toBe('1')
+    expect(getMeta('t_inner')).toBeNull()
+  })
+
+  it('lỗi ở transaction ngoài rollback tất cả', () => {
+    expect(() =>
+      withTransaction(() => {
+        setMeta('t_a', '1')
+        withTransaction(() => setMeta('t_b', '1'))
+        throw new Error('outer')
+      })
+    ).toThrow('outer')
+    expect(getMeta('t_a')).toBeNull()
+    expect(getMeta('t_b')).toBeNull()
   })
 })

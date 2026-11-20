@@ -3,6 +3,7 @@ import { normalizeDomainKey, normalizeNameKey } from '@shared/normalize'
 import { coerceProjectItem, extractProjectItems, formatZodError } from '@shared/coerce'
 import { projectImportItemSchema } from '@shared/schemas'
 import type { ProjectImportItem } from '@shared/schemas'
+import { LIMITS } from '@shared/constants'
 import type { ProjectCategory, ProjectOrigin } from '@shared/constants'
 import type { Project, ProjectInput, SocialLinks } from '@shared/types'
 import type { ProjectMutableFields } from '../db/projectsRepo'
@@ -335,7 +336,13 @@ export function importProjects(rawPayload: unknown): ImportResult {
   if (items.length === 0) {
     throw new ProjectError('INVALID', 'Không tìm thấy danh sách dự án trong JSON (cần projects/items/data hoặc một dự án)')
   }
-  const results = addProjects(items, 'import')
+  if (items.length > LIMITS.importMaxItems) {
+    throw new ProjectError(
+      'INVALID',
+      `Tối đa ${LIMITS.importMaxItems} dự án mỗi lần nhập (file có ${items.length}).`
+    )
+  }
+  const results = withTransaction(() => addProjects(items, 'import'))
   return {
     results,
     addedCount: results.filter((result) => result.project !== null).length,

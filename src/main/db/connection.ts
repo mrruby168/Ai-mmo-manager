@@ -4,6 +4,7 @@ import { runMigrations } from './migrations'
 
 let database: DatabaseSync | null = null
 let databasePath: string | null = null
+let transactionDepth = 0
 
 /**
  * D1: sao lưu file DB một lần trước khi nâng schema v1 -> v2.
@@ -54,17 +55,47 @@ export function closeDatabase(): void {
     database = null
     databasePath = null
   }
+  transactionDepth = 0
 }
 
 export function withTransaction<T>(work: () => T): T {
   const db = getDatabase()
+
+  if (transactionDepth > 0) {
+    const savepoint = `sp_${transactionDepth}`
+    db.exec(`SAVEPOINT ${savepoint}`)
+    transactionDepth += 1
+    try {
+      const result = work()
+      db.exec(`RELEASE ${savepoint}`)
+      return result
+    } catch (error) {
+      try {
+        db.exec(`ROLLBACK TO ${savepoint}`)
+        db.exec(`RELEASE ${savepoint}`)
+      } catch {
+        // Giữ lỗi gốc nếu rollback cũng lỗi.
+      }
+      throw error
+    } finally {
+      transactionDepth -= 1
+    }
+  }
+
   db.exec('BEGIN IMMEDIATE')
+  transactionDepth = 1
   try {
     const result = work()
     db.exec('COMMIT')
     return result
   } catch (error) {
-    db.exec('ROLLBACK')
+    try {
+      db.exec('ROLLBACK')
+    } catch {
+      // Giữ lỗi gốc nếu rollback cũng lỗi.
+    }
     throw error
+  } finally {
+    transactionDepth = 0
   }
 }

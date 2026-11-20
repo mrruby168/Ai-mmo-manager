@@ -45,6 +45,7 @@ export const LOCK_POLICY = {
 export const LIMITS = {
   scanInputMaxBytes: 1_000_000,
   importMaxBytes: 10 * 1024 * 1024,
+  importMaxItems: 5000,
   logoMaxBytes: 2_000_000,
   webFetchMaxBytes: 2_000_000,
   webFetchTimeoutMs: 15_000,
