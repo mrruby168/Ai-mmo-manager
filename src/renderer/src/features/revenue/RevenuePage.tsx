@@ -203,6 +203,7 @@ export function RevenuePage(): React.JSX.Element {
                     name={entry.projectNameSnapshot}
                     hasLogo={Boolean(project?.logoPath)}
                     size="news"
+                    version={project?.rowVersion}
                   />
                   <span>
                     <span className="revenue-row__name">{entry.projectNameSnapshot}</span>

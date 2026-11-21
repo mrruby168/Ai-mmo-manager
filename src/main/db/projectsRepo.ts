@@ -128,6 +128,11 @@ export function getProject(id: string): Project | null {
   return row ? mapRow(row as unknown as ProjectRow) : null
 }
 
+export function getProjectLogoPath(id: string): string | null {
+  const row = getDatabase().prepare('SELECT logo_path FROM projects WHERE id = ?').get(id)
+  return row && typeof row.logo_path === 'string' && row.logo_path.length > 0 ? row.logo_path : null
+}
+
 export function findProjectByNameKey(category: ProjectCategory, nameKey: string): Project | null {
   const row = getDatabase().prepare(`SELECT ${COLUMNS} FROM projects WHERE category = ? AND name_key = ?`).get(category, nameKey)
   return row ? mapRow(row as unknown as ProjectRow) : null

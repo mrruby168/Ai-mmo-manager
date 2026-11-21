@@ -1,9 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join, normalize, sep, dirname } from 'node:path'
 import { app, BrowserWindow, dialog, protocol, session, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { closeDatabase } from './db/connection'
-import { getProject } from './db/projectsRepo'
+import { getProjectLogoPath } from './db/projectsRepo'
 import { hasActiveAiTask } from './ai/aiTaskRunner'
 import { registerAllIpc } from './ipc'
 import { initializeDataDirectory, getCurrentLayout, getDataFolderToOpen } from './services/dataPathService'
@@ -58,25 +59,30 @@ function applyCsp(): void {
 }
 
 function registerLogoProtocol(): void {
-  protocol.handle('mmo-logo', (request) => {
+  protocol.handle('mmo-logo', async (request) => {
     const projectId = parseLogoProjectId(request.url)
-    const project = projectId ? getProject(projectId) : null
-    if (!project?.logoPath) {
+    const logoPath = projectId ? getProjectLogoPath(projectId) : null
+    if (!projectId || !logoPath) {
       return new Response('Not found', { status: 404 })
     }
 
-    const absolutePath = resolveLogoAbsolutePath(project.logoPath)
+    const absolutePath = resolveLogoAbsolutePath(logoPath)
     const root = normalize(getCurrentLayout().root)
     if (!normalize(absolutePath).startsWith(`${root}${sep}`) || !existsSync(absolutePath)) {
       return new Response('Not found', { status: 404 })
     }
 
-    return new Response(new Uint8Array(readFileSync(absolutePath)), {
-      headers: {
-        'content-type': logoMimeForPath(project.logoPath) ?? 'application/octet-stream',
-        'cache-control': 'no-store'
-      }
-    })
+    try {
+      const bytes = await readFile(absolutePath)
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          'content-type': logoMimeForPath(logoPath) ?? 'application/octet-stream',
+          'cache-control': 'private, max-age=31536000'
+        }
+      })
+    } catch {
+      return new Response('Not found', { status: 404 })
+    }
   })
 }
 

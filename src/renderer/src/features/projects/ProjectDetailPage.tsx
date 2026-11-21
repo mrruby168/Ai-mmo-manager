@@ -166,7 +166,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }): React.J
           <Button variant="ghost" onClick={closeProject} aria-label="Quay lại danh sách">
             ←
           </Button>
-          <ProjectLogo projectId={project.id} name={project.name} hasLogo={Boolean(project.logoPath)} size="detail" />
+          <ProjectLogo projectId={project.id} name={project.name} hasLogo={Boolean(project.logoPath)} size="detail" version={project.rowVersion} />
           <div className="page-header__title">
             <h1>{project.name}</h1>
             <div className="row">

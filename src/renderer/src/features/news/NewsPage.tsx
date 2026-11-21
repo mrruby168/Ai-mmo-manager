@@ -799,7 +799,7 @@ function ImportantCard({
         onClick={() => onOpenProject(item.projectId)}
       >
         <span className="news-item__logo">
-          <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
+          <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" version={project?.rowVersion} />
         </span>
         <span className="news-item__line">
           <span className="news-item__title" title={summary}>
@@ -905,7 +905,7 @@ function TodoCard({
         onClick={() => onOpenProject(item.projectId)}
       >
         <span className="news-item__logo">
-          <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" />
+          <ProjectLogo projectId={item.projectId} name={name} hasLogo={Boolean(project?.logoPath)} size="news" version={project?.rowVersion} />
         </span>
         <span className="news-item__line">
           <span className="news-item__title" title={summary}>

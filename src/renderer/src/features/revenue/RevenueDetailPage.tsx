@@ -115,6 +115,7 @@ export function RevenueDetailPage({ revenueId }: { revenueId: number }): React.J
             name={entry.projectNameSnapshot}
             hasLogo={Boolean(project?.logoPath)}
             size="detail"
+            version={project?.rowVersion}
           />
           <div className="page-header__title">
             <h1>{entry.projectNameSnapshot}</h1>
