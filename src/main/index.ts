@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join, normalize, sep, dirname } from 'node:path'
-import { app, BrowserWindow, dialog, protocol, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, nativeImage, protocol, session, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { closeDatabase } from './db/connection'
 import { getProjectLogoPath } from './db/projectsRepo'
@@ -12,6 +12,7 @@ import { getLockState } from './services/lockManager'
 import { createUpdateService } from './services/updateService'
 import { logError, logInfo } from './services/logger'
 import { logoMimeForPath, resolveLogoAbsolutePath } from './services/logoService'
+import { ensureThumb, setThumbResizer } from './services/logoThumb'
 import { parseLogoProjectId } from './services/logoUrl'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
@@ -72,11 +73,15 @@ function registerLogoProtocol(): void {
       return new Response('Not found', { status: 404 })
     }
 
+    const wantThumb = new URL(request.url).searchParams.get('s') === 'thumb'
+    const thumbPath = wantThumb ? ensureThumb(getCurrentLayout().root, projectId, absolutePath) : null
+    const servedPath = thumbPath ?? absolutePath
+
     try {
-      const bytes = await readFile(absolutePath)
+      const bytes = await readFile(servedPath)
       return new Response(new Uint8Array(bytes), {
         headers: {
-          'content-type': logoMimeForPath(logoPath) ?? 'application/octet-stream',
+          'content-type': thumbPath ? 'image/png' : (logoMimeForPath(logoPath) ?? 'application/octet-stream'),
           'cache-control': 'private, max-age=31536000'
         }
       })
@@ -193,6 +198,20 @@ function bootstrap(): void {
   })
 
   registerAllIpc(updateService)
+  setThumbResizer((bytes, longestSide) => {
+    const image = nativeImage.createFromBuffer(Buffer.from(bytes))
+    if (image.isEmpty()) {
+      return null
+    }
+    const { width, height } = image.getSize()
+    if (Math.max(width, height) <= longestSide) {
+      return null
+    }
+    const resized = image.resize(
+      width >= height ? { width: longestSide, quality: 'best' } : { height: longestSide, quality: 'best' }
+    )
+    return new Uint8Array(resized.toPNG())
+  })
   registerLogoProtocol()
   applyCsp()
   createWindow(updateService)
