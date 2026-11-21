@@ -1,3 +1,11 @@
+## WI-25 — RELEASE v0.1.7 (2026-11-21)
+- Branch `feat/scale-1k-projects` (commit `80c9799`): sửa layout cuộn trang danh sách dự án — sidebar, tiêu đề và bộ lọc đứng yên; chỉ khung danh sách cuộn; thanh phân trang ghim sát đáy; bỏ `topRef`/`scrollIntoView`.
+- Nguyên nhân: `.visually-hidden` trong phân trang không có tổ tiên `position: relative` làm document cao hơn cửa sổ, cuộn chuỗi từ `.app-content` sang document. Sửa: `html, body { overflow: hidden }`, `position: relative` cho `.app-content`, khung `app-content--fit` cho tab Event MMO/Airdrop.
+- Merge `--no-ff` vào `main`; tag annotated `v0.1.7`; push `main` + tag; CI `Build Windows Exe` chạy cho tag `v0.1.7`.
+- Verify: `npm run typecheck` PASS; `npm test` 80 file / 899 test PASS (baseline 895); `npm run build` PASS; người dùng kiểm thử tay với 1.000 dự án TEST (cuộn danh sách, phân trang, đổi 20/50/100, thu nhỏ cửa sổ, các tab khác) và xác nhận OK.
+- Không đổi schema/migration SQLite, IPC, dependency hay màu thương hiệu; chỉ CSS + layout component + test đọc nguồn.
+- Open: none.
+
 ## WI-24 — RELEASE v0.1.6 (2026-11-21)
 - Branch `feat/scale-1k-projects` (5 commit P0–P4 + bump 0.1.6, tách từ `main` `1ee1258`): import JSON một transaction + trần 5.000 dự án, cache/thumbnail logo, API phân trang bằng SQL, UI phân trang 20/50/100.
 - Merge `--no-ff` vào `main`; tag annotated `v0.1.6`; push `main` + tag; CI `Build Windows Exe` chạy cho tag `v0.1.6`.
