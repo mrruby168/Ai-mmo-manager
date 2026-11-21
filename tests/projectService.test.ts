@@ -14,6 +14,7 @@ vi.mock('../src/main/services/logoService', () => ({
 
 import { closeDatabase, openDatabase } from '../src/main/db/connection'
 import { getDatabase } from '../src/main/db/connection'
+import { LIMITS } from '../src/shared/constants'
 import {
   addProject,
   createProject,
@@ -320,5 +321,43 @@ describe('projectService import', () => {
     expect(result.failedCount).toBe(1)
     expect(result.results).toHaveLength(5)
     expect(result.results[2].error).toBeTruthy()
+  })
+
+  it('imports 300 valid projects in one call', () => {
+    const projects = Array.from({ length: 300 }, (_, index) => ({
+      category: 'airdrop',
+      name: `Bulk ${index}`,
+      website: `https://bulk-${index}.example.com`
+    }))
+
+    const result = importProjects({ projects })
+
+    expect(result.addedCount).toBe(300)
+    expect(listProjects()).toHaveLength(300)
+  })
+
+  it('keeps two valid projects when one item duplicates a name in the same file', () => {
+    const result = importProjects({
+      projects: [
+        { category: 'airdrop', name: 'Same Name', website: 'https://one.example.com' },
+        { category: 'airdrop', name: 'Same Name', website: 'https://two.example.com' },
+        { category: 'airdrop', name: 'Other Name', website: 'https://three.example.com' }
+      ]
+    })
+
+    expect(result.addedCount).toBe(2)
+    expect(result.duplicateCount).toBe(1)
+    expect(listProjects()).toHaveLength(2)
+  })
+
+  it('rejects an import above the item cap without changing the database', () => {
+    const projects = Array.from({ length: LIMITS.importMaxItems + 1 }, (_, index) => ({
+      category: 'airdrop',
+      name: `Over ${index}`,
+      website: `https://over-${index}.example.com`
+    }))
+
+    expect(() => importProjects({ projects })).toThrow(/Tối đa 5000 dự án/)
+    expect(listProjects()).toHaveLength(0)
   })
 })

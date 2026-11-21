@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { PROJECT_CATEGORIES, WEB_SEARCH_PROVIDERS } from '@shared/constants'
+import { PROJECT_CATEGORIES, PROJECT_STATUSES, WEB_SEARCH_PROVIDERS } from '@shared/constants'
+import { PROJECT_COST_FILTERS, PROJECT_DEADLINE_FILTERS } from '@shared/projectList'
 import { NEWS_CACHE_TTL_OPTIONS_MS } from '@shared/types'
 import {
   aiModeSchema,
@@ -55,6 +56,17 @@ export const aiLogPayload = z.object({ channel: z.enum(['news', 'scan', 'chat'])
 export const projectsIdPayload = z.object({ id: z.string().min(1).max(64) })
 
 export const projectsListPayload = z.object({ category: z.enum(PROJECT_CATEGORIES).optional() }).optional()
+
+export const projectsListPagePayload = z.object({
+  category: z.enum(PROJECT_CATEGORIES),
+  search: z.string().max(200),
+  status: z.union([z.literal('all'), z.enum(PROJECT_STATUSES)]),
+  cost: z.enum(PROJECT_COST_FILTERS),
+  deadline: z.enum(PROJECT_DEADLINE_FILTERS),
+  today: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  page: z.number().int().min(1).max(1_000_000),
+  pageSize: z.union([z.literal(20), z.literal(50), z.literal(100)])
+})
 
 export const projectsCreatePayload = z.object({ input: z.unknown() })
 

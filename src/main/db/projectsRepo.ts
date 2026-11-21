@@ -1,5 +1,8 @@
 import type { CostType, ProjectCategory, ProjectOrigin, ProjectStatus, VerificationState } from '@shared/constants'
 import type { Project, SocialLinks } from '@shared/types'
+import type { SQLOutputValue } from 'node:sqlite'
+import { normalizeNameKey } from '@shared/normalize'
+import type { ProjectListQuery, ProjectListResult, ProjectListItem } from '@shared/projectList'
 import { getDatabase } from './connection'
 
 const COLUMNS = `id, category, name, name_key, domain_key, website, socials_json, task_summary, how_to_join,
@@ -128,6 +131,11 @@ export function getProject(id: string): Project | null {
   return row ? mapRow(row as unknown as ProjectRow) : null
 }
 
+export function getProjectLogoPath(id: string): string | null {
+  const row = getDatabase().prepare('SELECT logo_path FROM projects WHERE id = ?').get(id)
+  return row && typeof row.logo_path === 'string' && row.logo_path.length > 0 ? row.logo_path : null
+}
+
 export function findProjectByNameKey(category: ProjectCategory, nameKey: string): Project | null {
   const row = getDatabase().prepare(`SELECT ${COLUMNS} FROM projects WHERE category = ? AND name_key = ?`).get(category, nameKey)
   return row ? mapRow(row as unknown as ProjectRow) : null
@@ -238,4 +246,102 @@ export function setProjectLogo(id: string, logoPath: string | null, updatedAt: s
 export function deleteProject(id: string): boolean {
   const result = getDatabase().prepare('DELETE FROM projects WHERE id = ?').run(id)
   return Number(result.changes) > 0
+}
+
+type ListRow = Record<string, SQLOutputValue>
+
+const LIST_SUMMARY_LENGTH = 300
+
+const LIST_COLUMNS = `id, category, name, end_date, cost_type, cost_amount_usd, status, verification,
+  logo_path, row_version,
+  SUBSTR(COALESCE(NULLIF(task_summary, ''), how_to_join), 1, ${LIST_SUMMARY_LENGTH}) AS summary`
+
+/** Khớp sortByDeadline ở renderer: còn hạn tăng dần → quá hạn (cũ nhất trước) → không có hạn (theo tên). */
+const LIST_ORDER_BY = `CASE
+    WHEN NULLIF(end_date, '') IS NULL THEN 2
+    WHEN julianday(end_date) < julianday(?) THEN 1
+    ELSE 0
+  END, julianday(end_date), name COLLATE NOCASE, id`
+
+function buildListWhere(query: ProjectListQuery): { sql: string; params: Array<string | number> } {
+  const clauses = ['category = ?']
+  const params: Array<string | number> = [query.category]
+
+  const key = normalizeNameKey(query.search)
+  if (key) {
+    clauses.push("name_key LIKE ? ESCAPE '\\'")
+    params.push(`%${key.replace(/[\\%_]/g, '\\$&')}%`)
+  }
+  if (query.status !== 'all') {
+    clauses.push('status = ?')
+    params.push(query.status)
+  }
+  if (query.cost !== 'all') {
+    clauses.push('cost_type = ?')
+    params.push(query.cost)
+  }
+
+  const days = 'julianday(end_date) - julianday(?)'
+  switch (query.deadline) {
+    case 'none':
+      clauses.push("NULLIF(end_date, '') IS NULL")
+      break
+    case 'soon3':
+      clauses.push(`NULLIF(end_date, '') IS NOT NULL AND ${days} BETWEEN 0 AND 3`)
+      params.push(query.today)
+      break
+    case 'soon7':
+      clauses.push(`NULLIF(end_date, '') IS NOT NULL AND ${days} BETWEEN 0 AND 7`)
+      params.push(query.today)
+      break
+    case 'active':
+      clauses.push(`NULLIF(end_date, '') IS NOT NULL AND ${days} >= 0`)
+      params.push(query.today)
+      break
+    case 'expired':
+      clauses.push(`NULLIF(end_date, '') IS NOT NULL AND ${days} < 0`)
+      params.push(query.today)
+      break
+    default:
+      break
+  }
+  return { sql: clauses.join(' AND '), params }
+}
+
+export function listProjectsPage(query: ProjectListQuery): ProjectListResult {
+  const database = getDatabase()
+  const where = buildListWhere(query)
+
+  const totalRow = database
+    .prepare(`SELECT COUNT(*) AS total FROM projects WHERE ${where.sql}`)
+    .get(...where.params) as ListRow | undefined
+  const total = Number(totalRow?.total ?? 0)
+  const totalAllRow = database
+    .prepare('SELECT COUNT(*) AS total FROM projects WHERE category = ?')
+    .get(query.category) as ListRow | undefined
+  const totalAll = Number(totalAllRow?.total ?? 0)
+  const pageCount = Math.max(1, Math.ceil(total / query.pageSize))
+  const page = Math.min(Math.max(1, query.page), pageCount)
+
+  const rows = database
+    .prepare(
+      `SELECT ${LIST_COLUMNS} FROM projects WHERE ${where.sql} ORDER BY ${LIST_ORDER_BY} LIMIT ? OFFSET ?`
+    )
+    .all(...where.params, query.today, query.pageSize, (page - 1) * query.pageSize) as ListRow[]
+
+  const items: ProjectListItem[] = rows.map((row) => ({
+    id: String(row.id),
+    category: row.category as ProjectListItem['category'],
+    name: String(row.name),
+    summary: String(row.summary ?? ''),
+    endDate: row.end_date === null ? null : String(row.end_date),
+    costType: row.cost_type as ProjectListItem['costType'],
+    costAmountUsd: row.cost_amount_usd === null ? null : Number(row.cost_amount_usd),
+    status: row.status as ProjectListItem['status'],
+    verification: row.verification as ProjectListItem['verification'],
+    logoPath: row.logo_path === null ? null : String(row.logo_path),
+    rowVersion: Number(row.row_version)
+  }))
+
+  return { items, total, totalAll, page, pageSize: query.pageSize, pageCount }
 }

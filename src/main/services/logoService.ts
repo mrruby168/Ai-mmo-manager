@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { extname, join } from 'node:path'
+import { basename, extname, join } from 'node:path'
 import { LIMITS } from '@shared/constants'
 import {
   extractSocialPreviewCandidates,
@@ -12,6 +12,7 @@ import {
   type ImageSize
 } from '@shared/logoPick'
 import { getCurrentLayout } from './dataPathService'
+import { removeThumb } from './logoThumb'
 import { safeFetch, safeFetchImage } from './safeFetch'
 
 export type ImageMime = 'image/png' | 'image/jpeg' | 'image/webp'
@@ -78,6 +79,7 @@ function removeExistingLogos(projectId: string): void {
       rmSync(candidate, { force: true })
     }
   }
+  removeThumb(getCurrentLayout().root, projectId)
 }
 
 function saveLogoBytes(projectId: string, bytes: Uint8Array): string {
@@ -217,6 +219,7 @@ export function deleteLogoFile(relativePath: string | null): void {
     return
   }
   try {
+    removeThumb(getCurrentLayout().root, basename(relativePath, extname(relativePath)))
     rmSync(resolveLogoAbsolutePath(relativePath), { force: true })
   } catch {
     // Dọn logo thất bại không được chặn việc xóa dự án.

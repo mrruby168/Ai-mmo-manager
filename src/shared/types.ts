@@ -13,6 +13,7 @@ import type {
   VerificationState,
   WebSearchProvider
 } from './constants'
+import type { ProjectListQuery, ProjectListResult } from './projectList'
 
 export interface SocialLinks {
   x?: string
@@ -464,6 +465,7 @@ export interface UpdateState {
 export interface RendererApi {
   projects: {
     list(category?: ProjectCategory): Promise<IpcResult<Project[]>>
+    listPage(query: ProjectListQuery): Promise<IpcResult<ProjectListResult>>
     get(id: string): Promise<IpcResult<Project | null>>
     create(input: unknown): Promise<IpcResult<Project>>
     update(id: string, input: unknown, expectedRowVersion?: number): Promise<IpcResult<Project>>

@@ -1,9 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join, normalize, sep, dirname } from 'node:path'
-import { app, BrowserWindow, dialog, protocol, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, nativeImage, protocol, session, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { closeDatabase } from './db/connection'
-import { getProject } from './db/projectsRepo'
+import { getProjectLogoPath } from './db/projectsRepo'
 import { hasActiveAiTask } from './ai/aiTaskRunner'
 import { registerAllIpc } from './ipc'
 import { initializeDataDirectory, getCurrentLayout, getDataFolderToOpen } from './services/dataPathService'
@@ -11,6 +12,7 @@ import { getLockState } from './services/lockManager'
 import { createUpdateService } from './services/updateService'
 import { logError, logInfo } from './services/logger'
 import { logoMimeForPath, resolveLogoAbsolutePath } from './services/logoService'
+import { ensureThumb, setThumbResizer } from './services/logoThumb'
 import { parseLogoProjectId } from './services/logoUrl'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
@@ -58,25 +60,34 @@ function applyCsp(): void {
 }
 
 function registerLogoProtocol(): void {
-  protocol.handle('mmo-logo', (request) => {
+  protocol.handle('mmo-logo', async (request) => {
     const projectId = parseLogoProjectId(request.url)
-    const project = projectId ? getProject(projectId) : null
-    if (!project?.logoPath) {
+    const logoPath = projectId ? getProjectLogoPath(projectId) : null
+    if (!projectId || !logoPath) {
       return new Response('Not found', { status: 404 })
     }
 
-    const absolutePath = resolveLogoAbsolutePath(project.logoPath)
+    const absolutePath = resolveLogoAbsolutePath(logoPath)
     const root = normalize(getCurrentLayout().root)
     if (!normalize(absolutePath).startsWith(`${root}${sep}`) || !existsSync(absolutePath)) {
       return new Response('Not found', { status: 404 })
     }
 
-    return new Response(new Uint8Array(readFileSync(absolutePath)), {
-      headers: {
-        'content-type': logoMimeForPath(project.logoPath) ?? 'application/octet-stream',
-        'cache-control': 'no-store'
-      }
-    })
+    const wantThumb = new URL(request.url).searchParams.get('s') === 'thumb'
+    const thumbPath = wantThumb ? ensureThumb(getCurrentLayout().root, projectId, absolutePath) : null
+    const servedPath = thumbPath ?? absolutePath
+
+    try {
+      const bytes = await readFile(servedPath)
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          'content-type': thumbPath ? 'image/png' : (logoMimeForPath(logoPath) ?? 'application/octet-stream'),
+          'cache-control': 'private, max-age=31536000'
+        }
+      })
+    } catch {
+      return new Response('Not found', { status: 404 })
+    }
   })
 }
 
@@ -187,6 +198,20 @@ function bootstrap(): void {
   })
 
   registerAllIpc(updateService)
+  setThumbResizer((bytes, longestSide) => {
+    const image = nativeImage.createFromBuffer(Buffer.from(bytes))
+    if (image.isEmpty()) {
+      return null
+    }
+    const { width, height } = image.getSize()
+    if (Math.max(width, height) <= longestSide) {
+      return null
+    }
+    const resized = image.resize(
+      width >= height ? { width: longestSide, quality: 'best' } : { height: longestSide, quality: 'best' }
+    )
+    return new Uint8Array(resized.toPNG())
+  })
   registerLogoProtocol()
   applyCsp()
   createWindow(updateService)

@@ -1,3 +1,12 @@
+## WI-24 — RELEASE v0.1.6 (2026-11-21)
+- Branch `feat/scale-1k-projects` (5 commit P0–P4 + bump 0.1.6, tách từ `main` `1ee1258`): import JSON một transaction + trần 5.000 dự án, cache/thumbnail logo, API phân trang bằng SQL, UI phân trang 20/50/100.
+- Merge `--no-ff` vào `main`; tag annotated `v0.1.6`; push `main` + tag; CI `Build Windows Exe` chạy cho tag `v0.1.6`.
+- Verify: `npm run typecheck` PASS; `npm test` 79 file / 895 test PASS (baseline 798); `npm run build` PASS; kiểm thử tay trên nhánh với 1.000 dự án TEST + 100 logo: phân trang, tìm kiếm, bộ lọc, đổi tab, import và khôi phục dữ liệu.
+- Phạm vi: không đổi schema/migration SQLite, không đổi engine DB, không thêm dependency npm, không đổi màu thương hiệu; giữ API `projects.list()`, `listProjects()`, `applyProjectFilters`; `tests/newsBoardLayout.test.ts` không sửa.
+- Thay đổi hiển thị có chủ ý: mô tả trong danh sách cắt ở 300 ký tự; đổi tab thì bộ lọc và trang về mặc định.
+- Next: P5 nạp trước trang kế, P6 danh sách gọn cho News/Revenue/form, P7 AI cho nhiều dự án.
+- Open: xác nhận cache logo bằng DevTools trên máy thật; đo lại thời gian import và thao tác GUI với dữ liệu lớn hơn.
+
 ## WI-23 — RELEASE v0.1.5 (2026-11-18)
 - Branch `feat/ui-v0.1.5` (10 commit từ `v0.1.4` / `ee64b95`): theme Tối/Sáng/Hệ thống + token light, icon lucide thay emoji, tinh chỉnh bố cục Project/Revenue/Settings/Model Config/News/Scan, 4 thẻ số liệu News, `autoHideMenuBar`, bump 0.1.5.
 - Merge fast-forward vào `main` `ee64b95 → 6056ede`; tag annotated `v0.1.5`; push `main` + tag. CI run #11 (`44228532118`) PASS sau 4m35s; GitHub Release không draft/pre-release với `mmo-manager-setup-0.1.5.exe`, `mmo-manager-portable-0.1.5.exe`, `latest.yml`, `.blockmap`.

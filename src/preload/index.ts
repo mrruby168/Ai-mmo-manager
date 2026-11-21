@@ -20,6 +20,7 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
 const api: RendererApi = {
   projects: {
     list: (category) => invoke(IPC.projectsList, category ? { category } : {}),
+    listPage: (query) => invoke(IPC.projectsListPage, query),
     get: (id) => invoke(IPC.projectsGet, { id }),
     create: (input) => invoke(IPC.projectsCreate, { input }),
     update: (id, input, expectedRowVersion) => invoke(IPC.projectsUpdate, { id, input, expectedRowVersion }),

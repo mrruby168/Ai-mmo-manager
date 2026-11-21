@@ -50,3 +50,13 @@ Tính năng "thông báo và cập nhật app" được bắt đầu từ bản 
 - Phạm vi: chỉ UI + theme; không đổi schema SQLite, IPC, zod payload, settings schema hay logic nghiệp vụ. Dependency mới duy nhất: `lucide-react`.
 - Đã kiểm chứng: `npm run typecheck`, `npm test` (75 file / 798 test), `npm run build`; kiểm tra giao diện 1360×820, 1150×820, 1101×820 và 1024×700 ở cả hai theme. CI `Build Windows Exe` PASS, tag khớp `package.json`.
 - Người dùng v0.1.4 trở lên tự cập nhật qua app; bản 0.1.2/0.1.3 vẫn cần cài tay v0.1.4 một lần trước (như ghi chú v0.1.4).
+
+### v0.1.6 — Danh sách dự án phân trang, logo nhẹ hơn, import một transaction
+
+- Danh sách dự án phân trang 20/50/100, hiển thị số dự án của tab và số dự án khớp bộ lọc; tìm kiếm có debounce, lọc/sắp xếp/đếm thực hiện bằng SQL.
+- Import JSON chạy trong một transaction: lỗi từng mục vẫn được báo và các mục hợp lệ vẫn được lưu; trần 5.000 dự án mỗi file.
+- Logo: thumbnail 96px tạo khi cần, cache theo phiên bản logo (`rowVersion`), tải lười (`loading="lazy"`, `decoding="async"`); bỏ `getProject` cho mỗi request ảnh.
+- Thay đổi hiển thị có chủ ý: mô tả trong danh sách cắt ở 300 ký tự; đổi tab thì bộ lọc và trang về mặc định.
+- Phạm vi: không đổi schema/migration SQLite, không đổi engine DB, không thêm dependency npm, không đổi màu thương hiệu; giữ API `projects.list()`, `listProjects()`, `applyProjectFilters`.
+- Đã kiểm chứng: `npm run typecheck`, `npm test` (79 file / 895 test), `npm run build`; kiểm thử tay trên nhánh với 1.000 dự án TEST và 100 logo (phân trang, tìm kiếm, bộ lọc, đổi tab, import).
+- Chưa làm (để sau): P5 nạp trước trang kế, P6 danh sách gọn cho News/Revenue/form, P7 AI cho nhiều dự án.

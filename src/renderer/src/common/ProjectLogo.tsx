@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../state/AppContext'
 import { firstLetter, letterColor } from '@shared/letterColor'
 
-type LogoSize = 'row' | 'detail' | 'news'
+export type LogoSize = 'row' | 'detail' | 'news'
+
+export function logoSrc(projectId: string, version: string | number, size: LogoSize): string {
+  const thumb = size === 'detail' ? '' : '&s=thumb'
+  return `mmo-logo://logo/${projectId}?v=${version}${thumb}`
+}
 
 const SIZES: Record<LogoSize, number> = {
   row: 40,
@@ -14,20 +19,23 @@ export function ProjectLogo({
   projectId,
   name,
   hasLogo,
-  size = 'row'
+  size = 'row',
+  version
 }: {
   projectId: string
   name: string
   hasLogo: boolean
   size?: LogoSize
+  version?: string | number
 }): React.JSX.Element {
   const [failed, setFailed] = useState(false)
   const { dataVersion } = useApp()
   const dimension = SIZES[size]
+  const effectiveVersion = version ?? dataVersion
 
   useEffect(() => {
     setFailed(false)
-  }, [projectId, hasLogo, dataVersion])
+  }, [projectId, hasLogo, dataVersion, effectiveVersion])
 
   const palette = useMemo(() => letterColor(name), [name])
 
@@ -49,7 +57,13 @@ export function ProjectLogo({
 
   return (
     <span className="project-logo" style={style}>
-      <img src={`mmo-logo://logo/${projectId}?v=${dataVersion}`} alt={`Logo ${name}`} onError={() => setFailed(true)} />
+      <img
+        src={logoSrc(projectId, effectiveVersion, size)}
+        alt={`Logo ${name}`}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
     </span>
   )
 }
