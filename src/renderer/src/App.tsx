@@ -38,9 +38,9 @@ function Router(): React.JSX.Element {
   const page = ((): React.JSX.Element => {
     switch (route.tab) {
       case 'event_mmo':
-        return <ProjectListPage category="event_mmo" />
+        return <ProjectListPage key="event_mmo" category="event_mmo" />
       case 'airdrop':
-        return <ProjectListPage category="airdrop" />
+        return <ProjectListPage key="airdrop" category="airdrop" />
       case 'scan':
         return <ScanPage />
       case 'news':

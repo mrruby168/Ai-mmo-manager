@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ProjectCategory } from '@shared/constants'
 import { todayDateOnly } from '@shared/date-utils'
-import type { Project } from '@shared/types'
+import { DEFAULT_PROJECT_PAGE_SIZE } from '@shared/projectList'
+import type { ProjectListQuery, ProjectListResult, ProjectPageSize } from '@shared/projectList'
 import { Button } from '../../common/Button'
 import { EmptyState, ErrorBlock, LoadingBlock } from '../../common/EmptyState'
 import { Field, Select } from '../../common/Field'
 import { CheckboxField } from '../../common/Field'
 import { Modal } from '../../common/Modal'
+import { Pagination } from '../../common/Pagination'
 import { Switch } from '../../common/Switch'
 import { useApp } from '../../state/AppContext'
 import { useLock } from '../../state/LockContext'
 import { usePriorityPicks } from '../../state/priorityStore'
 import { useToast } from '../../state/ToastContext'
-import { applyProjectFilters, emptyFilters, ProjectFilters } from './ProjectFilters'
+import { emptyFilters, ProjectFilters } from './ProjectFilters'
 import type { ProjectFilterState } from './ProjectFilters'
 import { ProjectFormDialog } from './ProjectFormDialog'
 import { ProjectImportDialog } from './ProjectImportDialog'
@@ -23,6 +25,8 @@ const TITLES: Record<ProjectCategory, string> = {
   airdrop: 'Airdrop'
 }
 
+const SEARCH_DEBOUNCE_MS = 250
+
 export function ProjectListPage({ category }: { category: ProjectCategory }): React.JSX.Element {
   const { dataVersion, refreshData, openProject, isAiEnabled } = useApp()
   const { isAiBusy } = useLock()
@@ -30,41 +34,100 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
   const picks = usePriorityPicks(category)
   const selectActive = !isAiEnabled && picks.selectMode
 
-  const [projects, setProjects] = useState<Project[]>([])
+  const [data, setData] = useState<ProjectListResult | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<ProjectPageSize>(DEFAULT_PROJECT_PAGE_SIZE)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filters, setFilters] = useState<ProjectFilterState>(emptyFilters)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [exportFormat, setExportFormat] = useState<'json' | 'txt'>('json')
   const [chooseLocation, setChooseLocation] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const requestRef = useRef(0)
+  const topRef = useRef<HTMLDivElement>(null)
+
+  // Gõ tìm kiếm: chờ 250 ms rồi mới truy vấn.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(filters.search), SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [filters.search])
 
   const load = useCallback(async () => {
+    const requestId = requestRef.current + 1
+    requestRef.current = requestId
     setLoading(true)
-    const result = await window.api.projects.list(category)
-    if (result.ok) {
-      setProjects(result.data)
-      setLoadError(null)
-    } else {
-      setLoadError(result.error.message)
+    const query: ProjectListQuery = {
+      category,
+      search: debouncedSearch.slice(0, 200),
+      status: filters.status,
+      cost: filters.cost,
+      deadline: filters.deadline,
+      today: todayDateOnly(),
+      page,
+      pageSize
     }
-    setLoading(false)
-  }, [category])
+    try {
+      const result = await window.api.projects.listPage(query)
+      if (requestId !== requestRef.current) {
+        return // đã có yêu cầu mới hơn, bỏ kết quả cũ
+      }
+      if (result.ok) {
+        setData(result.data)
+        setLoadError(null)
+        if (result.data.page !== page) {
+          setPage(result.data.page) // trang bị cắt về trang cuối (vừa xoá dự án cuối trang)
+        }
+      } else {
+        setLoadError(result.error.message)
+      }
+    } catch {
+      if (requestId !== requestRef.current) {
+        return
+      }
+      setLoadError('Không tải được danh sách dự án')
+    } finally {
+      if (requestId === requestRef.current) {
+        setLoading(false)
+      }
+    }
+  }, [category, debouncedSearch, filters.status, filters.cost, filters.deadline, page, pageSize])
 
   useEffect(() => {
     void load()
   }, [load, dataVersion])
 
-  const filtered = useMemo(() => applyProjectFilters(projects, filters, todayDateOnly()), [projects, filters])
+  function handleFiltersChange(next: ProjectFilterState): void {
+    setFilters(next)
+    setPage(1)
+    if (next.search === '') {
+      setDebouncedSearch('')
+    }
+  }
+
+  function handlePageSize(size: ProjectPageSize): void {
+    setPageSize(size)
+    setPage(1)
+  }
+
+  function handlePage(next: number): void {
+    setPage(next)
+    topRef.current?.scrollIntoView({ block: 'start' })
+  }
+
+  const items = data?.items ?? []
+  const total = data?.total ?? 0
+  const totalAll = data?.totalAll ?? 0
 
   const closeForm = useCallback(() => setFormOpen(false), [])
   const closeImport = useCallback(() => setImportOpen(false), [])
 
   function handleSaved(): void {
+    setPage(1)
     refreshData()
-    void load()
   }
 
   async function handleExport(): Promise<void> {
@@ -88,7 +151,7 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
         <div className="page-header__title">
           <h1>{TITLES[category]}</h1>
           <span className="page-header__subtitle">
-            {projects.length} dự án · ưu tiên hiển thị dự án sắp hết hạn
+            {data === null ? 'Đang tải…' : `${totalAll} dự án · ưu tiên hiển thị dự án sắp hết hạn`}
           </span>
         </div>
         <div className="row">
@@ -98,7 +161,7 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
           <Button variant="secondary" onClick={() => setImportOpen(true)} disabled={isAiBusy}>
             Nhập JSON
           </Button>
-          <Button variant="secondary" onClick={() => setExportOpen(true)} disabled={isAiBusy || projects.length === 0}>
+          <Button variant="secondary" onClick={() => setExportOpen(true)} disabled={isAiBusy || totalAll === 0}>
             Xuất…
           </Button>
           <Button variant="primary" onClick={() => setFormOpen(true)} disabled={isAiBusy}>
@@ -107,17 +170,18 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
         </div>
       </div>
 
-      <ProjectFilters filters={filters} onChange={setFilters} />
+      <div ref={topRef} />
+      <ProjectFilters filters={filters} onChange={handleFiltersChange} />
 
       {selectActive ? (
         <p className="muted priority-hint">Chế độ chọn ưu tiên đang bật · Click Card để chọn hoặc bỏ chọn</p>
       ) : null}
 
-      {loading && projects.length === 0 ? <LoadingBlock message="Đang tải danh sách dự án…" /> : null}
+      {loading && data === null ? <LoadingBlock message="Đang tải danh sách dự án…" /> : null}
 
       {loadError ? <ErrorBlock message={loadError} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
 
-      {!loading && !loadError && projects.length === 0 ? (
+      {!loading && !loadError && data !== null && totalAll === 0 ? (
         <EmptyState
           title="Chưa có dự án nào"
           message="Thêm dự án đầu tiên bằng form, hoặc dùng Scan Project để AI đề xuất."
@@ -129,17 +193,17 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
         />
       ) : null}
 
-      {!loadError && projects.length > 0 && filtered.length === 0 ? (
+      {!loadError && totalAll > 0 && total === 0 && !loading ? (
         <EmptyState
           title="Không có dự án khớp bộ lọc"
           message="Thử xóa từ khóa tìm kiếm hoặc đổi bộ lọc."
-          action={<Button onClick={() => setFilters(emptyFilters)}>Xóa bộ lọc</Button>}
+          action={<Button onClick={() => handleFiltersChange(emptyFilters)}>Xóa bộ lọc</Button>}
         />
       ) : null}
 
-      {filtered.length > 0 ? (
+      {items.length > 0 ? (
         <div className="project-rows">
-          {filtered.map((project) => (
+          {items.map((project) => (
             <ProjectRow
               key={project.id}
               project={project}
@@ -150,6 +214,17 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
             />
           ))}
         </div>
+      ) : null}
+
+      {data !== null && total > 0 ? (
+        <Pagination
+          page={data.page}
+          pageCount={data.pageCount}
+          total={total}
+          pageSize={pageSize}
+          onPage={handlePage}
+          onPageSize={handlePageSize}
+        />
       ) : null}
 
       <ProjectFormDialog

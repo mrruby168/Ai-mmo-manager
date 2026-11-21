@@ -1,5 +1,5 @@
 import { getDeadlineInfo, todayDateOnly } from '@shared/date-utils'
-import type { Project } from '@shared/types'
+import type { ProjectListItem } from '@shared/projectList'
 import { CostBadge, StatusBadge } from '../../common/Badge'
 import { ProjectLogo } from '../../common/ProjectLogo'
 
@@ -12,14 +12,14 @@ export function ProjectRow({
   selectMode = false,
   onTogglePriority
 }: {
-  project: Project
+  project: ProjectListItem
   onOpen: () => void
   priority?: boolean
   selectMode?: boolean
   onTogglePriority?: () => void
 }): React.JSX.Element {
   const deadline = getDeadlineInfo(project.endDate, todayDateOnly())
-  const summary = project.taskSummary || project.howToJoin || 'Chưa có mô tả nhiệm vụ'
+  const summary = project.summary || 'Chưa có mô tả nhiệm vụ'
   const className = [
     'project-row',
     deadline.tone === 'expired' ? 'project-row--expired' : '',
@@ -38,7 +38,7 @@ export function ProjectRow({
       data-lock-allow="true"
     >
       <span className="project-row__identity">
-        <ProjectLogo projectId={project.id} name={project.name} hasLogo={Boolean(project.logoPath)} />
+        <ProjectLogo projectId={project.id} name={project.name} hasLogo={Boolean(project.logoPath)} version={project.rowVersion} />
         <span className="project-row__name text-clamp-2">{project.name}</span>
       </span>
       <span className="project-row__task text-clamp-2">
