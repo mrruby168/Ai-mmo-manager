@@ -24,6 +24,11 @@ body,
   height: 100%;
 }
 
+html,
+body {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   background: var(--gradient-app-bg);
@@ -128,6 +133,7 @@ ol {
 }
 
 .app-content {
+  position: relative;
   flex: 1;
   overflow-y: auto;
   padding: var(--screen-padding);

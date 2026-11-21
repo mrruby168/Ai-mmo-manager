@@ -48,13 +48,18 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
   const [chooseLocation, setChooseLocation] = useState(false)
   const [exporting, setExporting] = useState(false)
   const requestRef = useRef(0)
-  const topRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   // Gõ tìm kiếm: chờ 250 ms rồi mới truy vấn.
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(filters.search), SEARCH_DEBOUNCE_MS)
     return () => window.clearTimeout(timer)
   }, [filters.search])
+
+  // Đổi trang hoặc số dòng: cuộn khung danh sách về đầu.
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: 0 })
+  }, [page, pageSize])
 
   const load = useCallback(async () => {
     const requestId = requestRef.current + 1
@@ -115,7 +120,6 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
 
   function handlePage(next: number): void {
     setPage(next)
-    topRef.current?.scrollIntoView({ block: 'start' })
   }
 
   const items = data?.items ?? []
@@ -147,85 +151,92 @@ export function ProjectListPage({ category }: { category: ProjectCategory }): Re
 
   return (
     <>
-      <div className="page-header">
-        <div className="page-header__title">
-          <h1>{TITLES[category]}</h1>
-          <span className="page-header__subtitle">
-            {data === null ? 'Đang tải…' : `${totalAll} dự án · ưu tiên hiển thị dự án sắp hết hạn`}
-          </span>
-        </div>
-        <div className="row">
-          {!isAiEnabled ? (
-            <Switch label="Chọn dự án ưu tiên" checked={picks.selectMode} onChange={picks.setSelectMode} />
+      <div className="project-page">
+        <div className="project-page__head">
+          <div className="page-header">
+            <div className="page-header__title">
+              <h1>{TITLES[category]}</h1>
+              <span className="page-header__subtitle">
+                {data === null ? 'Đang tải…' : `${totalAll} dự án · ưu tiên hiển thị dự án sắp hết hạn`}
+              </span>
+            </div>
+            <div className="row">
+              {!isAiEnabled ? (
+                <Switch label="Chọn dự án ưu tiên" checked={picks.selectMode} onChange={picks.setSelectMode} />
+              ) : null}
+              <Button variant="secondary" onClick={() => setImportOpen(true)} disabled={isAiBusy}>
+                Nhập JSON
+              </Button>
+              <Button variant="secondary" onClick={() => setExportOpen(true)} disabled={isAiBusy || totalAll === 0}>
+                Xuất…
+              </Button>
+              <Button variant="primary" onClick={() => setFormOpen(true)} disabled={isAiBusy}>
+                Thêm dự án
+              </Button>
+            </div>
+          </div>
+
+          <ProjectFilters filters={filters} onChange={handleFiltersChange} />
+
+          {selectActive ? (
+            <p className="muted priority-hint">Chế độ chọn ưu tiên đang bật · Click Card để chọn hoặc bỏ chọn</p>
           ) : null}
-          <Button variant="secondary" onClick={() => setImportOpen(true)} disabled={isAiBusy}>
-            Nhập JSON
-          </Button>
-          <Button variant="secondary" onClick={() => setExportOpen(true)} disabled={isAiBusy || totalAll === 0}>
-            Xuất…
-          </Button>
-          <Button variant="primary" onClick={() => setFormOpen(true)} disabled={isAiBusy}>
-            Thêm dự án
-          </Button>
         </div>
-      </div>
 
-      <div ref={topRef} />
-      <ProjectFilters filters={filters} onChange={handleFiltersChange} />
+        <div className="project-page__list" ref={listRef}>
+          {loading && data === null ? <LoadingBlock message="Đang tải danh sách dự án…" /> : null}
 
-      {selectActive ? (
-        <p className="muted priority-hint">Chế độ chọn ưu tiên đang bật · Click Card để chọn hoặc bỏ chọn</p>
-      ) : null}
+          {loadError ? <ErrorBlock message={loadError} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
 
-      {loading && data === null ? <LoadingBlock message="Đang tải danh sách dự án…" /> : null}
-
-      {loadError ? <ErrorBlock message={loadError} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
-
-      {!loading && !loadError && data !== null && totalAll === 0 ? (
-        <EmptyState
-          title="Chưa có dự án nào"
-          message="Thêm dự án đầu tiên bằng form, hoặc dùng Scan Project để AI đề xuất."
-          action={
-            <Button variant="primary" onClick={() => setFormOpen(true)} disabled={isAiBusy}>
-              Thêm dự án đầu tiên
-            </Button>
-          }
-        />
-      ) : null}
-
-      {!loadError && totalAll > 0 && total === 0 && !loading ? (
-        <EmptyState
-          title="Không có dự án khớp bộ lọc"
-          message="Thử xóa từ khóa tìm kiếm hoặc đổi bộ lọc."
-          action={<Button onClick={() => handleFiltersChange(emptyFilters)}>Xóa bộ lọc</Button>}
-        />
-      ) : null}
-
-      {items.length > 0 ? (
-        <div className="project-rows">
-          {items.map((project) => (
-            <ProjectRow
-              key={project.id}
-              project={project}
-              priority={picks.ids.has(project.id)}
-              selectMode={selectActive}
-              onOpen={() => openProject(project.id)}
-              onTogglePriority={() => picks.toggle(project.id)}
+          {!loading && !loadError && data !== null && totalAll === 0 ? (
+            <EmptyState
+              title="Chưa có dự án nào"
+              message="Thêm dự án đầu tiên bằng form, hoặc dùng Scan Project để AI đề xuất."
+              action={
+                <Button variant="primary" onClick={() => setFormOpen(true)} disabled={isAiBusy}>
+                  Thêm dự án đầu tiên
+                </Button>
+              }
             />
-          ))}
-        </div>
-      ) : null}
+          ) : null}
 
-      {data !== null && total > 0 ? (
-        <Pagination
-          page={data.page}
-          pageCount={data.pageCount}
-          total={total}
-          pageSize={pageSize}
-          onPage={handlePage}
-          onPageSize={handlePageSize}
-        />
-      ) : null}
+          {!loadError && totalAll > 0 && total === 0 && !loading ? (
+            <EmptyState
+              title="Không có dự án khớp bộ lọc"
+              message="Thử xóa từ khóa tìm kiếm hoặc đổi bộ lọc."
+              action={<Button onClick={() => handleFiltersChange(emptyFilters)}>Xóa bộ lọc</Button>}
+            />
+          ) : null}
+
+          {items.length > 0 ? (
+            <div className="project-rows">
+              {items.map((project) => (
+                <ProjectRow
+                  key={project.id}
+                  project={project}
+                  priority={picks.ids.has(project.id)}
+                  selectMode={selectActive}
+                  onOpen={() => openProject(project.id)}
+                  onTogglePriority={() => picks.toggle(project.id)}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {data !== null && total > 0 ? (
+          <div className="project-page__footer">
+            <Pagination
+              page={data.page}
+              pageCount={data.pageCount}
+              total={total}
+              pageSize={pageSize}
+              onPage={handlePage}
+              onPageSize={handlePageSize}
+            />
+          </div>
+        ) : null}
+      </div>
 
       <ProjectFormDialog
         open={formOpen}
