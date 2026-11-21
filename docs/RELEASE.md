@@ -60,3 +60,11 @@ Tính năng "thông báo và cập nhật app" được bắt đầu từ bản 
 - Phạm vi: không đổi schema/migration SQLite, không đổi engine DB, không thêm dependency npm, không đổi màu thương hiệu; giữ API `projects.list()`, `listProjects()`, `applyProjectFilters`.
 - Đã kiểm chứng: `npm run typecheck`, `npm test` (79 file / 895 test), `npm run build`; kiểm thử tay trên nhánh với 1.000 dự án TEST và 100 logo (phân trang, tìm kiếm, bộ lọc, đổi tab, import).
 - Chưa làm (để sau): P5 nạp trước trang kế, P6 danh sách gọn cho News/Revenue/form, P7 AI cho nhiều dự án.
+
+### v0.1.7 — Cố định sidebar, danh sách dự án cuộn trong khung
+
+- Sửa lỗi cuộn trang danh sách dự án: cuộn hết danh sách không còn kéo sidebar, tiêu đề và bộ lọc trượt lên; thanh phân trang luôn nằm sát đáy cửa sổ.
+- Nguyên nhân: `.visually-hidden` trong phân trang không có tổ tiên `position: relative` làm document cao hơn cửa sổ, cộng thêm `scrollIntoView` khi đổi trang. Đã khoá cuộn `html, body`, đặt `position: relative` cho `.app-content` và dùng khung `app-content--fit` cho tab Event MMO/Airdrop.
+- Chỉ vùng danh sách cuộn; đổi trang hoặc 20/50/100 tự cuộn danh sách về đầu. Các tab khác và màn chi tiết dự án vẫn cuộn như cũ.
+- Phạm vi: chỉ CSS + layout component + test đọc nguồn; không đổi dữ liệu, schema, IPC hay dependency.
+- Đã kiểm chứng: `npm run typecheck`, `npm test` (80 file / 899 test), `npm run build`; người dùng kiểm thử tay với 1.000 dự án TEST và xác nhận OK.
