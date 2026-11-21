@@ -5,7 +5,7 @@ import type { OpenDialogOptions, SaveDialogOptions } from 'electron'
 import { LIMITS } from '@shared/constants'
 import { EVENTS, IPC } from '@shared/ipc-channels'
 import { parseJsonText } from '@shared/coerce'
-import { createProject, deleteProjectById, getProject, importProjects, listProjects, ProjectError, setProjectLogo, updateProjectById } from '../services/projectService'
+import { createProject, deleteProjectById, getProject, importProjects, listProjects, listProjectsPage, ProjectError, setProjectLogo, updateProjectById } from '../services/projectService'
 import { defaultExportDirectory, defaultExportFileName, exportProjects } from '../services/exportService'
 import { captureLogoFromFile, fetchLogoForProject } from '../services/logoService'
 import { broadcastToRenderers, registerHandler } from './guard'
@@ -14,6 +14,7 @@ import {
   projectsExportPayload,
   projectsIdPayload,
   projectsImportPayload,
+  projectsListPagePayload,
   projectsListPayload,
   projectsSetLogoPayload,
   projectsUpdatePayload
@@ -32,6 +33,12 @@ export function registerProjectsIpc(): void {
     channel: IPC.projectsList,
     parse: (raw) => projectsListPayload.parse(raw ?? undefined),
     handler: (input) => listProjects(input?.category)
+  })
+
+  registerHandler({
+    channel: IPC.projectsListPage,
+    parse: (raw) => projectsListPagePayload.parse(raw),
+    handler: (query) => listProjectsPage(query)
   })
 
   registerHandler({

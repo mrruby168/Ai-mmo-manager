@@ -1,5 +1,6 @@
 export const IPC = {
   projectsList: 'projects:list',
+  projectsListPage: 'projects:listPage',
   projectsGet: 'projects:get',
   projectsCreate: 'projects:create',
   projectsUpdate: 'projects:update',

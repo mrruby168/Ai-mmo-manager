@@ -6,6 +6,7 @@ import type { ProjectImportItem } from '@shared/schemas'
 import { LIMITS } from '@shared/constants'
 import type { ProjectCategory, ProjectOrigin } from '@shared/constants'
 import type { Project, ProjectInput, SocialLinks } from '@shared/types'
+import type { ProjectListQuery, ProjectListResult } from '@shared/projectList'
 import type { ProjectMutableFields } from '../db/projectsRepo'
 import { withTransaction } from '../db/connection'
 import {
@@ -17,6 +18,7 @@ import {
   insertProject,
   listProjectIndex,
   listProjects as repoListProjects,
+  listProjectsPage as listProjectsPageRepo,
   setProjectLogo as repoSetProjectLogo,
   updateProject as repoUpdateProject
 } from '../db/projectsRepo'
@@ -140,6 +142,10 @@ function verifyWritten(id: string, expected: ProjectMutableFields): Project {
 
 export function listProjects(category?: ProjectCategory): Project[] {
   return repoListProjects(category)
+}
+
+export function listProjectsPage(query: ProjectListQuery): ProjectListResult {
+  return listProjectsPageRepo(query)
 }
 
 export function getProject(id: string): Project | null {

@@ -4,9 +4,9 @@ import { daysRemaining, getDeadlineInfo } from '@shared/date-utils'
 import { normalizeNameKey } from '@shared/normalize'
 import type { ProjectStatus } from '@shared/constants'
 import type { Project } from '@shared/types'
+import type { CostFilter, DeadlineFilter } from '@shared/projectList'
 
-export type CostFilter = 'all' | 'free' | 'paid' | 'unverified'
-export type DeadlineFilter = 'all' | 'soon3' | 'soon7' | 'active' | 'expired' | 'none'
+export type { CostFilter, DeadlineFilter }
 
 export interface ProjectFilterState {
   search: string

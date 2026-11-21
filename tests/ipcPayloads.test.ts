@@ -19,6 +19,7 @@ import {
   projectsExportPayload,
   projectsIdPayload,
   projectsImportPayload,
+  projectsListPagePayload,
   projectsListPayload,
   projectsSetLogoPayload,
   projectsUpdatePayload,
@@ -93,6 +94,20 @@ const contracts: Array<{ channel: string; schema: { parse: (value: unknown) => u
     payload: {}
   },
   { channel: IPC.projectsList, schema: projectsListPayload, payload: { category: 'airdrop' } },
+  {
+    channel: IPC.projectsListPage,
+    schema: projectsListPagePayload,
+    payload: {
+      category: 'airdrop',
+      search: '',
+      status: 'all',
+      cost: 'all',
+      deadline: 'all',
+      today: '2026-11-19',
+      page: 1,
+      pageSize: 20
+    }
+  },
   { channel: IPC.projectsGet, schema: projectsIdPayload, payload: { id: 'p-1' } },
   { channel: IPC.projectsCreate, schema: projectsCreatePayload, payload: { input: projectInput } },
   {
@@ -245,6 +260,22 @@ describe('preload ↔ main IPC payload contract', () => {
   it('rejects an invalid category for scan:submit', () => {
     expect(scanSubmitPayload.safeParse({ names: ['Alpha'], categories: { alpha: 'insufficient' } }).success).toBe(false)
     expect(scanSubmitPayload.safeParse({ names: ['Alpha'], categories: { alpha: 'airdrop' } }).success).toBe(true)
+  })
+
+  it('rejects an invalid project list page payload', () => {
+    const valid = {
+      category: 'airdrop',
+      search: '',
+      status: 'all',
+      cost: 'all',
+      deadline: 'all',
+      today: '2026-11-19',
+      page: 1,
+      pageSize: 20
+    }
+    expect(projectsListPagePayload.safeParse(valid).success).toBe(true)
+    expect(projectsListPagePayload.safeParse({ ...valid, pageSize: 7 }).success).toBe(false)
+    expect(projectsListPagePayload.safeParse({ ...valid, today: '19/11/2026' }).success).toBe(false)
   })
 })
 
