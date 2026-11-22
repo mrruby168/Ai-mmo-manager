@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { ProviderType } from '@shared/constants'
 import type { ProviderModel, ProviderTestResult, ProviderView } from '@shared/types'
 import { PROVIDER_PRESETS } from '@shared/provider-presets'
@@ -62,19 +62,15 @@ export function ProviderEditor({ type, provider, onClose, onSaved }: ProviderEdi
   const [testingModelId, setTestingModelId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, ProviderTestResult>>({})
 
-  const initialSnapshot = useMemo(
-    () =>
-      JSON.stringify({
-        name: provider?.name ?? preset.name,
-        baseUrl: provider?.baseUrl ?? '',
-        models: provider?.models ?? []
-      }),
-    [provider, preset.name]
-  )
-
-  const currentSnapshot = JSON.stringify({ name, baseUrl, models })
-  const dirty = initialSnapshot !== currentSnapshot || apiKey.trim().length > 0 || headersText.trim().length > 0
-  const canTest = provider !== null && !dirty
+  // Test dùng cấu hình ĐANG NHẬP (không cần Lưu): cần có khóa (đang gõ hoặc đã lưu) và Base URL với Custom.
+  const hasKey = apiKey.trim().length > 0 || provider?.hasApiKey === true
+  const missingBaseUrl = isCustom && baseUrl.trim().length === 0
+  const canTest = hasKey && !missingBaseUrl
+  const testHint = !hasKey
+    ? 'Nhập API Key trước khi Test'
+    : missingBaseUrl
+      ? 'Nhập Base URL (mục Nâng cao) trước khi Test'
+      : 'Kiểm tra Model này bằng cấu hình đang nhập (chưa cần Lưu)'
 
   function updateModel(index: number, patch: Partial<ModelDraft>): void {
     setModels((current) => current.map((model, position) => (position === index ? { ...model, ...patch } : model)))
@@ -173,12 +169,34 @@ export function ProviderEditor({ type, provider, onClose, onSaved }: ProviderEdi
     onClose()
   }
 
-  async function handleTest(modelId: string): Promise<void> {
-    if (!provider) {
+  async function handleTest(modelId: string, model: ModelDraft): Promise<void> {
+    let headers: Record<string, string> | undefined
+    try {
+      headers = parseHeaders(headersText)
+    } catch (parseError) {
+      setTestResults((current) => ({
+        ...current,
+        [modelId]: {
+          ok: false,
+          message: parseError instanceof Error ? parseError.message : 'Headers không hợp lệ',
+          supportsTools: false,
+          supportsWebSearch: false
+        }
+      }))
       return
     }
     setTestingModelId(modelId)
-    const result = await window.api.settings.testProvider({ providerId: provider.id, modelId })
+    const result = await window.api.settings.testProvider({
+      providerId: provider?.id,
+      modelId,
+      draft: {
+        type,
+        baseUrl: baseUrl.trim().length > 0 ? baseUrl.trim() : null,
+        apiKey: apiKey.trim().length > 0 ? apiKey.trim() : undefined,
+        headers,
+        supportsWebSearch: model.supportsWebSearch
+      }
+    })
     setTestingModelId(null)
     if (result.ok) {
       setTestResults((current) => ({ ...current, [modelId]: result.data }))
@@ -267,7 +285,7 @@ export function ProviderEditor({ type, provider, onClose, onSaved }: ProviderEdi
         </div>
         <p className="field__hint">
           Đặt tay cờ Web search / Tool calling theo khả năng thật của Model. Nhãn Free/Paid do bạn chọn. Nút Test dùng
-          cấu hình đã lưu, nên hãy Lưu trước khi Test.
+          cấu hình đang nhập (API Key, Base URL, Model), không cần Lưu trước; Test xong nhớ bấm Lưu.
         </p>
 
         {models.length === 0 ? <p className="muted">Chưa có Model nào. Bấm “Add Model”.</p> : null}
@@ -321,9 +339,9 @@ export function ProviderEditor({ type, provider, onClose, onSaved }: ProviderEdi
                   <Button
                     size="sm"
                     loading={isTesting}
-                    onClick={() => void handleTest(testKey)}
+                    onClick={() => void handleTest(testKey, model)}
                     disabled={!canTest || testKey.length === 0 || isTesting}
-                    title={canTest ? 'Kiểm tra Model này' : 'Lưu thay đổi trước khi Test'}
+                    title={testHint}
                   >
                     Test
                   </Button>

@@ -208,10 +208,25 @@ export const providerSaveJsonSchema = z.object({
   json: z.string().min(2).max(200_000)
 })
 
-export const providerTestSchema = z.object({
-  providerId: z.string().trim().min(1).max(100),
-  modelId: z.string().trim().min(1).max(200)
-})
+export const providerTestSchema = z
+  .object({
+    /** Provider đã lưu (khi đang sửa). Provider mới chưa lưu thì bỏ trống và gửi `draft`. */
+    providerId: z.string().trim().min(1).max(100).optional(),
+    modelId: z.string().trim().min(1).max(200),
+    /** Cấu hình đang nhập trong form (chưa lưu). Khóa/headers để trống thì dùng bản đã lưu của providerId. */
+    draft: z
+      .object({
+        type: z.enum(PROVIDER_TYPES),
+        baseUrl: optionalUrl,
+        apiKey: z.string().min(1).max(4000).optional(),
+        headers: headersSchema.optional(),
+        supportsWebSearch: z.boolean().optional()
+      })
+      .optional()
+  })
+  .refine((value) => value.providerId !== undefined || value.draft !== undefined, {
+    message: 'Thiếu providerId hoặc draft'
+  })
 
 export const appearanceSchema = z.object({
   fontFamily: z.enum(SAFE_FONT_FAMILIES),
