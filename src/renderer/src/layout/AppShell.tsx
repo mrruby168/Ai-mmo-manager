@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: ReactNode }): React.JSX.Eleme
   // Ở tab Check News / Scan, bỏ khóa mù pointer-events để còn bấm chạy kênh kia.
   // Các nút ghi dữ liệu vẫn bị vô hiệu hóa riêng và bị chặn ở main process.
   const blindLock = isAiBusy && !onNewsOrScanTab
-  const fitPage = !inDetail && (route.tab === 'event_mmo' || route.tab === 'airdrop')
+  const fitPage = !inDetail && (route.tab === 'event_mmo' || route.tab === 'airdrop' || route.tab === 'settings')
 
   return (
     <div className={`app-shell${blindLock ? ' app--locked' : ''}`}>

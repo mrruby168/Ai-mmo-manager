@@ -24,6 +24,7 @@ describe('layout trang danh sách dự án (fix scroll)', () => {
   it('AppShell bật chế độ fit cho tab danh sách dự án', () => {
     const shell = read('src/renderer/src/layout/AppShell.tsx')
     expect(shell).toContain('app-content--fit')
+    expect(shell).toMatch(/fitPage\s*=[^\n]*event_mmo[^\n]*airdrop/)
   })
 
   it('ProjectListPage dùng khung cuộn riêng và không cuộn document', () => {

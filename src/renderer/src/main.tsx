@@ -8,6 +8,7 @@ import { ThemeProvider } from './state/ThemeProvider'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
+import './styles/motion.css'
 
 declare global {
   interface Window {

@@ -177,6 +177,9 @@ export function AiSettingsPanel({ providers, onChanged }: AiSettingsPanelProps):
           })}
         </div>
 
+      </section>
+
+      <section className="card stack">
         <div className="section-title">
           <h2>Custom</h2>
           <Button size="sm" disabled={isAiBusy} onClick={() => setEditing({ type: 'custom', provider: null })}>
