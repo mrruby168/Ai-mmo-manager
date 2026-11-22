@@ -3777,6 +3777,67 @@ select.field__control {
   flex: 0 0 auto;
 }
 
+/* ===== FIX 2: Settings cố định thanh tab, thu gọn AI Mode ===== */
+.settings-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.settings-page__head {
+  flex: 0 0 auto;
+}
+.settings-page__head .page-header {
+  margin-bottom: var(--space-3);
+}
+.settings-page__head .settings-tabs {
+  margin-bottom: var(--space-3);
+}
+.settings-page__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 1px 4px 4px 0;
+}
+.ai-mode-bar {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.ai-mode-bar .section-title {
+  justify-content: flex-start;
+  gap: var(--space-3);
+}
+.ai-mode-bar .section-title h2 {
+  font-size: 1rem;
+}
+.ai-mode-bar > .segmented {
+  align-self: center;
+}
+.ai-mode-bar .segmented__item {
+  padding: var(--space-1) var(--space-3);
+}
+.settings-page__body > * {
+  flex: 0 0 auto;
+}
+
+/* ===== FIX 1b: khi AI đang chạy (khoá mù) vẫn cuộn được danh sách / Settings.
+   Wrapper bị pointer-events:none làm vùng cuộn bên trong không nhận wheel.
+   Vùng cuộn nhận lại pointer-events, con của nó vẫn bị khoá nên không bấm được. ===== */
+.app--locked .project-page__list,
+.app--locked .settings-page__body {
+  pointer-events: auto;
+}
+.app--locked .project-page__list > *,
+.app--locked .settings-page__body > * {
+  pointer-events: none;
+}
+
 .pagination {
   display: flex;
   align-items: center;
@@ -3801,6 +3862,23 @@ select.field__control {
 }
 .pagination__size .field__control {
   min-width: 8rem;
+}
+
+/* ===== v0.1.8 (bổ sung): card "Chế độ hoạt động" nằm trong head cố định ===== */
+.settings-page__head > .ai-mode-bar {
+  margin-bottom: var(--space-3);
+}
+
+/* ===== v0.1.8 (chốt): AI Settings 2 cột Provider | Custom, căn hàng thẳng ===== */
+.settings-panel--ai .section-title {
+  min-height: 2.25rem; /* Provider (không có nút) và Custom (có nút "+ Thêm Custom") cao bằng nhau */
+  align-items: center;
+}
+.settings-panel--ai .settings-provider > .row {
+  flex: 0 0 auto;
+}
+.settings-panel--ai .settings-provider .btn {
+  white-space: nowrap; /* "Chỉnh sửa" không bị xuống dòng ở cửa sổ hẹp */
 }
 
 

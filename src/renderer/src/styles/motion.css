@@ -1,0 +1,131 @@
+/* =====================================================================
+   motion.css (v0.1.8): animation nhẹ cho toàn app.
+   - Chỉ dùng opacity + transform (+ width cho progress theo dữ liệu thật).
+   - Thời lượng 150-200 ms, không có animation lặp trong bảng dữ liệu / Log.
+   - File này import SAU components.css nên thắng cascade; xoá file này
+     (và 1 dòng import) là quay về trạng thái cũ.
+   ===================================================================== */
+
+:root {
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --transition-fast: 150ms ease; /* các transition cũ dùng token này: 120ms -> 150ms */
+}
+
+@keyframes ui-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ui-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ui-modal-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ui-pop-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ui-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ui-toast-out {
+  to { opacity: 0; transform: translateY(4px); }
+}
+@keyframes ui-soft-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+
+/* 1. Sidebar + Button: hover / active / click */
+.sidebar__item {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.sidebar__item:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* 2. Chuyển tab / trang: mỗi trang mới mount fade + trượt 6px.
+      Không áp cho chat (fixed, có animation riêng) và Modal. */
+.app-content__inner > :not(.chat-fab):not(.chat-panel):not(.modal-overlay) {
+  animation: ui-page-in var(--motion-base) var(--motion-ease) backwards;
+}
+
+/* 3. Đổi tab con trong Settings (SettingsPage có key={section}) */
+.settings-panel {
+  animation: ui-fade-in var(--motion-fast) ease-out backwards;
+}
+
+/* 4. Modal + Dropdown (Listbox): fade + scale nhẹ khi mở */
+.modal-overlay {
+  animation: ui-fade-in var(--motion-fast) ease-out backwards;
+}
+.modal {
+  animation: ui-modal-in var(--motion-base) var(--motion-ease) backwards;
+}
+.listbox__popup {
+  transform-origin: top center;
+  animation: ui-pop-in var(--motion-fast) var(--motion-ease) backwards;
+}
+
+/* 5. Toast: vào 200 ms, tự mờ dần ở 200 ms cuối.
+      4300ms = TOAST_DURATION_MS (4500, state/ToastContext.tsx) - 200ms. */
+.toast {
+  animation:
+    ui-toast-in var(--motion-base) var(--motion-ease) backwards,
+    ui-toast-out 200ms ease-in 4300ms forwards;
+}
+
+/* 6. Progress: chạy theo dữ liệu thật (width đổi theo số liệu) */
+.progress__bar,
+.scan-progress__fill,
+.ai-log__bar-fill {
+  transition: width var(--motion-base) var(--motion-ease);
+}
+
+/* 7. AI đang xử lý: dòng trạng thái trong Chat "thở" nhẹ (chỉ tồn tại khi chatBusy) */
+.chat-busy {
+  animation: ui-fade-in var(--motion-fast) ease-out backwards, ui-soft-pulse 1.8s ease-in-out 200ms infinite;
+}
+
+/* 8. prefers-reduced-motion: tắt mọi chuyển động mới */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+  .app-content__inner > *,
+  .settings-panel,
+  .modal-overlay,
+  .modal,
+  .listbox__popup,
+  .toast,
+  .chat-busy {
+    animation: none !important;
+  }
+  .sidebar__item:active:not(:disabled),
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
+}

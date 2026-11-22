@@ -29,10 +29,6 @@ export function AiModePanel({ aiMode, onChanged }: { aiMode: AiMode; onChanged: 
         <h2>Chế độ hoạt động</h2>
         <span className="muted">{aiMode === 'ai' ? 'AI Mode' : 'No AI Mode'}</span>
       </div>
-      <p className="muted">
-        AI Mode: Chat, Check News, Scan và Test Provider gọi AI như bình thường. No AI Mode: main process không gọi AI ở bất kỳ luồng
-        nào; Check News chỉ tạo Prompt để copy. Dữ liệu, API Key, Provider và lịch sử Chat được giữ nguyên khi đổi chế độ.
-      </p>
       <div className="segmented" role="group" aria-label="Chọn chế độ hoạt động">
         <button
           type="button"

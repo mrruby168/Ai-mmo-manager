@@ -27,6 +27,8 @@ import {
 } from '../services/secretStore'
 import { getSettings, saveAiSettings } from '../services/settingsStore'
 import { createModelClient } from './providers'
+import { buildDraftConnection } from './draftConnection'
+import type { ProviderTestDraft } from './draftConnection'
 import { AiError } from './types'
 import { assertAiEnabled } from './aiMode'
 import type { AiToolSpec, ModelClient, ProviderConnection } from './types'
@@ -491,18 +493,44 @@ function describeError(error: unknown, apiKey?: string): string {
   return text
 }
 
-export async function testProvider(providerId: string, modelId: string): Promise<ProviderTestResult> {
+export async function testProvider(
+  providerId: string | undefined,
+  modelId: string,
+  draft?: ProviderTestDraft
+): Promise<ProviderTestResult> {
   assertAiEnabled()
+  const failed = (message: string): ProviderTestResult => ({
+    ok: false,
+    message,
+    supportsTools: false,
+    supportsWebSearch: false
+  })
   let connection: ProviderConnection
   try {
-    connection = getModelConnection(providerId, modelId)
+    if (draft) {
+      // Test cấu hình ĐANG NHẬP (chưa Lưu). Khóa/headers để trống thì lấy bản đã lưu của Provider.
+      const saved = providerId ? listConfigs().find((entry) => entry.id === providerId) : undefined
+      const secret = saved ? getProviderSecret(saved.id) : null
+      const built = buildDraftConnection(
+        modelId,
+        draft,
+        saved ? { baseUrl: saved.baseUrl, apiKey: secret?.apiKey, headers: secret?.headers } : null
+      )
+      if (!built.ok) {
+        return failed(built.message)
+      }
+      connection = built.connection
+    } else if (providerId) {
+      connection = getModelConnection(providerId, modelId)
+    } else {
+      return failed('Thiếu Provider để Test')
+    }
   } catch (error) {
-    return { ok: false, message: describeError(error), supportsTools: false, supportsWebSearch: false }
+    return failed(describeError(error))
   }
 
-  const provider = findProvider(providerId)
-  const model = provider.models.find((entry) => entry.id === modelId)
-  const supportsWebSearch = model?.supportsWebSearch ?? false
+  const supportsWebSearch = connection.supportsWebSearch
+  const testLabel = providerId ?? 'draft'
   const client = createModelClient(connection)
   const signal = AbortSignal.timeout(TEST_TIMEOUT_MS)
   const startedAt = Date.now()
@@ -571,7 +599,7 @@ export async function testProvider(providerId: string, modelId: string): Promise
       webSearchProbe = used ? 'used' : 'not_detected'
       webSearchNote = used ? 'hoạt động (có dấu vết tìm kiếm)' : 'không phát hiện dấu vết tìm kiếm'
       logInfo(
-        `Test Provider web search (${providerId}/${modelId}): declared=true used=${trace?.used ?? false} sources=${trace?.sources.length ?? 0}`
+        `Test Provider web search (${testLabel}/${modelId}): declared=true used=${trace?.used ?? false} sources=${trace?.sources.length ?? 0}`
       )
     } catch (error) {
       webSearchProbe = 'not_detected'

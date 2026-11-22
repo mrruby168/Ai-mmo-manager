@@ -233,7 +233,7 @@ export function registerSettingsIpc(): void {
   registerHandler({
     channel: IPC.providersTest,
     parse: (raw) => providerTestPayload.parse(raw),
-    handler: (input) => testProvider(input.providerId, input.modelId)
+    handler: (input) => testProvider(input.providerId, input.modelId, input.draft)
   })
 
   registerHandler({

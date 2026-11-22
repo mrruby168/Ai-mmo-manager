@@ -53,53 +53,56 @@ export function SettingsPage(): React.JSX.Element {
   }, [load, dataVersion])
 
   return (
-    <>
-      <div className="page-header">
-        <div className="page-header__title">
-          <h1>Settings</h1>
-          <span className="page-header__subtitle">Provider AI, model dự phòng, thư mục dữ liệu và giao diện</span>
+    <div className="settings-page">
+      <div className="settings-page__head">
+        <div className="page-header">
+          <div className="page-header__title">
+            <h1>Settings</h1>
+          </div>
+          {isAiBusy ? <span className="muted">AI đang thực thi — hoàn tất trước khi chỉnh Settings</span> : null}
         </div>
-        {isAiBusy ? <span className="muted">AI đang thực thi — hoàn tất trước khi chỉnh Settings</span> : null}
+
+        <div className="settings-tabs" role="tablist" aria-label="Nhóm cài đặt">
+          <div className="segmented">
+            {SECTIONS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={section === item.id}
+                className={`segmented__item${section === item.id ? ' segmented__item--active' : ''}`}
+                onClick={() => setSection(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!error && settings ? <AiModePanel aiMode={settings.aiMode} onChanged={refreshData} /> : null}
       </div>
 
-      <div className="settings-tabs" role="tablist" aria-label="Nhóm cài đặt">
-        <div className="segmented">
-          {SECTIONS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={section === item.id}
-              className={`segmented__item${section === item.id ? ' segmented__item--active' : ''}`}
-              onClick={() => setSection(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+      <div className="settings-page__body">
+        {loading && !settings ? <LoadingBlock message="Đang tải cài đặt…" /> : null}
+
+        {error ? <ErrorBlock message={error} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
+
+        {!error && settings ? (
+          <div key={section} className={`settings-panel settings-panel--${section}`}>
+            {section === 'ai' ? <AiSettingsPanel providers={providers} onChanged={refreshData} /> : null}
+            {section === 'models' ? (
+              <ModelConfigPanel ai={settings.ai} providers={providers} onChanged={refreshData} />
+            ) : null}
+            {section === 'websearch' ? (
+              <WebSearchPanel webSearch={settings.webSearch} onChanged={refreshData} />
+            ) : null}
+            {section === 'data' ? (
+              <DataPathPanel dataPath={settings.dataPath} onChanged={refreshData} />
+            ) : null}
+            {section === 'appearance' ? <AppearancePanel /> : null}
+          </div>
+        ) : null}
       </div>
-
-      {loading && !settings ? <LoadingBlock message="Đang tải cài đặt…" /> : null}
-
-      {error ? <ErrorBlock message={error} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : null}
-
-      {!error && settings ? <AiModePanel aiMode={settings.aiMode} onChanged={refreshData} /> : null}
-
-      {!error && settings ? (
-        <div className={`settings-panel settings-panel--${section}`}>
-          {section === 'ai' ? <AiSettingsPanel providers={providers} onChanged={refreshData} /> : null}
-          {section === 'models' ? (
-            <ModelConfigPanel ai={settings.ai} providers={providers} onChanged={refreshData} />
-          ) : null}
-          {section === 'websearch' ? (
-            <WebSearchPanel webSearch={settings.webSearch} onChanged={refreshData} />
-          ) : null}
-          {section === 'data' ? (
-            <DataPathPanel dataPath={settings.dataPath} onChanged={refreshData} />
-          ) : null}
-          {section === 'appearance' ? <AppearancePanel /> : null}
-        </div>
-      ) : null}
-    </>
+    </div>
   )
 }

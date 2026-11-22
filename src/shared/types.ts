@@ -544,7 +544,17 @@ export interface RendererApi {
     saveProvider(input: unknown): Promise<IpcResult<ProviderView[]>>
     deleteProvider(id: string): Promise<IpcResult<ProviderView[]>>
     parseProviderJson(json: string): Promise<IpcResult<{ providers: ProviderConfig[]; errors: string[] }>>
-    testProvider(payload: { providerId: string; modelId: string }): Promise<IpcResult<ProviderTestResult>>
+    testProvider(payload: {
+      providerId?: string
+      modelId: string
+      draft?: {
+        type: ProviderType
+        baseUrl?: string | null
+        apiKey?: string
+        headers?: Record<string, string>
+        supportsWebSearch?: boolean
+      }
+    }): Promise<IpcResult<ProviderTestResult>>
     exportConfig(): Promise<IpcResult<ExportResult>>
     webSearch(): Promise<IpcResult<WebSearchView>>
     saveWebSearch(input: {
