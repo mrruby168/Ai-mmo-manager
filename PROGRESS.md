@@ -1,3 +1,11 @@
+## WI-26 — RELEASE v0.1.8 (2026-11-22)
+- Branch `feat/ui-polish-v0.1.8` (2 commit `280fbd3`, `5cccc05`): Settings cố định thanh tab và card "Chế độ hoạt động", chỉ nội dung tab cuộn; sửa lỗi danh sách không cuộn được khi AI đang chạy; AI Settings tách hai card Provider | Custom trên lưới 2 cột, căn hàng thẳng; animation nhẹ; Test model dùng cấu hình đang nhập, không cần Lưu.
+- Test model: thêm trường tuỳ chọn `draft` vào IPC `providers:test`; main process dựng kết nối từ API Key / Base URL / headers / cờ Web search đang nhập, không ghi gì xuống đĩa, không ghi log khóa; payload cũ `{ providerId, modelId }` vẫn hợp lệ.
+- Merge `--no-ff` vào `main`; tag annotated `v0.1.8`; push `main` + tag; CI `Build Windows Exe` chạy cho tag `v0.1.8`.
+- Verify: `npm run typecheck` PASS; `npm test` 82 file / 924 test PASS (baseline 81/918; gỡ 6 test của phần đã bỏ, thêm 2 test AI Settings 2 cột và 10 test Test model draft); `npm run build` PASS; người dùng kiểm thử tay trong `npm run dev` và xác nhận OK.
+- Phạm vi: renderer UI + IPC Test provider; không đổi schema/migration SQLite, không thêm dependency npm, không đổi màu thương hiệu.
+- Open: none.
+
 ## WI-25 — RELEASE v0.1.7 (2026-11-21)
 - Branch `feat/scale-1k-projects` (commit `80c9799`): sửa layout cuộn trang danh sách dự án — sidebar, tiêu đề và bộ lọc đứng yên; chỉ khung danh sách cuộn; thanh phân trang ghim sát đáy; bỏ `topRef`/`scrollIntoView`.
 - Nguyên nhân: `.visually-hidden` trong phân trang không có tổ tiên `position: relative` làm document cao hơn cửa sổ, cuộn chuỗi từ `.app-content` sang document. Sửa: `html, body { overflow: hidden }`, `position: relative` cho `.app-content`, khung `app-content--fit` cho tab Event MMO/Airdrop.

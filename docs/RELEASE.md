@@ -68,3 +68,12 @@ Tính năng "thông báo và cập nhật app" được bắt đầu từ bản 
 - Chỉ vùng danh sách cuộn; đổi trang hoặc 20/50/100 tự cuộn danh sách về đầu. Các tab khác và màn chi tiết dự án vẫn cuộn như cũ.
 - Phạm vi: chỉ CSS + layout component + test đọc nguồn; không đổi dữ liệu, schema, IPC hay dependency.
 - Đã kiểm chứng: `npm run typecheck`, `npm test` (80 file / 899 test), `npm run build`; người dùng kiểm thử tay với 1.000 dự án TEST và xác nhận OK.
+
+### v0.1.8 — Settings cố định, AI Settings hai cột, Test model không cần Lưu
+
+- Settings: thanh tab và card "Chế độ hoạt động" cố định khi cuộn, chỉ nội dung tab cuộn; sửa lỗi danh sách không cuộn được khi AI đang chạy.
+- AI Settings: tách Provider và Custom thành hai card trên lưới hai cột (Provider trái, Custom phải), thanh Upload JSON / Export dàn ngang; tiêu đề hai card thẳng hàng, nút "Chỉnh sửa" không xuống dòng ở cửa sổ hẹp; dưới 1100 px hai card xếp dọc.
+- Test model: nút Test dùng ngay cấu hình đang nhập (API Key, Base URL, headers, cờ Web search) mà không cần Lưu trước; thêm trường tuỳ chọn `draft` vào IPC `providers:test`, main process không ghi gì xuống đĩa và không ghi log khóa; payload cũ vẫn tương thích.
+- Animation nhẹ cho tab, nút và card; tôn trọng `prefers-reduced-motion`.
+- Phạm vi: không đổi schema/migration SQLite, không thêm dependency npm, không đổi màu thương hiệu.
+- Đã kiểm chứng: `npm run typecheck`, `npm test` (82 file / 924 test), `npm run build`; người dùng kiểm thử tay trong `npm run dev` và xác nhận OK.
